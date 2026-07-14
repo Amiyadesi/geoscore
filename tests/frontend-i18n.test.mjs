@@ -58,6 +58,18 @@ test('homepage and tools load the shared catalog before their page scripts', () 
   assert.match(tools, /id="ui-language-select"/);
 });
 
+test('frontend CSP permits every declared runtime resource without inline executable config', () => {
+  const index = read('index.html');
+  const headers = read('_headers');
+
+  assert.match(index, /src="tailwind-config\.js"/);
+  assert.doesNotMatch(index, /<script>\s*tailwind\.config\s*=/);
+  assert.match(headers, /style-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
+  assert.match(headers, /font-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
+  assert.match(headers, /connect-src[^;\n]*https:\/\/cloudflareinsights\.com/);
+  assert.match(headers, /connect-src[^;\n]*https:\/\/\*\.xethub\.hf\.co/);
+});
+
 test('app uses persisted UI/report language and public meta facts', () => {
   const app = read('app.js');
   assert.match(app, /GeoScoreI18n/);
