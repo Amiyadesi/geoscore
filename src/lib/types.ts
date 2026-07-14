@@ -57,10 +57,56 @@ export interface Env {
   OPENPAGERANK_KEY?: string;
   SEARCH_GATEWAY_API_KEY?: string;
   API_KEY?: string;
+  API_BASE_URL?: string;
+  API_MODEL?: string;
   GROQ_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   PERPLEXITY_API_KEY?: string;
   RESEND_API_KEY?: string;
+}
+
+export type FixPackLanguage = 'en' | 'zh';
+export type FixPackOutput = 'full' | 'code' | 'copy' | 'handoff_prompt';
+
+export interface FixPackCodeSnippet {
+  label: string;
+  language: string;
+  code: string;
+}
+
+export interface FixPackDrafts {
+  title: string | null;
+  meta_description: string | null;
+  body_outline: string[];
+}
+
+export interface FixPackEvidence {
+  check_id: string;
+  page_url: string | null;
+  status: 'fail';
+  observed: string[];
+  why: string;
+  source: string;
+  confidence: number;
+}
+
+export interface FixPack {
+  version: '1';
+  audit_id: string;
+  recommendation_id: string;
+  language: FixPackLanguage;
+  output: FixPackOutput;
+  domain: string;
+  evidence: FixPackEvidence;
+  drafts: FixPackDrafts;
+  code_snippets: FixPackCodeSnippet[];
+  fix_steps: string[];
+  verify: string[];
+  handoff_prompt: string;
+  expansion: {
+    status: 'deterministic' | 'ai' | 'unavailable';
+    error_code?: string;
+  };
 }
 
 export interface Business {

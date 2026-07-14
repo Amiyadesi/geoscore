@@ -82,7 +82,7 @@ CONSTRAINT: ${editorialGuard}
   "ai_visibility_score": 78
 }
 
-All numeric scores are 0-100. ai_visibility_score reflects how likely AI assistants (ChatGPT, Gemini, Perplexity) would cite this page.
+All numeric scores are 0-100. ai_visibility_score is a predicted readiness signal based only on the supplied public-page evidence. It is not an observed citation result and must not be described as one.
 
 PAGE CONTENT:
 ${pageText.slice(0, 3500)}`;

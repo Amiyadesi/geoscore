@@ -33,16 +33,32 @@ execFileSync(
 
 const require = createRequire(import.meta.url);
 const { callLlm } = require(path.join(tmpDir, 'lib', 'llm.js'));
-const { API_CHAT_MODEL, OPENROUTER_CHAT_MODEL } = require(path.join(tmpDir, 'lib', 'ai-models.js'));
+const { GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } = require(path.join(tmpDir, 'lib', 'ai-models.js'));
 
 const MESSAGES = [{ role: 'user', content: 'Return a short answer.' }];
 
+function makeKv(initial = {}) {
+  const state = new Map(Object.entries(initial));
+  const writes = [];
+  return {
+    state,
+    writes,
+    async get(key) {
+      // Response cache is deliberately disabled in routing tests.
+      if (key.startsWith('llm:json-') || key.startsWith('llm:text-')) return null;
+      return state.get(key) ?? null;
+    },
+    async put(key, value, options) {
+      writes.push({ key, value, options });
+      if (key.startsWith('llm:circuit:')) state.set(key, value);
+    },
+    async delete(key) { state.delete(key); },
+  };
+}
+
 function makeEnv(overrides = {}) {
   return {
-    AUDIT_KV: {
-      async get() { return null; },
-      async put() {},
-    },
+    AUDIT_KV: makeKv(),
     AI: {
       async run() { throw new Error('Workers AI unavailable'); },
     },
@@ -70,57 +86,200 @@ function completion(content) {
   });
 }
 
-describe('LLM provider fallback', () => {
-  it('uses generic API_KEY before Groq and OpenRouter without exposing a provider label', async () => {
+describe('LLM provider routing', () => {
+  it('uses Workers AI first and does not call an external API after success', async () => {
+    const env = makeEnv({
+      AI: { async run() { return { response: 'workers answer' }; } },
+      API_KEY: 'generic-key',
+      API_BASE_URL: 'https://api.example.test/v1',
+      API_MODEL: 'test-model',
+    });
+    let externalCalls = 0;
+    const text = await withFetchMock(async () => {
+      externalCalls += 1;
+      return completion('external answer');
+    }, () => callLlm(MESSAGES, 80, env));
+
+    assert.equal(text, 'workers answer');
+    assert.equal(externalCalls, 0);
+  });
+
+  it('stable-hashes across the healthy generic/Groq pair and never selects the reserve', async () => {
+    const urls = [];
+    const env = makeEnv({
+      API_KEY: 'generic-key',
+      API_BASE_URL: 'https://api.example.test/v1',
+      API_MODEL: 'generic-model',
+      GROQ_API_KEY: 'groq-key',
+      OPENROUTER_API_KEY: 'reserve-key',
+    });
+
+    await withFetchMock(async (rawUrl) => {
+      urls.push(String(rawUrl));
+      return completion('answer');
+    }, async () => {
+      await callLlm(MESSAGES, 80, env);
+      await callLlm(MESSAGES, 80, env);
+    });
+
+    assert.equal(urls.length, 2);
+    assert.equal(urls[0], urls[1]);
+    assert.ok([
+      'https://api.example.test/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
+    ].includes(urls[0]));
+    assert.notEqual(urls[0], 'https://openrouter.ai/api/v1/chat/completions');
+  });
+
+  it('uses API_BASE_URL and API_MODEL without a hard-coded generic vendor', async () => {
     const requests = [];
     const env = makeEnv({
-      API_KEY: 'api-test-key',
-      GROQ_API_KEY: 'groq-test-key',
-      OPENROUTER_API_KEY: 'openrouter-test-key',
+      API_KEY: 'generic-key',
+      API_BASE_URL: 'https://gateway.example.test/openai/v1/',
+      API_MODEL: 'free-model',
     });
 
     const text = await withFetchMock(async (rawUrl, init) => {
-      requests.push({ url: String(rawUrl), init, body: JSON.parse(String(init?.body)) });
-      return completion('api answer');
+      requests.push({ url: String(rawUrl), body: JSON.parse(String(init?.body)) });
+      return completion('generic answer');
     }, () => callLlm(MESSAGES, 80, env));
 
-    assert.equal(text, 'api answer');
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, 'https://opencode.ai/zen/v1/chat/completions');
-    assert.equal(requests[0].body.model, API_CHAT_MODEL);
-    assert.equal(new Headers(requests[0].init.headers).get('Authorization'), 'Bearer api-test-key');
+    assert.equal(text, 'generic answer');
+    assert.equal(requests[0].url, 'https://gateway.example.test/openai/v1/chat/completions');
+    assert.equal(requests[0].body.model, 'free-model');
   });
 
-  it('uses OpenRouter when Workers AI is unavailable and Groq is not configured', async () => {
+  it('uses OpenRouter only when the API/Groq pair is unavailable', async () => {
     const requests = [];
-    const env = makeEnv({ OPENROUTER_API_KEY: 'openrouter-test-key' });
+    const env = makeEnv({ OPENROUTER_API_KEY: 'reserve-key' });
 
     const text = await withFetchMock(async (rawUrl, init) => {
       requests.push({ url: String(rawUrl), init, body: JSON.parse(String(init?.body)) });
-      return completion('openrouter answer');
+      return completion('reserve answer');
     }, () => callLlm(MESSAGES, 80, env, { temperature: 0.1 }));
 
-    assert.equal(text, 'openrouter answer');
+    assert.equal(text, 'reserve answer');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://openrouter.ai/api/v1/chat/completions');
     assert.equal(requests[0].body.model, OPENROUTER_CHAT_MODEL);
-    assert.equal(requests[0].body.max_tokens, 80);
     assert.equal(requests[0].body.temperature, 0.1);
-    assert.equal(requests[0].body.response_format, undefined);
-
-    const headers = new Headers(requests[0].init.headers);
-    assert.equal(headers.get('Authorization'), 'Bearer openrouter-test-key');
-    assert.equal(headers.get('Content-Type'), 'application/json');
-    assert.equal(headers.get('HTTP-Referer'), 'https://geo.sayori.org');
-    assert.equal(headers.get('X-Title'), 'Sayori GeoScore');
+    assert.equal(new Headers(requests[0].init.headers).get('HTTP-Referer'), 'https://geo.sayori.org');
   });
 
-  it('bounds JSON compatibility retries for Workers AI and OpenRouter', async () => {
-    const payloads = [];
-    const labels = [];
-    const env = makeEnv({ OPENROUTER_API_KEY: 'openrouter-test-key' });
+  it('opens a KV circuit and lets the next request use the reserve without cascading the failed call', async () => {
+    const urls = [];
+    const kv = makeKv();
+    const env = makeEnv({
+      AUDIT_KV: kv,
+      API_KEY: 'generic-key',
+      API_BASE_URL: 'https://api.example.test/v1',
+      API_MODEL: 'generic-model',
+      OPENROUTER_API_KEY: 'reserve-key',
+    });
 
-    const text = await withFetchMock(async (_rawUrl, init) => {
+    await withFetchMock(async rawUrl => {
+      urls.push(String(rawUrl));
+      if (urls.length === 1) {
+        return new Response('quota reached', { status: 429, headers: { 'Retry-After': '45' } });
+      }
+      return completion('reserve answer');
+    }, async () => {
+      await assert.rejects(callLlm(MESSAGES, 80, env), /External API 429/);
+      assert.deepEqual(urls, ['https://api.example.test/v1/chat/completions']);
+      assert.equal(await callLlm(MESSAGES, 80, env), 'reserve answer');
+    });
+
+    assert.deepEqual(urls, [
+      'https://api.example.test/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
+    ]);
+    const circuitWrite = kv.writes.find(item => item.key.endsWith(':api'));
+    assert.equal(circuitWrite.options.expirationTtl, 45);
+    assert.equal(JSON.parse(circuitWrite.value).reason, 'quota');
+  });
+
+  it('never cascades to a second external provider during one call', async () => {
+    const urls = [];
+    const env = makeEnv({
+      GROQ_API_KEY: 'groq-key',
+      OPENROUTER_API_KEY: 'reserve-key',
+    });
+
+    await assert.rejects(
+      withFetchMock(async rawUrl => {
+        urls.push(String(rawUrl));
+        return new Response('upstream unavailable', { status: 503 });
+      }, () => callLlm(MESSAGES, 80, env)),
+      /External API 503/,
+    );
+
+    assert.deepEqual(urls, ['https://api.groq.com/openai/v1/chat/completions']);
+  });
+
+  it('uses bounded circuit cooldowns for auth, quota, server, and network errors', async () => {
+    const cases = [
+      { status: 401, expectedReason: 'auth', expectedTtl: 3600 },
+      { status: 429, expectedReason: 'quota', expectedTtl: 300 },
+      { status: 503, expectedReason: 'server', expectedTtl: 120 },
+    ];
+
+    for (const testCase of cases) {
+      const kv = makeKv();
+      const env = makeEnv({ GROQ_API_KEY: 'secret', AUDIT_KV: kv });
+      await assert.rejects(withFetchMock(
+        async () => new Response('failed', { status: testCase.status }),
+        () => callLlm(MESSAGES, 80, env),
+      ));
+      const write = kv.writes.find(item => item.key.endsWith(':groq'));
+      assert.equal(write.options.expirationTtl, testCase.expectedTtl);
+      assert.equal(JSON.parse(write.value).reason, testCase.expectedReason);
+    }
+
+    const kv = makeKv();
+    const env = makeEnv({ GROQ_API_KEY: 'secret', AUDIT_KV: kv });
+    await assert.rejects(withFetchMock(
+      async () => { throw new TypeError('network down'); },
+      () => callLlm(MESSAGES, 80, env),
+    ), /network error/);
+    const write = kv.writes.find(item => item.key.endsWith(':groq'));
+    assert.equal(write.options.expirationTtl, 60);
+    assert.equal(JSON.parse(write.value).reason, 'network');
+  });
+
+  it('aborts a timed-out external request and opens the network circuit', async () => {
+    const kv = makeKv();
+    const env = makeEnv({ GROQ_API_KEY: 'secret', AUDIT_KV: kv });
+    const nativeSetTimeout = globalThis.setTimeout;
+
+    try {
+      globalThis.setTimeout = (callback, _delay, ...args) =>
+        nativeSetTimeout(callback, 0, ...args);
+
+      await assert.rejects(withFetchMock(
+        async (_url, init) => new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => {
+            reject(init.signal.reason ?? new DOMException('The operation was aborted', 'AbortError'));
+          }, { once: true });
+        }),
+        () => callLlm(MESSAGES, 80, env),
+      ), /network error/);
+    } finally {
+      globalThis.setTimeout = nativeSetTimeout;
+    }
+
+    const write = kv.writes.find(item => item.key.endsWith(':groq'));
+    assert.equal(write.options.expirationTtl, 60);
+    assert.equal(JSON.parse(write.value).reason, 'network');
+  });
+
+  it('bounds JSON compatibility retries to the same external endpoint', async () => {
+    const payloads = [];
+    const urls = [];
+    const labels = [];
+    const env = makeEnv({ GROQ_API_KEY: 'groq-key' });
+
+    const text = await withFetchMock(async (rawUrl, init) => {
+      urls.push(String(rawUrl));
       payloads.push(JSON.parse(String(init?.body)));
       if (payloads.length === 1) {
         return new Response('{"error":"response_format unsupported"}', { status: 400 });
@@ -132,121 +291,57 @@ describe('LLM provider fallback', () => {
     }));
 
     assert.equal(text, '{"ok":true}');
-    assert.equal(payloads.length, 2);
+    assert.deepEqual(urls, [
+      'https://api.groq.com/openai/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
+    ]);
     assert.deepEqual(payloads[0].response_format, { type: 'json_object' });
     assert.equal(payloads[1].response_format, undefined);
-    assert.equal(labels.length, 3);
-    assert.match(labels[0], /^workers-ai:/);
-    assert.equal(labels[1], `openrouter:${OPENROUTER_CHAT_MODEL}`);
-    assert.equal(labels[2], `openrouter:${OPENROUTER_CHAT_MODEL}`);
-
-    let cfAttempts = 0;
-    const compatibilityEnv = makeEnv({
-      AI: {
-        async run(_model, payload) {
-          cfAttempts += 1;
-          if (cfAttempts === 1) {
-            const error = new Error('HTTP 400: response_format is unsupported');
-            error.status = 400;
-            throw error;
-          }
-          assert.equal(payload.response_format, undefined);
-          return { response: '{"provider":"workers-ai"}' };
-        },
-      },
-    });
-    const cfText = await callLlm(MESSAGES, 80, compatibilityEnv, { jsonMode: true });
-    assert.equal(cfText, '{"provider":"workers-ai"}');
-    assert.equal(cfAttempts, 2);
+    assert.deepEqual(labels.slice(1), ['external-ai', 'external-ai']);
   });
 
-  it('prefers configured Groq and never calls OpenRouter after a Groq failure', async () => {
-    const urls = [];
+  it('fails clearly without naming configured providers when no fallback is healthy', async () => {
+    await assert.rejects(
+      callLlm(MESSAGES, 80, makeEnv({ API_KEY: 'key-without-config' })),
+      error => {
+        assert.match(error.message, /no healthy external API/);
+        assert.doesNotMatch(error.message, /GROQ|OPENROUTER|API_KEY/);
+        return true;
+      },
+    );
+  });
+
+  it('redacts every configured secret and keeps errors provider-neutral', async () => {
+    const secret = 'generic-super-secret-value';
     const env = makeEnv({
-      GROQ_API_KEY: 'groq-test-key',
-      OPENROUTER_API_KEY: 'openrouter-test-key',
+      API_KEY: secret,
+      API_BASE_URL: 'https://hiddenvendor.example/v1',
+      API_MODEL: 'test-model',
     });
-
-    await assert.rejects(
-      withFetchMock(async rawUrl => {
-        urls.push(String(rawUrl));
-        return new Response('Groq unavailable', { status: 503 });
-      }, () => callLlm(MESSAGES, 80, env)),
-      /Groq 503/,
-    );
-
-    assert.deepEqual(urls, ['https://api.groq.com/openai/v1/chat/completions']);
-  });
-
-  it('does not retry rate limits or unrelated external validation errors', async () => {
-    for (const testCase of [
-      { status: 429, body: 'rate limit reached' },
-      { status: 422, body: 'invalid prompt payload' },
-    ]) {
-      let requests = 0;
-      const labels = [];
-      const env = makeEnv({ OPENROUTER_API_KEY: 'openrouter-test-key' });
-
-      await assert.rejects(
-        withFetchMock(async () => {
-          requests += 1;
-          return new Response(testCase.body, { status: testCase.status });
-        }, () => callLlm(MESSAGES, 80, env, {
-          jsonMode: true,
-          budget: { consume(label) { labels.push(label); } },
-        })),
-        new RegExp(`OpenRouter ${testCase.status}`),
-      );
-
-      assert.equal(requests, 1);
-      assert.equal(labels.length, 2);
-      assert.match(labels[0], /^workers-ai:/);
-      assert.equal(labels[1], `openrouter:${OPENROUTER_CHAT_MODEL}`);
-    }
-  });
-
-  it('fails clearly when no external fallback key is configured', async () => {
-    await assert.rejects(
-      callLlm(MESSAGES, 80, makeEnv()),
-      /API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY/,
-    );
-  });
-
-  it('sanitizes generic API upstream errors', async () => {
-    const secret = 'api-super-secret-value';
-    const env = makeEnv({ API_KEY: secret });
     const upstream = `bad credential ${secret} ${'x'.repeat(400)}`;
 
     await assert.rejects(
       withFetchMock(
-        async () => new Response(upstream, { status: 401 }),
+        async () => new Response(`${upstream} from hiddenvendor at https://hiddenvendor.example`, { status: 401 }),
         () => callLlm(MESSAGES, 80, env),
       ),
       error => {
-        assert.match(error.message, /^API 401:/);
+        assert.match(error.message, /^External API 401:/);
         assert.doesNotMatch(error.message, new RegExp(secret));
+        assert.doesNotMatch(error.message, /hiddenvendor|Groq|OpenRouter/i);
         assert.ok(error.message.length <= 170);
         return true;
       },
     );
   });
 
-  it('sanitizes and truncates OpenRouter upstream errors', async () => {
-    const secret = 'openrouter-super-secret-value';
-    const env = makeEnv({ OPENROUTER_API_KEY: secret });
-    const upstream = `bad credential ${secret} ${'x'.repeat(400)}`;
-
-    await assert.rejects(
-      withFetchMock(
-        async () => new Response(upstream, { status: 401 }),
-        () => callLlm(MESSAGES, 80, env),
-      ),
-      error => {
-        assert.match(error.message, /^OpenRouter 401:/);
-        assert.doesNotMatch(error.message, new RegExp(secret));
-        assert.ok(error.message.length <= 170);
-        return true;
-      },
-    );
+  it('keeps the Groq runtime model explicit', async () => {
+    const env = makeEnv({ GROQ_API_KEY: 'groq-key' });
+    let model;
+    await withFetchMock(async (_url, init) => {
+      model = JSON.parse(String(init?.body)).model;
+      return completion('ok');
+    }, () => callLlm(MESSAGES, 80, env));
+    assert.equal(model, GROQ_CHAT_MODEL);
   });
 });

@@ -160,6 +160,29 @@ describe('GeoScore 2 audit core', () => {
     assert.doesNotMatch(output, /faqpage|service|pricing|package|localbusiness/);
   });
 
+  it('emits stable English and Chinese check and recommendation templates', () => {
+    const context = core.buildAuditContext({
+      domain: 'blog.sayori.org',
+      pages: [page('https://blog.sayori.org/', PERSONAL_BLOG_HTML)],
+    });
+    const titleCheck = core.check({
+      id: 'seo.title',
+      category: 'seo',
+      title: '页面标题',
+      status: 'fail',
+      weight: 2,
+      evidence: ['No title found'],
+    });
+    const [recommendation] = core.buildRecommendations(context, [titleCheck]);
+
+    assert.deepEqual(titleCheck.localized_title, { en: 'Page title', zh: '页面标题' });
+    assert.equal(recommendation.title, recommendation.localized.zh.title);
+    assert.match(recommendation.localized.en.title, /unique page title/i);
+    assert.match(recommendation.localized.en.fix, /title/i);
+    assert.match(recommendation.localized.zh.fix, /添加简洁/);
+    assert.match(recommendation.localized.zh.verify, /重新审计/);
+  });
+
   it('separates schema existence from archetype fit without inventing blog commerce work', () => {
     const context = core.buildAuditContext({
       domain: 'blog.sayori.org',

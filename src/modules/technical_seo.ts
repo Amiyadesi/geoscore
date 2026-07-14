@@ -895,7 +895,7 @@ export async function runTechnicalSeo(
     const ogTags = { 'og:title': !!page_meta.og_title, 'og:description': !!page_meta.og_description, 'og:image': !!page_meta.og_image, 'og:type': !!page_meta.og_type };
     const ogMissing = Object.entries(ogTags).filter(([, v]) => !v).map(([k]) => k);
     checks.push({ name: 'Open Graph tags complete', passed: ogMissing.length === 0, detail: ogMissing.length ? `Missing: ${ogMissing.join(', ')}` : 'All core tags present' });
-    if (ogMissing.length > 0) issues.push(`Missing OG tags: ${ogMissing.join(', ')} — affects social sharing and AI citation`);
+    if (ogMissing.length > 0) issues.push(`Missing OG tags: ${ogMissing.join(', ')} — affects social sharing and machine-readable page context`);
     else if (!page_meta.og_site_name) issues.push('og:site_name not set — social platforms may show full URL instead of brand name');
 
     // Strip scripts/styles first — prevents false H1 matches from styled-components/emotion SSR

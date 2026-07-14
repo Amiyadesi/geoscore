@@ -1,5 +1,5 @@
 import type { Env, ModuleResult } from './lib/types';
-import { API_CHAT_MODEL, CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './lib/ai-models';
+import { CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './lib/ai-models';
 import { callLlm, sanitizeLlmProviderError } from './lib/llm';
 import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from './prompts';
 import { fetchWithTimeout } from './lib/http';
@@ -9,9 +9,11 @@ import {
   buildAuditContext,
   buildNormalizedChecks,
   canCompareMonitorBaseline,
+  FACTUAL_CHECK_IDS,
   isSiteArchetype,
   monitorBaselineFromSummary,
   scoreChecks,
+  SCORE_VERSION,
   type MonitorScoreBaseline,
 } from './lib/audit-core';
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
@@ -69,11 +71,51 @@ export default {
   },
 };
 
+const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
+const MAX_AUDIT_PAGES = 5;
+
+export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
+  const parsedLimit = Number.parseInt(env.AUDIT_RATE_LIMIT_PER_HOUR ?? '', 10);
+  const freshAuditLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 8;
+  return {
+    version: SCORE_VERSION,
+    score_version: SCORE_VERSION,
+    max_pages: MAX_AUDIT_PAGES,
+    max_audited_pages: MAX_AUDIT_PAGES,
+    audit_modes: ['site', 'url'] as const,
+    rate_limit: {
+      fresh_audits: freshAuditLimit,
+      fresh_audits_per_hour: freshAuditLimit,
+      window_hours: 1,
+    },
+    checks: {
+      factual: FACTUAL_CHECK_IDS.length,
+      predicted: 1,
+      total: FACTUAL_CHECK_IDS.length + 1,
+    },
+    license: 'MIT',
+    source_url: PUBLIC_SOURCE_URL,
+    capabilities: {
+      ai_citation_monitoring: 'predicted_only',
+    },
+  };
+}
+
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const { pathname } = url;
 
     const ip = getClientIp(req);
+
+    if (pathname === '/api/meta' && req.method === 'GET') {
+      return new Response(JSON.stringify(buildPublicMeta(env)), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+          'Cache-Control': 'public, max-age=300',
+        },
+      });
+    }
 
     if (pathname === '/api/health' && (req.method === 'GET' || req.method === 'HEAD')) {
       return handleHealth(env, req.method === 'HEAD');
@@ -159,7 +201,27 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const raw = decodeURIComponent(pathname.replace('/api/audit/', '').replace('/cache', ''));
       const domain = parseNormalisedPublicDomain(raw);
       if (!domain) return jsonError(PUBLIC_DOMAIN_ERROR, 400);
-      await env.AUDIT_KV.delete(cacheKey(domain));
+      const requestedMode = url.searchParams.get('mode');
+      if (requestedMode && requestedMode !== 'site' && requestedMode !== 'url') {
+        return jsonError('Invalid audit mode', 400);
+      }
+      const mode: 'site' | 'url' = requestedMode === 'url' ? 'url' : 'site';
+      const rawTargetUrl = url.searchParams.get('url');
+      const targetUrl = mode === 'url' && rawTargetUrl
+        ? validateAuditTargetUrl(rawTargetUrl, domain)
+        : null;
+      if (mode === 'url' && !targetUrl) {
+        return jsonError('URL mode requires an absolute URL on the submitted registrable domain', 400);
+      }
+      const rawHint = url.searchParams.get('archetype_hint');
+      if (rawHint && !isSiteArchetype(rawHint)) {
+        return jsonError('Invalid archetype_hint', 400);
+      }
+      await env.AUDIT_KV.delete(cacheKey(domain, {
+        mode,
+        targetUrl,
+        archetypeHint: rawHint,
+      }));
       return new Response(JSON.stringify({ ok: true }), {
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
@@ -420,13 +482,14 @@ async function handleLlmTest(env: Env): Promise<Response> {
   ];
   const result: Record<string, unknown> = {
     ts: Date.now(),
-    models: {
-      cf_fast_chat: CF_FAST_CHAT_MODEL,
-      api_chat: API_CHAT_MODEL,
-      groq_chat: GROQ_CHAT_MODEL,
-      openrouter_chat: OPENROUTER_CHAT_MODEL,
+    configuration: {
+      internal_ai_configured: !!env.AI,
+      external_api_configured: !!(env.API_KEY && env.API_BASE_URL && env.API_MODEL),
     },
   };
+  const diagnosticSecrets = [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY];
+  const safeDiagnostic = (value: unknown): string =>
+    sanitizeLlmProviderError(String(value), diagnosticSecrets);
 
   // Test CF AI
   try {
@@ -435,55 +498,66 @@ async function handleLlmTest(env: Env): Promise<Response> {
       max_tokens: 20,
     } as Parameters<typeof env.AI.run>[1]);
     const text = (cfResult as { response?: string }).response ?? '';
-    result.cf_ai = { ok: true, text: text.slice(0, 100) };
+    result.internal_ai = { ok: true, text: safeDiagnostic(text).slice(0, 100) };
   } catch (e) {
-    result.cf_ai = { ok: false, error: String(e).slice(0, 200) };
+    result.internal_ai = { ok: false, error: safeDiagnostic(e) };
   }
 
   // Generic API_KEY diagnostic. This route is admin-only and never feeds public UI.
   if (!env.API_KEY) {
-    result.api = { ok: false, error: 'API_KEY secret not set' };
+    result.external_primary = { ok: false, error: 'External API is not configured' };
   } else {
     try {
-      const res = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: API_CHAT_MODEL,
-          messages: TEST_MESSAGES,
-          max_tokens: 20,
-          temperature: 0,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-        const text = data.choices?.[0]?.message?.content ?? '';
-        result.api = { ok: true, text: text.slice(0, 100) };
+      const baseUrl = (env.API_BASE_URL ?? '').replace(/\/+$/, '');
+      const model = env.API_MODEL ?? '';
+      if (!baseUrl || !model) {
+        result.external_primary = { ok: false, error: 'External API is not configured' };
       } else {
-        const body = await res.text().catch(() => '');
-        result.api = {
-          ok: false,
-          status: res.status,
-          error: sanitizeLlmProviderError(body, [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
-        };
+        const endpoint = /\/chat\/completions$/i.test(baseUrl)
+          ? baseUrl
+          : `${baseUrl}/chat/completions`;
+        const res = await fetchWithTimeout(endpoint, {
+          timeoutMs: 12_000,
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: TEST_MESSAGES,
+            max_tokens: 20,
+            temperature: 0,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+          const text = data.choices?.[0]?.message?.content ?? '';
+          result.external_primary = { ok: true, text: safeDiagnostic(text).slice(0, 100) };
+        } else {
+          const body = await res.text().catch(() => '');
+          result.external_primary = {
+            ok: false,
+            status: res.status,
+            error: safeDiagnostic(body),
+          };
+        }
       }
     } catch (e) {
-      result.api = {
+      result.external_primary = {
         ok: false,
-        error: sanitizeLlmProviderError(String(e), [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
+        error: safeDiagnostic(e),
       };
     }
   }
 
   // Test Groq (independently — don't depend on CF AI result)
   if (!env.GROQ_API_KEY) {
-    result.groq = { ok: false, error: 'GROQ_API_KEY secret not set' };
+    result.external_secondary = { ok: false, error: 'External API not configured' };
   } else {
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
+        timeoutMs: 12_000,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${env.GROQ_API_KEY}`,
@@ -499,29 +573,30 @@ async function handleLlmTest(env: Env): Promise<Response> {
       if (res.ok) {
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
         const text = data.choices?.[0]?.message?.content ?? '';
-        result.groq = { ok: true, text: text.slice(0, 100) };
+        result.external_secondary = { ok: true, text: safeDiagnostic(text).slice(0, 100) };
       } else {
         const body = await res.text().catch(() => '');
-        result.groq = {
+        result.external_secondary = {
           ok: false,
           status: res.status,
-          error: sanitizeLlmProviderError(body, [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
+          error: safeDiagnostic(body),
         };
       }
     } catch (e) {
-      result.groq = {
+      result.external_secondary = {
         ok: false,
-        error: sanitizeLlmProviderError(String(e), [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
+        error: safeDiagnostic(e),
       };
     }
   }
 
   // Test OpenRouter independently. It remains optional even when Groq is configured.
   if (!env.OPENROUTER_API_KEY) {
-    result.openrouter = { ok: false, error: 'OPENROUTER_API_KEY secret not set' };
+    result.external_reserve = { ok: false, error: 'External API not configured' };
   } else {
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+        timeoutMs: 12_000,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
@@ -539,19 +614,19 @@ async function handleLlmTest(env: Env): Promise<Response> {
       if (res.ok) {
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
         const text = data.choices?.[0]?.message?.content ?? '';
-        result.openrouter = { ok: true, text: text.slice(0, 100) };
+        result.external_reserve = { ok: true, text: safeDiagnostic(text).slice(0, 100) };
       } else {
         const body = await res.text().catch(() => '');
-        result.openrouter = {
+        result.external_reserve = {
           ok: false,
           status: res.status,
-          error: sanitizeLlmProviderError(body, [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
+          error: safeDiagnostic(body),
         };
       }
     } catch (e) {
-      result.openrouter = {
+      result.external_reserve = {
         ok: false,
-        error: sanitizeLlmProviderError(String(e), [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]),
+        error: safeDiagnostic(e),
       };
     }
   }
@@ -569,9 +644,13 @@ async function handleLlmTest(env: Env): Promise<Response> {
     } as Parameters<typeof env.AI.run>[1]);
     const raw = (cfResult as { response?: string }).response ?? '';
     const match = raw.match(/\[[\s\S]*?\]/);
-    result.geo_query_test = { ok: !!match, raw: raw.slice(0, 300), parsed: match ? match[0] : null };
+    result.geo_query_test = {
+      ok: !!match,
+      raw: safeDiagnostic(raw).slice(0, 300),
+      parsed: match ? safeDiagnostic(match[0]) : null,
+    };
   } catch (e) {
-    result.geo_query_test = { ok: false, error: String(e).slice(0, 200) };
+    result.geo_query_test = { ok: false, error: safeDiagnostic(e) };
   }
 
   // Test the same callLlm path used by audit modules, including JSON mode fallback.
@@ -590,11 +669,11 @@ async function handleLlmTest(env: Env): Promise<Response> {
     const match = raw.match(/\{[\s\S]*\}/);
     result.citation_callllm_test = {
       ok: !!match,
-      raw: raw.slice(0, 300),
-      parsed: match ? match[0].slice(0, 300) : null,
+      raw: safeDiagnostic(raw).slice(0, 300),
+      parsed: match ? safeDiagnostic(match[0]).slice(0, 300) : null,
     };
   } catch (e) {
-    result.citation_callllm_test = { ok: false, error: String(e).slice(0, 200) };
+    result.citation_callllm_test = { ok: false, error: safeDiagnostic(e) };
   }
 
   try {
@@ -611,11 +690,11 @@ async function handleLlmTest(env: Env): Promise<Response> {
     const match = raw.match(/\{[\s\S]*\}/);
     result.content_callllm_test = {
       ok: !!match,
-      raw: raw.slice(0, 300),
-      parsed: match ? match[0].slice(0, 300) : null,
+      raw: safeDiagnostic(raw).slice(0, 300),
+      parsed: match ? safeDiagnostic(match[0]).slice(0, 300) : null,
     };
   } catch (e) {
-    result.content_callllm_test = { ok: false, error: String(e).slice(0, 200) };
+    result.content_callllm_test = { ok: false, error: safeDiagnostic(e) };
   }
 
   return new Response(JSON.stringify(result, null, 2), {

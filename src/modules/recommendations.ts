@@ -370,8 +370,8 @@ export function runRecommendations(
       what_to_do: isPersonalEditorial
         ? 'Publish links where the work is genuinely discussed: project pages, communities, source repositories, or peer writing. Prefer references that add context for readers over directory submissions made only for ranking.'
         : isSaasSite
-        ? 'Submit to Product Hunt, AlternativeTo, G2, Capterra, and Trustpilot. Pitch a story to a relevant newsletter or trade blog. Each quality backlink raises your domain authority and increases the chance of LLM citation.'
-        : 'Get listed on Google Business Profile, Yelp, and industry associations. Pitch one expert story to a trade or local publication each quarter. Each quality backlink lifts both rankings and AI citation probability.',
+        ? 'Submit to Product Hunt, AlternativeTo, G2, Capterra, and Trustpilot. Pitch a story to a relevant newsletter or trade blog. Relevant independent references can strengthen discoverability and entity corroboration.'
+        : 'Get listed on Google Business Profile, Yelp, and industry associations. Pitch one expert story to a trade or local publication each quarter. Relevant independent references can strengthen rankings and entity corroboration.',
       impact: 4,
       effort: 3,
     });

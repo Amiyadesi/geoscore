@@ -51,6 +51,8 @@ function makeApiEnv() {
   return {
     ...makeEnv(),
     API_KEY: 'api-test-key',
+    API_BASE_URL: 'https://generic-api.example/v1',
+    API_MODEL: 'generic-free-model',
     OPENROUTER_API_KEY: undefined,
   };
 }
@@ -88,10 +90,11 @@ describe('LLM admin test route', () => {
       const body = await response.json();
 
       assert.equal(response.status, 200);
-      assert.equal(body.models.openrouter_chat, 'openrouter/free');
-      assert.equal(body.cf_ai.ok, false);
-      assert.equal(body.groq.ok, false);
-      assert.equal(body.openrouter.ok, true);
+      assert.equal(body.configuration.external_api_configured, false);
+      assert.equal(body.internal_ai.ok, false);
+      assert.equal(body.external_secondary.ok, false);
+      assert.equal(body.external_reserve.ok, true);
+      assert.doesNotMatch(JSON.stringify(body), /groq|openrouter/i);
       assert.equal(requests.length, 3);
       for (const request of requests) {
         assert.equal(request.url, 'https://openrouter.ai/api/v1/chat/completions');
@@ -127,13 +130,14 @@ describe('LLM admin test route', () => {
       const body = await response.json();
 
       assert.equal(response.status, 200);
-      assert.equal(body.models.api_chat, 'deepseek-v4-flash-free');
-      assert.equal(body.api.ok, true);
-      assert.equal(body.groq.ok, false);
-      assert.equal(body.openrouter.ok, false);
+      assert.equal(body.configuration.external_api_configured, true);
+      assert.equal(body.external_primary.ok, true);
+      assert.equal(body.external_secondary.ok, false);
+      assert.equal(body.external_reserve.ok, false);
+      assert.doesNotMatch(JSON.stringify(body), /groq|openrouter/i);
       assert.equal(requests.length, 3);
       for (const request of requests) {
-        assert.equal(request.url, 'https://opencode.ai/zen/v1/chat/completions');
+        assert.equal(request.url, 'https://generic-api.example/v1/chat/completions');
         assert.equal(request.headers.get('Authorization'), 'Bearer api-test-key');
       }
     } finally {

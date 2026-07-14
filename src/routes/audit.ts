@@ -46,6 +46,53 @@ export interface AuditRequestOptions {
   archetypeHint?: SiteArchetype | string | null;
 }
 
+export interface PredictedVisibility {
+  status: 'complete' | 'unavailable';
+  predicted: true;
+  affects_score: false;
+  score_weight: 0;
+  source: 'simulation';
+  citation_rate: number | null;
+  confidence: number | null;
+  questions: Array<{
+    query: string;
+    predicted_citation: boolean;
+    confidence: number;
+    reasoning: string;
+  }>;
+  limitations: string[];
+}
+
+export function buildPredictedVisibility(result: ModuleResult | undefined, locale = 'en'): PredictedVisibility {
+  const data = result?.data && typeof result.data === 'object'
+    ? result.data as Record<string, unknown>
+    : null;
+  const queries = Array.isArray(data?.queries) ? data.queries : [];
+  const questions = queries
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && typeof item.query === 'string')
+    .map(item => ({
+      query: String(item.query).slice(0, 300),
+      predicted_citation: item.cited === true,
+      confidence: Math.max(0, Math.min(1, Number(item.confidence) || 0)),
+      reasoning: typeof item.reasoning === 'string' ? item.reasoning.slice(0, 600) : '',
+    }));
+  const reliable = result?.status === 'ok' && data?.is_reliable !== false && questions.length > 0;
+  const zh = locale.toLowerCase().startsWith('zh');
+  return {
+    status: reliable ? 'complete' : 'unavailable',
+    predicted: true,
+    affects_score: false,
+    score_weight: 0,
+    source: 'simulation',
+    citation_rate: reliable && Number.isFinite(Number(data?.citation_rate)) ? Number(data?.citation_rate) : null,
+    confidence: reliable && Number.isFinite(Number(data?.avg_confidence)) ? Number(data?.avg_confidence) : null,
+    questions,
+    limitations: zh
+      ? ['这是基于抽样页面的预测模拟，不是真实的 ChatGPT、Perplexity 或 Google AI 引用监控。', '预测结果不会计入 SEO、GEO 或总分。']
+      : ['This is a prediction over sampled page evidence, not real ChatGPT, Perplexity, or Google AI citation monitoring.', 'Predicted results never affect SEO, GEO, or overall scores.'],
+  };
+}
+
 /** Normalise raw domain input — strip protocol, path, port, query, leading dots */
 export function normaliseDomain(raw: string): string {
   let d = raw.trim().toLowerCase();
@@ -398,6 +445,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     const checks = buildNormalizedChecks(auditContext, auditPages, modules);
     const scoreSummary = scoreChecks(checks);
     const scores = projectLegacyScores(scoreSummary, modules);
+    const predictedVisibility = buildPredictedVisibility(modules.geo_predicted, auditContext.locale);
     emit('section', { module: 'score_summary', status: 'ok', data: scoreSummary });
 
     emit('progress', { module: 'recommendations', status: 'running' });
@@ -416,6 +464,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       pages_audited: auditPages.map(summarizeAuditPage),
       checks,
       score_summary: scoreSummary,
+      predicted_visibility: predictedVisibility,
       recommendations_v2: recommendationsV2,
       external_request_budget: externalBudget.snapshot(),
       ...scores,
@@ -447,80 +496,39 @@ interface Scores {
   // keep legacy fields so existing D1 schema works
   foundation_score: number | null;
   weakness_score: number | null;
+  legacy_score_metadata: {
+    aeo_score: {
+      deprecated: true;
+      projection: 'score_summary.geo.score';
+      score_version: string;
+    };
+  };
 }
 
-function projectLegacyScores(summary: ScoreSummary, modules: Record<string, ModuleResult>): Scores {
+export function projectLegacyScores(summary: ScoreSummary, _modules: Record<string, ModuleResult> = {}): Scores {
   const seo_score = summary.seo.score;
   const geo_score = summary.geo.score;
   const overall_score = summary.overall.score;
-  const aeo_score = overall_score === null ? null : computeAeoScore(modules);
+  // Historical clients still read `aeo_score`. It is now a lossless alias for
+  // factual GEO readiness and no longer contains heuristic FAQ/question/word bonuses.
+  const aeo_score = geo_score;
   // The legacy D1 columns are consumed as SEO/GEO projections by recent/history
   // endpoints despite their historical names. Keep them lossless and nullable.
   const foundation_score = seo_score;
   const weakness_score = geo_score;
-  return { seo_score, geo_score, overall_score, aeo_score, foundation_score, weakness_score };
-}
-
-// ── AEO Score — Answer Engine Optimisation (0-100, rule-based) ────────────────
-// Signals that make content more likely to be cited/surfaced by AI answer engines
-// (ChatGPT, Perplexity, Google AI Overviews, Claude, etc.)
-function computeAeoScore(modules: Record<string, ModuleResult>): number {
-  const schema    = modules.schema_audit?.data   as Record<string, any> | undefined;
-  const tech      = modules.technical_seo?.data  as Record<string, any> | undefined;
-  const content   = modules.content_quality?.data as Record<string, any> | undefined;
-  const authority = modules.authority?.data       as Record<string, any> | undefined;
-
-  let pts = 0;
-
-  // ── Off-site entity authority ──────────────────────────────────────────────
-  // Wikipedia/Wikidata = the brand is a known entity in LLM training data.
-  // Open PageRank = how widely cited the domain is across the web, which
-  // correlates directly with AI training-data inclusion and citation likelihood.
-  // Without these, large well-known brands would score unfairly low purely
-  // because their homepage lacks FAQ schema.
-  if (authority?.wikipedia)       pts += 18; // Wikipedia page = major entity signal
-  if (authority?.wikidata_id)     pts += 8;  // Wikidata entry = structured knowledge graph presence
-  const pageRank: number = authority?.page_rank ?? 0;
-  if (pageRank >= 7)              pts += 14;
-  else if (pageRank >= 5)         pts += 10;
-  else if (pageRank >= 3)         pts += 6;
-  else if (pageRank >= 1)         pts += 3;
-
-  // ── Schema signals ─────────────────────────────────────────────────────────
-  const schemaTypes = new Set<string>(schema?.schemas_found ?? []);
-  if (schemaTypes.has('FAQPage'))                                          pts += 20; // highest AEO signal
-  if (schemaTypes.has('QAPage'))                                           pts += 15;
-  if (schemaTypes.has('HowTo'))                                            pts += 14;
-  if (schemaTypes.has('Speakable'))                                        pts += 10;
-  if (schemaTypes.has('Article') || schemaTypes.has('BlogPosting') ||
-      schemaTypes.has('NewsArticle') || schemaTypes.has('TechArticle'))   pts += 8;
-  if (schemaTypes.has('BreadcrumbList'))                                   pts += 5;  // navigation clarity
-
-  // ── Question-format headings ───────────────────────────────────────────────
-  // AI engines extract Q&A pairs from H2/H3 that contain question marks
-  const h2Tags: string[] = tech?.h2_tags ?? [];
-  const questionHeadings = h2Tags.filter((h: string) => h.trim().endsWith('?')).length;
-  if (questionHeadings >= 5)       pts += 15;
-  else if (questionHeadings >= 3)  pts += 10;
-  else if (questionHeadings >= 1)  pts += 5;
-
-  // ── Meta description ───────────────────────────────────────────────────────
-  // A concise, factual description (50-160 chars) is often used verbatim by AI
-  const metaDesc: string = tech?.page_meta?.description ?? '';
-  if (metaDesc.length >= 50 && metaDesc.length <= 160) pts += 8;
-
-  // ── Content depth ──────────────────────────────────────────────────────────
-  const wordCount: number = content?.word_count ?? 0;
-  if (wordCount >= 1500)       pts += 10;
-  else if (wordCount >= 800)   pts += 7;
-  else if (wordCount >= 400)   pts += 3;
-
-  // ── Content quality ────────────────────────────────────────────────────────
-  const contentScore: number = content?.score ?? 0;
-  if (contentScore >= 75) pts += 5;
-
-  // ── Schema richness (multiple structured types = well-organised content) ───
-  if ((schema?.schemas_found?.length ?? 0) >= 4) pts += 5;
-
-  return Math.min(100, pts);
+  return {
+    seo_score,
+    geo_score,
+    overall_score,
+    aeo_score,
+    foundation_score,
+    weakness_score,
+    legacy_score_metadata: {
+      aeo_score: {
+        deprecated: true,
+        projection: 'score_summary.geo.score',
+        score_version: summary.score_version,
+      },
+    },
+  };
 }

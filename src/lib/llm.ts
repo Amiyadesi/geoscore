@@ -1,5 +1,6 @@
 import type { Env } from './types';
-import { API_CHAT_MODEL, CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './ai-models';
+import { CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './ai-models';
+import { fetchWithTimeout } from './http';
 import type { SubrequestBudgetLike } from './subrequest-budget';
 
 export interface LlmMessage {
@@ -21,6 +22,31 @@ interface WorkersAiTextResult {
     text?: string;
   };
 }
+
+type ExternalProviderId = 'api' | 'groq' | 'openrouter';
+type CircuitReason = 'auth' | 'quota' | 'server' | 'network';
+
+interface ExternalProvider {
+  id: ExternalProviderId;
+  endpoint: string;
+  key: string;
+  model: string;
+  headers: Record<string, string>;
+}
+
+interface CircuitState {
+  reason: CircuitReason;
+  until: number;
+}
+
+const CIRCUIT_TTL: Record<CircuitReason, number> = {
+  auth: 60 * 60,
+  quota: 5 * 60,
+  server: 2 * 60,
+  network: 60,
+};
+
+const EXTERNAL_LLM_TIMEOUT_MS = 12_000;
 
 function extractText(result: WorkersAiTextResult): string {
   return result.response ?? result.text ?? result.result?.response ?? result.result?.text ?? '';
@@ -50,42 +76,174 @@ function isJsonModeCompatibilityError(error: unknown): boolean {
     && /response[_ -]?format|json[_ -]?mode|json object/i.test(message);
 }
 
-export function sanitizeLlmProviderError(body: string, secrets: Array<string | undefined>): string {
+function providerIdentityTokens(endpoint: string): string[] {
+  try {
+    const ignored = new Set(['api', 'www', 'com', 'net', 'org', 'ai', 'cloud', 'v1']);
+    return [...new Set(new URL(endpoint).hostname.toLowerCase().split('.'))]
+      .filter(token => token.length >= 4 && !ignored.has(token));
+  } catch {
+    return [];
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function sanitizeLlmProviderError(
+  body: string,
+  secrets: Array<string | undefined>,
+  providerTokens: string[] = [],
+): string {
   let sanitized = body.replace(/[\r\n\t]+/g, ' ').trim();
   for (const secret of secrets) {
     if (secret) sanitized = sanitized.split(secret).join('[redacted]');
   }
+  // Upstreams sometimes echo their own product name or endpoint in an error
+  // body. Public audit responses must stay provider-neutral even after the
+  // secret itself has been removed.
+  sanitized = sanitized.replace(/\b(?:groq|openrouter|openai|anthropic)\b/gi, '[provider]');
+  for (const token of providerTokens) {
+    sanitized = sanitized.replace(new RegExp(`\\b${escapeRegExp(token)}\\b`, 'gi'), '[provider]');
+  }
   return sanitized.slice(0, 120);
 }
 
-/**
- * Stable short hash for a string — used as KV cache key.
- * FNV-1a 32-bit, hex-encoded. Fast, no crypto API needed.
- */
+/** Stable FNV-1a hash used for cache keys and deterministic provider choice. */
 function fnv32(s: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
+    h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h.toString(16).padStart(8, '0');
 }
 
+function genericEndpoint(baseUrl: string): string {
+  const base = baseUrl.trim().replace(/\/+$/, '');
+  return /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
+}
+
+function circuitKey(provider: ExternalProviderId): string {
+  return `llm:circuit:v1:${provider}`;
+}
+
+async function circuitIsOpen(env: Env, provider: ExternalProviderId): Promise<boolean> {
+  try {
+    const raw = await env.AUDIT_KV.get(circuitKey(provider));
+    if (!raw) return false;
+    const state = JSON.parse(raw) as Partial<CircuitState>;
+    return typeof state.until === 'number' && state.until > Date.now();
+  } catch {
+    // KV health data must never make the AI path unavailable.
+    return false;
+  }
+}
+
+function retryAfterSeconds(headers: Headers): number | null {
+  const raw = headers.get('Retry-After');
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds);
+  const date = Date.parse(raw);
+  if (!Number.isFinite(date)) return null;
+  return Math.max(1, Math.ceil((date - Date.now()) / 1000));
+}
+
+function circuitForStatus(status: number, headers: Headers): { reason: CircuitReason; ttl: number } | null {
+  if (status === 401 || status === 403) return { reason: 'auth', ttl: CIRCUIT_TTL.auth };
+  if (status === 429) {
+    const requested = retryAfterSeconds(headers) ?? CIRCUIT_TTL.quota;
+    return { reason: 'quota', ttl: Math.max(30, Math.min(requested, 60 * 60)) };
+  }
+  if (status >= 500) return { reason: 'server', ttl: CIRCUIT_TTL.server };
+  return null;
+}
+
+async function openCircuit(
+  env: Env,
+  provider: ExternalProviderId,
+  reason: CircuitReason,
+  ttl = CIRCUIT_TTL[reason],
+): Promise<void> {
+  const state: CircuitState = { reason, until: Date.now() + ttl * 1000 };
+  try {
+    await env.AUDIT_KV.put(circuitKey(provider), JSON.stringify(state), { expirationTtl: ttl });
+  } catch {
+    // A failed health write must not replace the real provider error.
+  }
+}
+
+async function closeCircuit(env: Env, provider: ExternalProviderId): Promise<void> {
+  try {
+    await env.AUDIT_KV.delete(circuitKey(provider));
+  } catch {
+    // Best effort. A successful response remains authoritative.
+  }
+}
+
+function configuredPair(env: Env): ExternalProvider[] {
+  const providers: ExternalProvider[] = [];
+  const apiKey = env.API_KEY?.trim();
+  const apiBaseUrl = env.API_BASE_URL?.trim();
+  const apiModel = env.API_MODEL?.trim();
+  if (apiKey && apiBaseUrl && apiModel) {
+    providers.push({
+      id: 'api',
+      endpoint: genericEndpoint(apiBaseUrl),
+      key: apiKey,
+      model: apiModel,
+      headers: {},
+    });
+  }
+  if (env.GROQ_API_KEY?.trim()) {
+    providers.push({
+      id: 'groq',
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+      key: env.GROQ_API_KEY.trim(),
+      model: GROQ_CHAT_MODEL,
+      headers: {},
+    });
+  }
+  return providers;
+}
+
+function openRouterProvider(env: Env): ExternalProvider | null {
+  if (!env.OPENROUTER_API_KEY?.trim()) return null;
+  return {
+    id: 'openrouter',
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    key: env.OPENROUTER_API_KEY.trim(),
+    model: OPENROUTER_CHAT_MODEL,
+    headers: {
+      'HTTP-Referer': env.PUBLIC_APP_URL,
+      'X-Title': 'Sayori GeoScore',
+    },
+  };
+}
+
+async function selectExternalProvider(env: Env, routingKey: string): Promise<ExternalProvider | null> {
+  const pair = configuredPair(env);
+  const health = await Promise.all(pair.map(async provider => ({
+    provider,
+    open: await circuitIsOpen(env, provider.id),
+  })));
+  const healthyPair = health.filter(item => !item.open).map(item => item.provider);
+  if (healthyPair.length) {
+    const hash = Number.parseInt(fnv32(routingKey), 16) >>> 0;
+    return healthyPair[hash % healthyPair.length];
+  }
+
+  // OpenRouter is a reserve only. It cannot compete with a healthy API/Groq pair.
+  const reserve = openRouterProvider(env);
+  if (reserve && !(await circuitIsOpen(env, reserve.id))) return reserve;
+  return null;
+}
+
 /**
- * Unified LLM call with automatic fallback + KV response cache.
- *
- * Priority:
- *  1. KV cache (24-hour TTL) — costs zero quota, instant response
- *  2. Cloudflare Workers AI — free tier
- *  3. Generic API_KEY when configured, otherwise Groq or OpenRouter
- *
- * Falls back to one configured external provider on ANY CF AI error.
- * This ensures quota exhaustion, capacity issues, or transient errors
- * never silently kill AI modules when a fallback is available. Only one external
- * provider is selected per call, so an attempted fallback never cascades.
- *
- * Successful responses are cached in AUDIT_KV for 24 h so repeated audits
- * of the same domain don't burn API quota.
+ * Unified LLM call. Cache -> Workers AI -> exactly one healthy external endpoint.
+ * External failures open a short KV circuit for later requests; the current call
+ * never cascades to a second provider.
  */
 export async function callLlm(
   messages: LlmMessage[],
@@ -93,47 +251,33 @@ export async function callLlm(
   env: Env,
   options: LlmOptions = {},
 ): Promise<string> {
-  // ── 0. KV cache check ───────────────────────────────────────────────────────
-  // Key: "llm:" + fnv32(serialised messages + max_tokens)
-  // 24-hour TTL — safe for keyword/geo insights which are domain-stable
-  const mode = options.jsonMode ? 'json-v2' : 'text-v2';
+  const mode = options.jsonMode ? 'json-v3' : 'text-v3';
   const cacheOptions = { jsonMode: options.jsonMode, temperature: options.temperature };
-  const cacheKey = `llm:${mode}:${fnv32(JSON.stringify(messages) + max_tokens + JSON.stringify(cacheOptions))}`;
+  const routingKey = JSON.stringify(messages) + max_tokens + JSON.stringify(cacheOptions);
+  const cacheKey = `llm:${mode}:${fnv32(routingKey)}`;
   try {
     const cached = await env.AUDIT_KV.get(cacheKey);
     if (cached) return cached;
-  } catch { /* non-critical — proceed to live call */ }
+  } catch {
+    // Response caching is optional.
+  }
 
-  // ── 1. Cloudflare Workers AI ────────────────────────────────────────────────
   const runCfAi = async (jsonMode: boolean): Promise<string> => {
     options.budget?.consume(`workers-ai:${CF_FAST_CHAT_MODEL}`);
-    const payload: Record<string, unknown> = {
-      messages,
-      max_tokens,
-    };
-    if (jsonMode) {
-      payload.response_format = { type: 'json_object' };
-    }
-    if (options.temperature !== undefined) {
-      payload.temperature = options.temperature;
-    }
-    const result = await env.AI.run(CF_FAST_CHAT_MODEL, {
+    const payload: Record<string, unknown> = { messages, max_tokens };
+    if (jsonMode) payload.response_format = { type: 'json_object' };
+    if (options.temperature !== undefined) payload.temperature = options.temperature;
+    const result: unknown = await env.AI.run(CF_FAST_CHAT_MODEL, {
       ...payload,
     } as Parameters<typeof env.AI.run>[1]);
 
     if (!result) return '';
-
-    // Defensive handling of various Workers AI response shapes:
-    if (typeof result === 'string') return (result as string).trim();
+    if (typeof result === 'string') return result.trim();
     if (Array.isArray(result)) {
-      // In some environments, models can return arrays of completions
       const first: unknown = result[0];
       if (typeof first === 'string') return first.trim();
-      if (first && typeof first === 'object') {
-        return extractText(first as WorkersAiTextResult).trim();
-      }
+      if (first && typeof first === 'object') return extractText(first as WorkersAiTextResult).trim();
     }
-
     return extractText(result as WorkersAiTextResult).trim();
   };
 
@@ -141,9 +285,6 @@ export async function callLlm(
   try {
     cfText = await runCfAi(!!options.jsonMode);
   } catch (error) {
-    // Some Workers AI models do not accept response_format even when they can still
-    // follow a JSON-only prompt. Retry only for an explicit compatibility rejection;
-    // quota, auth, server, and network failures must not consume a duplicate request.
     if (options.jsonMode && isJsonModeCompatibilityError(error)) {
       try {
         cfText = await runCfAi(false);
@@ -154,78 +295,50 @@ export async function callLlm(
   }
 
   if (cfText) {
-    // Cache and return CF AI result
-    try { await env.AUDIT_KV.put(cacheKey, cfText, { expirationTtl: 86400 }); } catch { /* non-critical */ }
+    try { await env.AUDIT_KV.put(cacheKey, cfText, { expirationTtl: 86400 }); } catch { /* optional */ }
     return cfText;
   }
 
-  // ── 2. One external fallback ───────────────────────────────────────────────
-  const external: {
-    id: 'api' | 'groq' | 'openrouter';
-    name: 'API' | 'Groq' | 'OpenRouter';
-    endpoint: string;
-    key: string;
-    model: string;
-    headers: Record<string, string>;
-  } | null = env.API_KEY
-    ? {
-        id: 'api',
-        name: 'API',
-        endpoint: 'https://opencode.ai/zen/v1/chat/completions',
-        key: env.API_KEY,
-        model: API_CHAT_MODEL,
-        headers: {},
-      }
-    : env.GROQ_API_KEY
-    ? {
-        id: 'groq',
-        name: 'Groq',
-        endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-        key: env.GROQ_API_KEY,
-        model: GROQ_CHAT_MODEL,
-        headers: {},
-      }
-    : env.OPENROUTER_API_KEY
-      ? {
-          id: 'openrouter',
-          name: 'OpenRouter',
-          endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          key: env.OPENROUTER_API_KEY,
-          model: OPENROUTER_CHAT_MODEL,
-          headers: {
-            'HTTP-Referer': env.PUBLIC_APP_URL,
-            'X-Title': 'Sayori GeoScore',
-          },
-        }
-      : null;
-
+  const external = await selectExternalProvider(env, routingKey);
   if (!external) {
-    throw new Error('CF AI unavailable — set API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY for an optional fallback');
+    throw new Error('AI temporarily unavailable; no healthy external API is configured.');
   }
 
+  const secrets = [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY];
+  const providerTokens = providerIdentityTokens(external.endpoint);
   const runExternal = async (jsonMode: boolean): Promise<string> => {
-    options.budget?.consume(`${external.id}:${external.model}`);
-    const res = await fetch(external.endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${external.key}`,
-        'Content-Type': 'application/json',
-        ...external.headers,
-      },
-      body: JSON.stringify({
-        model: external.model,
-        messages,
-        max_tokens,
-        temperature: options.temperature ?? 0.3,
-        ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-      }),
-    });
+    options.budget?.consume('external-ai');
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(external.endpoint, {
+        timeoutMs: EXTERNAL_LLM_TIMEOUT_MS,
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${external.key}`,
+          'Content-Type': 'application/json',
+          ...external.headers,
+        },
+        body: JSON.stringify({
+          model: external.model,
+          messages,
+          max_tokens,
+          temperature: options.temperature ?? 0.3,
+          ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+        }),
+      });
+    } catch (error) {
+      await openCircuit(env, external.id, 'network');
+      const detail = sanitizeLlmProviderError(String(error), secrets, providerTokens);
+      throw new ExternalLlmProviderError(`External API network error: ${detail || 'request failed'}`, false);
+    }
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      const detail = sanitizeLlmProviderError(body, [env.API_KEY, env.GROQ_API_KEY, env.OPENROUTER_API_KEY]);
+      const detail = sanitizeLlmProviderError(body, secrets, providerTokens);
+      const circuit = circuitForStatus(res.status, res.headers);
+      if (circuit) await openCircuit(env, external.id, circuit.reason, circuit.ttl);
       throw new ExternalLlmProviderError(
-        `${external.name} ${res.status}: ${detail || 'upstream request failed'}`,
+        `External API ${res.status}: ${detail || 'upstream request failed'}`,
         jsonMode
           && (res.status === 400 || res.status === 422)
           && /response[_ -]?format|json[_ -]?mode|json object|structured output/i.test(detail),
@@ -233,29 +346,28 @@ export async function callLlm(
     }
 
     const data = await res.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ message?: { content?: string }; text?: string }>;
     };
-    return (data.choices?.[0]?.message?.content ?? '').trim();
+    const text = (data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '').trim();
+    if (!text) {
+      await openCircuit(env, external.id, 'server');
+      throw new ExternalLlmProviderError('External API returned an empty response', false);
+    }
+    await closeCircuit(env, external.id);
+    return text;
   };
 
-  let externalText = '';
+  let externalText: string;
   try {
     externalText = await runExternal(!!options.jsonMode);
-  } catch (err) {
-    // OpenAI-compatible free models may reject response_format. Retry once without it.
-    if (options.jsonMode && err instanceof ExternalLlmProviderError && err.retryWithoutJson) {
-      try {
-        externalText = await runExternal(false);
-      } catch (retryError) {
-        throw retryError;
-      }
+  } catch (error) {
+    if (options.jsonMode && error instanceof ExternalLlmProviderError && error.retryWithoutJson) {
+      externalText = await runExternal(false);
     } else {
-      throw err;
+      throw error;
     }
   }
 
-  if (externalText) {
-    try { await env.AUDIT_KV.put(cacheKey, externalText, { expirationTtl: 86400 }); } catch { /* non-critical */ }
-  }
+  try { await env.AUDIT_KV.put(cacheKey, externalText, { expirationTtl: 86400 }); } catch { /* optional */ }
   return externalText;
 }

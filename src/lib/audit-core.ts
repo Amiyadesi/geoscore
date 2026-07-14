@@ -2,7 +2,56 @@ import type { ModuleResult } from './types';
 import type { FetchedAuditPage } from './audit-pages';
 import { registrableRoot } from './audit-pages';
 
-export const SCORE_VERSION = '2.0.0';
+export const SCORE_VERSION = '2.1.0';
+
+/** Public contract registry used by /api/meta; Predicted checks stay separate. */
+export const FACTUAL_CHECK_IDS = [
+  'seo.page_fetch', 'seo.sample_coverage', 'seo.indexability', 'seo.robots',
+  'seo.sitemap', 'seo.canonical', 'seo.title', 'seo.meta_description', 'seo.h1',
+  'seo.language', 'seo.schema_presence', 'seo.schema_fit', 'seo.html_conformance',
+  'seo.cross_page_titles', 'geo.entity_identity', 'geo.entity_consistency',
+  'geo.author_signal', 'geo.extractability', 'geo.direct_answer',
+  'geo.claim_source_support', 'geo.statistic_provenance', 'geo.freshness',
+  'geo.cross_page_consistency', 'geo.source_links', 'geo.llms_txt',
+  'geo.knowledge_graph', 'geo.common_crawl_presence',
+] as const;
+
+export interface LocalizedAuditText {
+  en: string;
+  zh: string;
+}
+
+/** Stable report labels. The audited-page locale only selects the legacy title field. */
+export const CHECK_TITLES: Record<string, LocalizedAuditText> = {
+  'seo.page_fetch': { en: 'Page fetchability', zh: '页面可抓取性' },
+  'seo.sample_coverage': { en: 'Site sample coverage', zh: '整站抽样覆盖' },
+  'seo.indexability': { en: 'Indexability', zh: '索引状态' },
+  'seo.robots': { en: 'robots.txt', zh: 'robots.txt' },
+  'seo.sitemap': { en: 'XML sitemap', zh: 'XML sitemap' },
+  'seo.canonical': { en: 'Canonical URL', zh: 'Canonical URL' },
+  'seo.title': { en: 'Page title', zh: '页面标题' },
+  'seo.meta_description': { en: 'Meta description', zh: 'Meta description' },
+  'seo.h1': { en: 'H1', zh: 'H1' },
+  'seo.language': { en: 'Page language declaration', zh: '页面语言声明' },
+  'seo.schema_presence': { en: 'Structured data presence', zh: '结构化数据存在性' },
+  'seo.schema_fit': { en: 'Structured data archetype fit', zh: '结构化数据类型适配' },
+  'seo.html_conformance': { en: 'HTML conformance', zh: 'HTML 规范性' },
+  'seo.cross_page_titles': { en: 'Cross-page title consistency', zh: '跨页面标题一致性' },
+  'geo.entity_identity': { en: 'Entity identity clarity', zh: '实体身份清晰度' },
+  'geo.entity_consistency': { en: 'Cross-page entity consistency', zh: '跨页面实体一致性' },
+  'geo.author_signal': { en: 'Author attribution', zh: '作者归属信号' },
+  'geo.extractability': { en: 'Content extractability', zh: '内容可提取性' },
+  'geo.direct_answer': { en: 'Direct answer structure', zh: '直接回答结构' },
+  'geo.claim_source_support': { en: 'Claim-to-source support', zh: '声明与来源关联' },
+  'geo.statistic_provenance': { en: 'Statistic provenance', zh: '统计数据来源' },
+  'geo.freshness': { en: 'Content freshness signals', zh: '内容时效信号' },
+  'geo.cross_page_consistency': { en: 'Cross-page site identity consistency', zh: '跨页面站点身份一致性' },
+  'geo.source_links': { en: 'Sources and outbound citations', zh: '来源与外部引用' },
+  'geo.llms_txt': { en: 'llms.txt', zh: 'llms.txt' },
+  'geo.knowledge_graph': { en: 'Verified knowledge-graph entity', zh: '已验证知识图谱实体' },
+  'geo.common_crawl_presence': { en: 'Common Crawl presence', zh: 'Common Crawl 收录证据' },
+  'geo.predicted_citation': { en: 'Predicted AI citation simulation', zh: 'Predicted AI 引用模拟' },
+};
 
 export const SITE_ARCHETYPES = [
   'personal_blog', 'editorial', 'news_media', 'documentation', 'saas', 'ecommerce',
@@ -45,6 +94,7 @@ export interface NormalizedCheck {
   id: string;
   category: CheckCategory;
   title: string;
+  localized_title: LocalizedAuditText;
   status: CheckStatus;
   weight: number;
   confidence: number;
@@ -90,6 +140,10 @@ export interface AuditRecommendation {
   validation: string;
   impact: 'high' | 'medium' | 'low';
   effort: 'low' | 'medium' | 'high';
+  localized: {
+    en: Pick<AuditRecommendation, 'title' | 'why' | 'fix' | 'verify'>;
+    zh: Pick<AuditRecommendation, 'title' | 'why' | 'fix' | 'verify'>;
+  };
 }
 
 export interface BuildAuditContextInput {
@@ -257,6 +311,149 @@ function inferLocale(pages: BuildAuditContextInput['pages']): string {
   return /[\u3400-\u9fff]/.test(text) ? 'zh-CN' : 'en';
 }
 
+function normalizedEntityName(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .replace(/[\u2018\u2019']/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+/**
+ * Return explicit same-type entity names per page. Missing schema on a sampled
+ * page is absence of evidence, not a contradiction; only an explicit competing
+ * name can fail consistency.
+ */
+function sampledEntitySignals(
+  pages: FetchedAuditPage[],
+  entityType: string,
+): Array<{ pageUrl: string; names: string[] }> {
+  return pages
+    .filter(page => page.status === 'complete' && !!page.html)
+    .map(page => ({
+      pageUrl: page.url,
+      names: [...new Set(
+        extractJsonLdNodes([page])
+          .filter(({ node }) => nodeTypes(node).includes(entityType) && typeof node.name === 'string')
+          .map(({ node }) => String(node.name).trim())
+          .filter(Boolean),
+      )],
+    }))
+    .filter(item => item.names.length > 0);
+}
+
+interface GeoPageSignals {
+  pageUrl: string;
+  pageType: string;
+  title: string;
+  text: string;
+  paragraphs: string[];
+  entityNames: string[];
+  authorNames: string[];
+  siteLabels: string[];
+  dates: string[];
+  claims: Array<{ text: string; supported: boolean }>;
+  statistics: Array<{ text: string; supported: boolean }>;
+}
+
+function decodeHtmlText(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function metadataValues(html: string, names: string[]): string[] {
+  const wanted = new Set(names.map(name => name.toLowerCase()));
+  const values: string[] = [];
+  for (const match of html.matchAll(/<meta\s+([^>]+)>/gi)) {
+    const attrs = match[1];
+    const name = attrs.match(/(?:name|property)=["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    const content = attrs.match(/content=["']([^"']*)["']/i)?.[1]?.trim();
+    if (name && content && wanted.has(name)) values.push(content);
+  }
+  return values;
+}
+
+function dateValuesFromNode(node: JsonObject): string[] {
+  return ['datePublished', 'dateModified', 'dateCreated']
+    .map(key => node[key])
+    .filter((value): value is string => typeof value === 'string' && !!value.trim())
+    .map(value => value.trim());
+}
+
+function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
+  const html = page.html || '';
+  const nodes = extractJsonLdNodes([page]).map(item => item.node);
+  const textHtml = html
+    .replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(nav|footer|header)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+  const text = decodeHtmlText(textHtml);
+  const title = page.title?.trim() || decodeHtmlText((html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i) ?? [])[1] ?? '');
+  const paragraphs = [...html.matchAll(/<(?:p|blockquote|li)\b[^>]*>([\s\S]*?)<\/(?:p|blockquote|li)>/gi)]
+    .map(match => decodeHtmlText(match[1]))
+    .filter(value => value.length >= 20);
+  const entityNames = nodes
+    .filter(node => nodeTypes(node).some(type => ['Person', 'Organization', 'Corporation', 'WebSite', 'Blog'].includes(type)))
+    .map(node => typeof node.name === 'string' ? node.name.trim() : '')
+    .filter(Boolean);
+  const authorNames = [
+    ...nodes
+      .filter(node => nodeTypes(node).includes('Person'))
+      .map(node => typeof node.name === 'string' ? node.name.trim() : ''),
+    ...metadataValues(html, ['author', 'article:author']),
+    ...[...html.matchAll(/rel=["']author["'][^>]*>([\s\S]*?)<\//gi)].map(match => decodeHtmlText(match[1])),
+  ].filter(Boolean);
+  const siteLabels = [
+    ...metadataValues(html, ['og:site_name', 'application-name']),
+    ...nodes
+      .filter(node => nodeTypes(node).includes('WebSite'))
+      .map(node => typeof node.name === 'string' ? node.name.trim() : ''),
+  ].filter(Boolean);
+  const dates = [
+    ...nodes.flatMap(dateValuesFromNode),
+    ...metadataValues(html, ['article:published_time', 'article:modified_time', 'datepublished', 'datemodified']),
+    ...[...html.matchAll(/<time\b[^>]*datetime=["']([^"']+)["'][^>]*>/gi)].map(match => match[1].trim()),
+  ].filter(value => !Number.isNaN(Date.parse(value)));
+  const claims = paragraphs
+    .filter(value => /\baccording to\b|\b(research|study|report|survey|data|documentation)\b|根据|研究|报告|调查|数据显示/i.test(value))
+    .map(value => ({
+      text: value,
+      // The paragraph text is HTML-decoded, so its exact byte offset is not
+      // stable after tags/entities are removed. An external citation anywhere
+      // in the same content document is still auditable evidence; citation
+      // markers cover pages that use footnotes instead of anchors.
+      supported: /<a\b[^>]+href=["']https?:\/\//i.test(html) || /\[\d+\]|<cite\b|data-source/i.test(html),
+    }));
+  const statistics = paragraphs
+    .filter(value => /\b\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*(?:million|billion|thousand|users?|people|items?|ms|seconds?)\b|\d+(?:\.\d+)?\s*%/i.test(value) || /\d+(?:\.\d+)?\s*%/.test(value))
+    .map(value => ({
+      text: value,
+      supported: claims.find(claim => claim.text === value)?.supported ?? /\[\d+\]|<cite\b|data-source/i.test(value),
+    }));
+  return { pageUrl: page.url, pageType: page.page_type, title, text, paragraphs, entityNames, authorNames, siteLabels, dates, claims, statistics };
+}
+
+function contentPagesFor(context: AuditContext, signals: GeoPageSignals[]): GeoPageSignals[] {
+  return signals.filter(page => {
+    if (['article', 'documentation', 'product'].includes(page.pageType)) return true;
+    if (['news_media', 'editorial'].includes(context.site_archetype) && page.pageType === 'other') return true;
+    return false;
+  });
+}
+
+function directAnswerApplicable(context: AuditContext, page: GeoPageSignals): boolean {
+  if (['documentation', 'product'].includes(page.pageType)) return true;
+  if (['saas', 'ecommerce', 'local_business', 'professional_services', 'news_media'].includes(context.site_archetype)) return true;
+  return /\?|^(how|what|why|when|which)\b|教程|指南|如何|什么是/i.test(`${page.title} ${page.paragraphs[0] ?? ''}`);
+}
+
 function businessModel(archetype: SiteArchetype): string | null {
   const models: Partial<Record<SiteArchetype, string>> = {
     personal_blog: 'content', editorial: 'content', news_media: 'publishing', documentation: 'documentation',
@@ -309,12 +506,15 @@ export function check(input: {
   evidence?: string[];
   predicted?: boolean;
 }): NormalizedCheck {
+  const fallbackTitle = input.title ?? input.id;
+  const localizedTitle = CHECK_TITLES[input.id] ?? { en: fallbackTitle, zh: fallbackTitle };
   return {
     id: input.id,
     category: input.category,
-    title: input.title ?? input.id,
+    title: fallbackTitle,
+    localized_title: localizedTitle,
     status: input.status,
-    weight: Math.max(0, input.weight ?? 1),
+    weight: input.predicted ? 0 : Math.max(0, input.weight ?? 1),
     confidence: clamp01(input.confidence ?? (input.status === 'unknown' || input.status === 'error' ? 0 : 1)),
     source: input.source ?? 'audit',
     page_url: input.pageUrl,
@@ -409,6 +609,8 @@ export function buildNormalizedChecks(
   const schemas = new Set<string>(schema?.schemas_found ?? []);
   const output: NormalizedCheck[] = [];
   const pageUrl = primary?.url;
+  const geoSignals = completedPages.map(geoPageSignals);
+  const contentSignals = contentPagesFor(context, geoSignals);
 
   output.push(check({
     id: 'seo.page_fetch', category: 'seo', title: zh ? '页面可抓取性' : 'Page fetchability', weight: 3,
@@ -515,27 +717,124 @@ export function buildNormalizedChecks(
     status: !siteEvidenceAvailable || !identityApplicable ? 'unknown' : context.entity ? 'pass' : 'fail', confidence: context.entity ? 0.98 : context.confidence,
     source: context.entity?.source ?? 'audit_context', pageUrl: context.entity?.page_url,
     evidence: !siteEvidenceAvailable ? ['No fetched page content was available for entity verification'] : context.entity ? [`${context.entity.type}: ${context.entity.name}`] : ['No trusted schema entity found'] }));
+  const entitySignals = context.entity ? sampledEntitySignals(pages, context.entity.type) : [];
+  const expectedEntity = normalizedEntityName(context.entity?.name ?? '');
+  const entityConflicts = entitySignals.filter(item =>
+    !item.names.some(name => normalizedEntityName(name) === expectedEntity),
+  );
+  output.push(check({
+    id: 'geo.entity_consistency', category: 'geo',
+    title: zh ? '跨页面实体一致性' : 'Cross-page entity consistency',
+    weight: 2,
+    status: !context.entity || completedPages.length < 2
+      ? 'not_applicable'
+      : entitySignals.length < 2
+        ? 'unknown'
+        : entityConflicts.length > 0 ? 'fail' : 'pass',
+    confidence: entitySignals.length >= 2 && entityConflicts.length === 0 ? 0.92 : entityConflicts.length > 0 ? 0.88 : 0,
+    source: 'json_ld',
+    pageUrl: entityConflicts[0]?.pageUrl ?? context.entity?.page_url,
+    evidence: !context.entity
+      ? ['No trusted entity is available for cross-page comparison']
+      : entitySignals.length < 2
+        ? ['Fewer than two sampled pages expose a comparable typed entity']
+        : entityConflicts.length > 0
+          ? entityConflicts.flatMap(item => item.names.map(name => `${item.pageUrl}: ${name}`)).slice(0, 8)
+          : entitySignals.flatMap(item => item.names.map(name => `${item.pageUrl}: ${name}`)).slice(0, 8),
+  }));
   const authorApplicable = ['personal_blog', 'editorial', 'news_media', 'portfolio'].includes(context.site_archetype);
+  const authorPages = contentSignals.filter(page => page.authorNames.length > 0 || page.pageType === 'article');
+  const missingAuthorPages = authorPages.filter(page => page.authorNames.length === 0);
   output.push(check({ id: 'geo.author_signal', category: 'geo', title: zh ? '作者归属信号' : 'Author attribution', weight: 2,
-    status: !primaryAvailable ? 'unknown' : !authorApplicable ? 'not_applicable' : (schemas.has('Person') || pageMeta?.article_author ? 'pass' : 'fail'),
-    source: 'schema_audit', pageUrl, evidence: !primaryAvailable ? ['Primary page content was not available'] : schemas.has('Person') ? ['Person schema found'] : pageMeta?.article_author ? [pageMeta.article_author] : ['No Person schema or article author metadata found'] }));
+    status: !primaryAvailable ? 'unknown' : !authorApplicable ? 'not_applicable' : missingAuthorPages.length > 0 ? 'fail' : (schemas.has('Person') || pageMeta?.article_author || geoSignals.some(page => page.authorNames.length > 0) ? 'pass' : 'fail'),
+    source: 'json_ld', pageUrl, evidence: !primaryAvailable
+      ? ['Primary page content was not available']
+      : missingAuthorPages.length > 0
+        ? missingAuthorPages.map(page => `${page.pageUrl}: no author metadata`).slice(0, 8)
+        : geoSignals.flatMap(page => page.authorNames.map(name => `${page.pageUrl}: ${name}`)).slice(0, 8) }));
   const wordCount = Number(content?.word_count ?? onPage?.content?.word_count ?? 0);
+  const extractableText = geoSignals.reduce((total, page) => total + page.text.length, 0);
   output.push(check({ id: 'geo.extractability', category: 'geo', title: zh ? '内容可提取性' : 'Content extractability', weight: 3,
-    status: !primaryAvailable ? 'unknown' : contentError ?? (content ? (wordCount >= 100 ? 'pass' : 'fail') : 'unknown'), source: 'content_quality', pageUrl,
-    evidence: !primaryAvailable ? ['Primary page content was not available'] : content ? [`${wordCount} extracted words/terms`] : [] }));
-  output.push(check({ id: 'geo.source_links', category: 'geo', title: zh ? '来源与外部引用' : 'Sources and outbound citations', weight: 1,
-    status: !primaryAvailable ? 'unknown' : contentError ?? (content ? ((content.external_links ?? 0) > 0 ? 'pass' : 'fail') : 'unknown'), source: 'content_quality', pageUrl,
-    evidence: !primaryAvailable ? ['Primary page content was not available'] : content ? [`${content.external_links ?? 0} external links`] : [] }));
-  output.push(check({ id: 'geo.llms_txt', category: 'geo', title: 'llms.txt', weight: 1,
+    status: !primaryAvailable ? 'unknown' : contentError ?? (content
+      ? (wordCount >= 100 || extractableText >= 240 ? 'pass' : 'fail')
+      : 'unknown'), source: 'content_quality', pageUrl,
+    evidence: !primaryAvailable ? ['Primary page content was not available'] : content ? [`${wordCount} extracted words/terms`, `${extractableText} visible text characters`] : [] }));
+  const directPages = contentSignals.filter(page => directAnswerApplicable(context, page));
+  const directAnswerPages = directPages.filter(page => {
+    const first = page.paragraphs[0] ?? '';
+    return first.length >= 40 && first.length <= 700 && page.text.indexOf(first.slice(0, 24)) >= 0;
+  });
+  output.push(check({
+    id: 'geo.direct_answer', category: 'geo', title: zh ? '直接回答结构' : 'Direct answer structure', weight: 2,
+    status: directPages.length === 0 ? 'not_applicable' : directAnswerPages.length === directPages.length ? 'pass' : 'fail',
+    confidence: directPages.length > 0 ? 0.82 : 0,
+    source: 'page_structure', pageUrl: directPages[0]?.pageUrl ?? pageUrl,
+    evidence: directPages.length === 0
+      ? ['No sampled page type or query-shaped content requires a direct answer']
+      : directPages.map(page => `${page.pageUrl}: ${directAnswerPages.includes(page) ? 'lead paragraph is directly extractable' : 'no concise lead answer'}`).slice(0, 8),
+  }));
+  const claimPages = contentSignals.filter(page => page.claims.length > 0);
+  const claims = claimPages.flatMap(page => page.claims.map(claim => ({ ...claim, pageUrl: page.pageUrl })));
+  const supportedClaims = claims.filter(claim => claim.supported);
+  output.push(check({
+    id: 'geo.claim_source_support', category: 'geo', title: zh ? '声明与来源关联' : 'Claim-to-source support', weight: 2,
+    status: claims.length === 0 ? 'not_applicable' : supportedClaims.length / claims.length >= 0.6 ? 'pass' : 'fail',
+    confidence: claims.length > 0 ? 0.78 : 0,
+    source: 'content_sources', pageUrl: claims[0]?.pageUrl ?? pageUrl,
+    evidence: claims.length === 0
+      ? ['No source-dependent claims were detected in sampled content']
+      : [`${supportedClaims.length}/${claims.length} detected claims have an adjacent source or citation`, ...claims.slice(0, 6).map(claim => `${claim.pageUrl}: ${claim.supported ? 'supported' : 'unsupported'} — ${claim.text.slice(0, 160)}`)],
+  }));
+  const statistics = claimPages.flatMap(page => page.statistics.map(stat => ({ ...stat, pageUrl: page.pageUrl })));
+  const sourcedStatistics = statistics.filter(stat => stat.supported);
+  output.push(check({
+    id: 'geo.statistic_provenance', category: 'geo', title: zh ? '统计数据来源' : 'Statistic provenance', weight: 1,
+    status: statistics.length === 0 ? 'not_applicable' : sourcedStatistics.length === statistics.length ? 'pass' : 'fail',
+    confidence: statistics.length > 0 ? 0.8 : 0,
+    source: 'content_sources', pageUrl: statistics[0]?.pageUrl ?? pageUrl,
+    evidence: statistics.length === 0
+      ? ['No numeric or statistical claims were detected']
+      : [`${sourcedStatistics.length}/${statistics.length} detected statistics have a source signal`, ...statistics.slice(0, 6).map(stat => `${stat.pageUrl}: ${stat.supported ? 'sourced' : 'no source'} — ${stat.text.slice(0, 160)}`)],
+  }));
+  const freshnessPages = contentSignals.filter(page => ['personal_blog', 'editorial', 'news_media', 'documentation'].includes(context.site_archetype) || page.pageType === 'article' || page.pageType === 'documentation');
+  const datedPages = freshnessPages.filter(page => page.dates.length > 0);
+  output.push(check({
+    id: 'geo.freshness', category: 'geo', title: zh ? '内容时效信号' : 'Content freshness signals', weight: 1,
+    status: freshnessPages.length === 0 ? 'not_applicable' : datedPages.length === freshnessPages.length ? 'pass' : 'fail',
+    confidence: freshnessPages.length > 0 ? 0.75 : 0,
+    source: 'metadata', pageUrl: freshnessPages[0]?.pageUrl ?? pageUrl,
+    evidence: freshnessPages.length === 0
+      ? ['No sampled article, documentation, or news page requires a freshness signal']
+      : freshnessPages.map(page => `${page.pageUrl}: ${page.dates[0] ?? 'no published/modified date'}`).slice(0, 8),
+  }));
+  const labelPages = geoSignals.filter(page => page.siteLabels.length > 0);
+  const labels = [...new Set(labelPages.flatMap(page => page.siteLabels.map(normalizedEntityName)).filter(Boolean))];
+  output.push(check({
+    id: 'geo.cross_page_consistency', category: 'geo', title: zh ? '跨页面站点身份一致性' : 'Cross-page site identity consistency', weight: 2,
+    status: completedPages.length < 2 || labelPages.length < 2 ? 'not_applicable' : labels.length === 1 ? 'pass' : 'fail',
+    confidence: labelPages.length >= 2 ? 0.86 : 0,
+    source: 'page_metadata', pageUrl: labelPages[0]?.pageUrl ?? pageUrl,
+    evidence: labelPages.length < 2
+      ? ['Fewer than two sampled pages expose a comparable site identity label']
+      : labelPages.flatMap(page => page.siteLabels.map(label => `${page.pageUrl}: ${label}`)).slice(0, 8),
+  }));
+  output.push(check({ id: 'geo.source_links', category: 'geo', title: zh ? '来源与外部引用' : 'Sources and outbound citations', weight: 0,
+    status: !primaryAvailable
+      ? 'unknown'
+      : claims.length === 0
+        ? 'not_applicable'
+        : contentError ?? (content ? ((content.external_links ?? 0) > 0 ? 'pass' : 'fail') : 'unknown'), source: 'content_quality', pageUrl,
+    evidence: !primaryAvailable ? ['Primary page content was not available'] : claims.length === 0 ? ['No source-dependent claims require outbound citations'] : content ? [`${content.external_links ?? 0} external links`] : [] }));
+  output.push(check({ id: 'geo.llms_txt', category: 'geo', title: 'llms.txt', weight: 0,
     status: techError ?? (technical
       ? technical.llms_txt_status === 'error'
         ? 'unknown'
-        : technical.llms_txt_present ? 'pass' : 'fail'
+        : technical.llms_txt_present ? 'pass' : 'not_applicable'
       : 'unknown'), source: 'technical_seo',
     evidence: technical
       ? [technical.llms_txt_status === 'error'
         ? 'llms.txt could not be verified'
-        : technical.llms_txt_present ? 'llms.txt found' : 'llms.txt not found']
+        : technical.llms_txt_present ? 'llms.txt found' : 'llms.txt is optional and was not found']
       : [] }));
   output.push(check({ id: 'geo.knowledge_graph', category: 'geo', title: zh ? '已验证知识图谱实体' : 'Verified knowledge-graph entity', weight: 1,
     status: statusFromModule(modules, 'authority') ?? (authority ? (authority.wikidata_id || authority.wikipedia ? 'pass' : 'unknown') : 'unknown'),
@@ -610,15 +909,25 @@ function recommendationCopy(checkItem: NormalizedCheck, zh: boolean) {
       ? { title: '让核心内容可直接提取', why: '抓取到的正文证据不足，搜索和 AI 系统可能只看到空壳。', fix: '将标题、摘要和核心正文输出到服务端 HTML，并使用清晰的 H1/H2 结构。', verify: '禁用 JavaScript 查看页面源码，确认核心正文仍存在后重新审计。' }
       : { title: 'Make core content directly extractable', why: 'Too little body evidence was fetched, so search and AI systems may see an empty shell.', fix: 'Render the title, summary, and core copy in server HTML with clear H1/H2 structure.', verify: 'Disable JavaScript, inspect source, and re-run the audit.' },
   };
-  return copies[checkItem.id] ?? { title: checkItem.title, ...generic };
+  const language = zh ? 'zh' : 'en';
+  const fallbackTitle = checkItem.localized_title?.[language]
+    ?? CHECK_TITLES[checkItem.id]?.[language]
+    ?? checkItem.title;
+  return copies[checkItem.id] ?? { title: fallbackTitle, ...generic };
 }
 
 export function buildRecommendations(context: AuditContext, checks: NormalizedCheck[]): AuditRecommendation[] {
   const zh = context.locale.toLowerCase().startsWith('zh');
   return checks
-    .filter(item => item.status === 'fail' && !item.predicted)
+    // Zero-weight checks are informational/provider probes. They remain in the
+    // report as evidence, but must not create a repair task with no score impact.
+    .filter(item => item.status === 'fail' && !item.predicted && item.weight > 0)
     .map(item => {
-      const copy = recommendationCopy(item, zh);
+      const localized = {
+        en: recommendationCopy(item, false),
+        zh: recommendationCopy(item, true),
+      };
+      const copy = localized[zh ? 'zh' : 'en'];
       const priority = PRIORITIES[item.id] ?? Math.round(item.weight * item.confidence * 10);
       const evidence = item.evidence.join('; ') || (zh ? '该页面未满足检查条件' : 'The page did not satisfy this check');
       const impact: AuditRecommendation['impact'] = priority >= 80 ? 'high' : priority >= 55 ? 'medium' : 'low';
@@ -638,6 +947,7 @@ export function buildRecommendations(context: AuditContext, checks: NormalizedCh
         validation: copy.verify,
         impact,
         effort,
+        localized,
       };
     })
     .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
