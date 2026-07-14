@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Free instant SEO & AI visibility audit. Find out if ChatGPT, Perplexity & Gemini would cite your website. 39 checks, no login, no signup — results in 30 seconds.">
-  <title>GeoScore — Free SEO &amp; AI Visibility Audit Tool</title>
+  <meta name="description" content="Evidence-first SEO and GEO audit for public websites. Review site context, sampled pages, factual checks, PageSpeed data, coverage, confidence, and grounded fixes.">
+  <title>GeoScore — Evidence-first SEO &amp; GEO Audit</title>
   <link rel="canonical" href="https://geo.sayori.org/">
-  <meta property="og:title" content="GeoScore — Will ChatGPT &amp; Perplexity cite your website?">
-  <meta property="og:description" content="Free instant SEO &amp; AI visibility audit. 39 checks across technical SEO, schema, content, and AI citation prediction. No login, no signup, open source.">
+  <meta property="og:title" content="GeoScore — Evidence-first SEO &amp; GEO Audit">
+  <meta property="og:description" content="Audit public websites with bounded page sampling, factual readiness checks, PageSpeed evidence, coverage, confidence, and grounded fixes.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://geo.sayori.org/">
   <meta property="og:site_name" content="GeoScore">
@@ -15,8 +15,8 @@
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GeoScore — Will ChatGPT &amp; Perplexity cite your website?">
-  <meta name="twitter:description" content="Free instant SEO &amp; AI visibility audit. Find out if AI search engines would cite you. 39 checks, no login, open source.">
+  <meta name="twitter:title" content="GeoScore — Evidence-first SEO &amp; GEO Audit">
+  <meta name="twitter:description" content="Factual SEO/GEO readiness, bounded site sampling, PageSpeed evidence, and fixes tied to observed failures.">
   <meta name="twitter:image" content="https://geo.sayori.org/og-image.svg">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563eb'/><path d='M8 22 L13 14 L18 18 L23 10' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='23' cy='10' r='2.5' fill='%2334d399'/></svg>">
   <!-- Inter font — primary typeface matching SEOptimer's professional aesthetic -->
@@ -476,7 +476,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "GeoScore",
-    "description": "Free instant SEO and AI visibility audit for any website worldwide.",
+    "description": "Evidence-first SEO and GEO audit for public websites, with bounded page sampling and fixes linked to observed failures.",
     "url": "https://geo.sayori.org",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -489,10 +489,10 @@
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "GeoScore",
-    "alternateName": "GeoScore SEO & AI Visibility Audit",
+    "alternateName": "GeoScore SEO & GEO Audit",
     "url": "https://geo.sayori.org",
-    "description": "Free instant SEO and AI visibility audit tool. Check if ChatGPT, Perplexity, and Gemini would cite your website.",
-    "inLanguage": "en",
+    "description": "Evidence-first SEO and GEO audit with factual readiness checks, coverage, confidence, PageSpeed evidence, and separately labelled predictions.",
+    "inLanguage": ["en", "zh-CN"],
     "potentialAction": {
       "@type": "SearchAction",
       "target": {
@@ -505,7 +505,7 @@
       "@type": "Organization",
       "name": "GeoScore",
       "url": "https://geo.sayori.org",
-      "sameAs": ["https://github.com/sprawf/geoscore"]
+      "sameAs": ["https://github.com/Amiyadesi/geoscore"]
     }
   }
   </script>
@@ -528,18 +528,18 @@
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "Is GeoScore really free to use?",
+        "name": "Is GeoScore free?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes, GeoScore is free with no signup, no API key, and no credit card. To keep the public service stable, fresh audits are fair-use limited to 8 per IP per hour. Cached results do not consume that quota."
+          "text": "Yes. The public service applies a fair-use limit to fresh audits. Cached report views do not consume the fresh-audit quota."
         }
       },
       {
         "@type": "Question",
-        "name": "How does GeoScore check if ChatGPT would cite my website?",
+        "name": "Does GeoScore monitor real AI citations?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GeoScore uses Cloudflare Workers AI running Llama 3.1 to simulate three realistic AI search queries for your industry. It then evaluates whether your page contains the structured facts, authority signals, and content depth that AI engines look for when constructing cited answers. The result is a citation probability score from 0 to 100 with per-query confidence levels."
+          "text": "No. GeoScore audits factual SEO and GEO readiness. Optional simulations are labelled Predicted, have zero scoring weight, and are not presented as observed third-party citations."
         }
       },
       {
@@ -547,7 +547,7 @@
         "name": "What is GEO (Generative Engine Optimization)?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GEO stands for Generative Engine Optimization — the practice of making your website more likely to be cited by AI assistants like ChatGPT, Perplexity, Claude, and Gemini when they answer user questions. Unlike traditional SEO which targets ranking in Google's results, GEO targets being quoted as a source in AI-generated answers. Key GEO signals include schema markup, authority entities (Wikipedia, Wikidata), specific facts, and structured Q&A content."
+          "text": "GEO stands for Generative Engine Optimization. GeoScore focuses on observable readiness signals such as crawlability, entity clarity, extractable answers, authorship, source support, statistic provenance, and content freshness."
         }
       },
       {
@@ -555,18 +555,11 @@
         "name": "What does the GeoScore audit actually check?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GeoScore runs 39 individual checks across 15 modules: Technical SEO, On-Page SEO, Schema Markup, Content Quality, Accessibility (WCAG), Security Headers (Mozilla Observatory), International SEO, Social & Meta Tags, AI Visibility (citation prediction), Off-Page SEO, Domain Authority, Site Intelligence, DNS & Network, SSL Certificate, and Redirect Chain. All checks run live against your real domain — no cached or stale data."
+          "text": "GeoScore samples up to five public HTML pages and checks indexability, metadata, semantics, schema fit, cross-page consistency, factual GEO readiness, and optional performance and public evidence sources."
         }
       },
       {
         "@type": "Question",
-        "name": "How long does a GeoScore audit take?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Most audits complete in 15 to 30 seconds. All 15 modules run in parallel via Cloudflare Workers and stream results over Server-Sent Events as each module finishes, so you start seeing data within the first second instead of waiting for the full report."
-        }
-      },
-      {
         "@type": "Question",
         "name": "Does GeoScore store my data or track me?",
         "acceptedAnswer": {
@@ -579,7 +572,7 @@
         "name": "Can GeoScore audit localhost, private networks, or IP addresses?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No. GeoScore only audits public domain hostnames. Localhost, internal hostnames, private networks, IP literals, ports, and URL paths are rejected."
+          "text": "No. GeoScore accepts public domain hostnames and public HTTP(S) URLs. Localhost, internal hostnames, private networks, IP literals, credentials, and custom ports are rejected."
         }
       },
       {
@@ -587,7 +580,7 @@
         "name": "Is GeoScore a legal, financial, or security audit?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No. GeoScore reports signals from public webpage fetches, DNS records, public APIs, PageSpeed/OpenPageRank/search enrichment, and AI inference. Results are informational and are not legal, financial, or professional security audit conclusions."
+          "text": "No. GeoScore reports informational signals from public pages and optional public evidence providers. It is not legal, financial, compliance, penetration-testing, or professional security advice."
         }
       }
     ]
@@ -597,17 +590,17 @@
 <body class="bg-slate-50 min-h-screen text-slate-800" style="font-family:'Inter',system-ui,sans-serif">
 
 <!-- Skip navigation link (WCAG 2.4.1) — visible on keyboard focus only -->
-<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold focus:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">Skip to main content</a>
+<a href="#main-content" data-i18n="nav.skip" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold focus:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">Skip to main content</a>
 
 <!-- ══════════════════════════════════════════════════════════════════
      SITE ARCHETYPE CORRECTION MODAL
 ═══════════════════════════════════════════════════════════════════ -->
 <div id="vertical-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
   <div class="bg-white rounded-xl p-6 w-80 shadow-2xl">
-    <h3 id="vm-title" class="font-semibold text-slate-800 mb-3">Correct Site Type</h3>
-    <p id="vm-detected-label" class="text-sm text-slate-500 mb-4">We detected this as: <strong id="vm-current" class="text-slate-700"></strong></p>
+    <h3 id="vm-title" data-i18n="modal.type.title" class="font-semibold text-slate-800 mb-3">Correct site type</h3>
+    <p id="vm-detected-label" class="text-sm text-slate-500 mb-4"><span data-i18n="modal.type.detected">Detected as:</span> <strong id="vm-current" class="text-slate-700"></strong></p>
     <select id="vm-vertical" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400">
-      <option id="vm-placeholder" value="">Select correct site type...</option>
+      <option id="vm-placeholder" data-i18n="modal.type.placeholder" value="">Select the correct site type…</option>
       <option value="personal_blog">Personal blog</option>
       <option value="editorial">Editorial</option>
       <option value="news_media">News / media</option>
@@ -624,8 +617,8 @@
     </select>
     <p id="vm-msg" class="text-xs mb-3 hidden"></p>
     <div class="flex gap-2">
-      <button id="vm-submit" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg py-2 text-sm font-medium transition-colors">Apply &amp; Re-audit</button>
-      <button id="vm-cancel" class="flex-1 border border-slate-200 hover:bg-slate-50 rounded-lg py-2 text-sm transition-colors">Cancel</button>
+      <button id="vm-submit" data-i18n="modal.type.apply" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg py-2 text-sm font-medium transition-colors">Apply and re-audit</button>
+      <button id="vm-cancel" data-i18n="modal.cancel" class="flex-1 border border-slate-200 hover:bg-slate-50 rounded-lg py-2 text-sm transition-colors">Cancel</button>
     </div>
   </div>
 </div>
@@ -633,94 +626,39 @@
 <!-- ══════════════════════════════════════════════════════════════════
      HOW IT WORKS MODAL
 ═══════════════════════════════════════════════════════════════════ -->
-<div id="hiw-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true">
+<div id="hiw-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="hiw-title">
   <div class="min-h-full flex items-start justify-center p-4 py-8">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
       <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
         <div>
-          <h2 class="text-base font-bold text-slate-900">How GeoScore Works</h2>
-          <p class="text-xs text-slate-400 mt-0.5">Exact technical details — transparent, no marketing</p>
+          <h2 id="hiw-title" data-i18n="modal.how.title" class="text-base font-bold text-slate-900">How GeoScore works</h2>
+          <p data-i18n="modal.how.subtitle" class="text-xs text-slate-400 mt-0.5">A bounded, evidence-first pipeline</p>
         </div>
-        <button id="hiw-close" class="text-slate-400 hover:text-slate-700 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-lg" aria-label="Close">✕</button>
+        <button id="hiw-close" class="text-slate-400 hover:text-slate-700 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-lg" data-i18n-aria-label="modal.cancel" aria-label="Cancel">&times;</button>
       </div>
       <div class="flex gap-1.5 flex-wrap px-6 pt-5 pb-1">
-        <button class="hiw-tab active text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="pipeline">Pipeline</button>
-        <button class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="modules">Modules</button>
-        <button class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="tools">Free APIs</button>
-        <button class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="stack">Stack</button>
-        <button class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="privacy">Privacy</button>
+        <button data-i18n="modal.how.pipeline" class="hiw-tab active text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="pipeline">Pipeline</button>
+        <button data-i18n="modal.how.sources" class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="sources">Evidence sources</button>
+        <button data-i18n="modal.how.scoring" class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="scoring">Scoring</button>
+        <button data-i18n="modal.how.privacy" class="hiw-tab text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" data-tab="privacy">Privacy</button>
       </div>
       <div class="px-6 pb-6 pt-4 text-sm text-slate-700">
-        <div id="tab-pipeline" class="hiw-panel active space-y-2">
-          <p class="text-xs text-slate-400 mb-3">Execution sequence — from input to cached result:</p>
-          <div class="space-y-2">
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">1</span><div><div class="font-medium text-xs">Domain normalisation</div><div class="text-xs text-slate-500 mt-0.5">Protocol stripped, paths removed, lowercased.</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">2</span><div><div class="font-medium text-xs">KV cache lookup</div><div class="text-xs text-slate-500 mt-0.5">3-day cache. Hit = instant result, no modules run.</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">3</span><div><div class="font-medium text-xs">Homepage pre-fetched once</div><div class="text-xs text-slate-500 mt-0.5">Shared across all modules — no module fetches the page independently, keeping well within Cloudflare's free-tier subrequest limit.</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-blue-50 rounded-xl border border-blue-100"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">4</span><div><div class="font-medium text-xs text-blue-800">15 modules run in parallel</div><div class="text-xs text-slate-500 mt-0.5">All modules fire via <code class="bg-blue-100 px-1 rounded">Promise.all()</code> in a Cloudflare Worker. Each streams via SSE as it completes.</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">5</span><div><div class="font-medium text-xs">Scoring</div><div class="text-xs text-slate-500 mt-0.5 font-mono">SEO = tech×40% + schema×30% + content×30%<br>GEO = authority×70% + citation×30%<br>Overall = SEO×55% + GEO×45%</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">6</span><div><div class="font-medium text-xs">Rule-based recommendations</div><div class="text-xs text-slate-500 mt-0.5">Sorted by impact/effort ratio. No AI — pure logic.</div></div></div>
-            <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-xl"><span class="text-blue-600 font-bold text-xs w-5 shrink-0 mt-0.5">7</span><div><div class="font-medium text-xs">Persisted to D1 + KV</div><div class="text-xs text-slate-500 mt-0.5">Full JSON → Cloudflare D1. Audit ID → KV for cache.</div></div></div>
-          </div>
+        <div id="tab-pipeline" class="hiw-panel active">
+          <p data-i18n="modal.how.pipeline.body" class="leading-relaxed">Validate the public target, sample at most five pages, build one site profile, run factual checks, calculate coverage/confidence, then stream evidence-backed actions.</p>
         </div>
-        <div id="tab-modules" class="hiw-panel space-y-2">
-          <p class="text-xs text-slate-400 mb-3">Homepage fetched once and shared — modules stream results as they complete:</p>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">①</span> Technical SEO <span class="ml-auto text-slate-400 font-normal">~22s</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Fetches homepage, robots.txt, sitemap.xml, llms.txt in parallel. Checks HTTPS, TTFB, AI bot blocking (GPTBot, ClaudeBot, PerplexityBot), llms.txt, sitemap, noindex, lang, title length, meta description, viewport, canonical, OG tags, H1, hreflang, security headers (HSTS, CSP, X-Frame, etc.), tech stack fingerprinting.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">②</span> Schema Audit <span class="ml-auto text-slate-400 font-normal">~15s · no API</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Parses all JSON-LD blocks. Checks for LocalBusiness, Organization, Product, FAQPage, BreadcrumbList, Review, HowTo, Article. Validates field completeness. E-commerce specific: Product/Offer/Review schemas.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">③</span> Content Quality <span class="ml-auto text-slate-400 font-normal">~15s · no API</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Word count, H2/H3 headings, images + alt coverage, phone/email/address detection, Flesch-Kincaid readability score, reading time.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">④</span> Domain Authority <span class="ml-auto text-slate-400 font-normal">~25s · 4 free APIs</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Wayback Machine CDX (domain age), Wikipedia REST (brand article), Wikidata SPARQL (entity graph), DuckDuckGo Instant Answer (backlink sample).</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑤</span> GEO · AI Citation Prediction <span class="ml-auto text-slate-400 font-normal">~25s · Workers AI</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Detects vertical + location. Builds 3 AI search queries. Sends each to Meta Llama 3.1-8B to predict citation. Returns citation_rate 0–1 + confidence.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑥</span> On-Page SEO <span class="ml-auto text-slate-400 font-normal">~30s · no API</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Headings hierarchy, internal/external link ratios, image alt coverage, keyword density, canonical tags, structured data signals — all parsed directly from HTML.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑦</span> Off-Page SEO <span class="ml-auto text-slate-400 font-normal">~20s · 2 APIs</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>9 social platform profile checks, email security (MX/SPF/DMARC) via Cloudflare DoH.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑧</span> Site Intelligence <span class="ml-auto text-slate-400 font-normal">~25s · 2 APIs</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>3 DNS record types (A, MX, NS), IP geolocation (ipinfo.io), font detection, third-party script inventory (50+ domains).</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑨</span> SSL Certificate <span class="ml-auto text-slate-400 font-normal">~25s · crt.sh</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Queries crt.sh Certificate Transparency log. Finds most recent valid cert, returns issuer, validity dates, days remaining. Warns at &lt;30d and &lt;90d.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑩</span> Redirect Chain <span class="ml-auto text-slate-400 font-normal">~15s · no API</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Follows up to 3 redirect hops from http:// recording URL, status code, and timing per hop.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑪</span> Accessibility · WCAG <span class="ml-auto text-slate-400 font-normal">~30s · no API</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>8 WCAG 2.1 A/AA checks parsed directly from HTML — alt text, form labels, heading order, contrast signals, ARIA roles.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑫</span> Security Audit <span class="ml-auto text-slate-400 font-normal">~28s · Mozilla Observatory</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>HTTP header security tests with severity scoring. Mozilla Observatory grade (A–F) if available.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑬</span> Keyword Research <span class="ml-auto text-slate-400 font-normal">~20s · Autocomplete + AI</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Google Autocomplete seeds tailored to detected vertical + location. AI generates 8 high-intent keyword suggestions. Each keyword classified by intent (transactional, commercial, informational, local) and GEO potential.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑭</span> Domain Intelligence <span class="ml-auto text-slate-400 font-normal">~20s · 3 APIs</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>OpenPageRank domain score, DKIM record checks (Google, mail, selector1 selectors), DNSSEC status, registrar info from RDAP.</p></div></details>
-          <details class="border border-slate-200 rounded-xl overflow-hidden"><summary class="flex items-center gap-2 px-4 py-3 cursor-pointer bg-slate-50 hover:bg-slate-100 text-xs font-semibold"><span class="text-blue-600">⑮</span> CrUX · Real User Data <span class="ml-auto text-slate-400 font-normal">~15s · Google CrUX</span></summary><div class="px-4 py-3 text-xs text-slate-600 space-y-1 leading-relaxed"><p>Chrome User Experience Report — real-world LCP, CLS, FCP, INP, TTFB from actual Chrome users. Free API, no key required.</p></div></details>
+        <div id="tab-sources" class="hiw-panel">
+          <p data-i18n="modal.how.sources.body" class="leading-relaxed">HTML, HTTP, DNS and structured data are primary. Optional public providers add provenance-rich evidence and may fail without reducing the score.</p>
         </div>
-        <div id="tab-tools" class="hiw-panel space-y-2">
-          <p class="text-xs text-slate-400 mb-3">Every external API is free-forever with no key required:</p>
-          <div class="space-y-2">
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">🤖 Cloudflare Workers AI</div><div class="text-xs text-slate-500">Llama 3.1-8B. Free: 10,000 neurons/day.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">🔒 crt.sh Certificate Transparency</div><div class="text-xs text-slate-500 font-mono">crt.sh/?q={domain}&amp;output=json</div><div class="text-xs text-slate-500 mt-1">Free, no key. SSL cert details from CT logs.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">📖 Wikipedia + Wikidata REST</div><div class="text-xs text-slate-500">Brand article + entity graph. Free, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">🕰 Wayback Machine CDX</div><div class="text-xs text-slate-500">Domain age from earliest archived snapshot. Free, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">📡 ipinfo.io Geolocation</div><div class="text-xs text-slate-500">City, country, ASN. Free: 50k/month, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">🔎 Google Autocomplete</div><div class="text-xs text-slate-500">Keyword suggestions via suggestqueries.google.com. Free, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">🛡 Mozilla Observatory</div><div class="text-xs text-slate-500">HTTP security header grading (A–F). Free, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">📊 Google CrUX API</div><div class="text-xs text-slate-500">Real-user LCP, CLS, FCP, INP, TTFB. Free, no key.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="font-semibold text-xs mb-1">☁ Cloudflare DNS-over-HTTPS</div><div class="text-xs text-slate-500">A/MX/NS/TXT/DKIM lookups. Free, no key.</div></div>
-          </div>
+        <div id="tab-scoring" class="hiw-panel">
+          <p data-i18n="modal.how.scoring.body" class="leading-relaxed">Pass weight is divided by known applicable pass + fail weight. Predicted output has zero weight. Insufficient coverage returns no overall score.</p>
         </div>
-        <div id="tab-stack" class="hiw-panel space-y-2">
-          <p class="text-xs text-slate-400 mb-3">100% Cloudflare free tier:</p>
-          <div class="grid grid-cols-2 gap-2">
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">⚡ Workers</div><div class="text-xs text-slate-500">Edge runtime. Free: 100K req/day.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">🗃 D1 SQLite</div><div class="text-xs text-slate-500">Stores results + monitoring subs. Free: 5M rows.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">🔑 KV</div><div class="text-xs text-slate-500">Cache layer (3-day TTL). Free: 100K reads/day.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">🤖 Workers AI</div><div class="text-xs text-slate-500">Llama inference. Free: 10K neurons/day.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">📄 Pages</div><div class="text-xs text-slate-500">Frontend hosting. Free: unlimited bandwidth.</div></div>
-            <div class="p-3 border border-slate-200 rounded-xl"><div class="text-xs font-semibold mb-1">📧 Resend</div><div class="text-xs text-slate-500">Email alerts. Free: 3K emails/month.</div></div>
-          </div>
-        </div>
-        <div id="tab-privacy" class="hiw-panel space-y-3 text-xs text-slate-600 leading-relaxed">
-          <div class="p-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-xs font-medium">No account. No cookies. No tracking. No ads.</div>
-          <ul class="space-y-2">
-            <li class="flex gap-2"><span class="text-slate-400 shrink-0">→</span><span><strong>Stored:</strong> Domain, full audit JSON, timestamp in Cloudflare D1. Audited domains are public and non-confidential.</span></li>
-            <li class="flex gap-2"><span class="text-slate-400 shrink-0">→</span><span><strong>Cache:</strong> Results cached in KV for a short period so repeated views do not burn audit quota.</span></li>
-            <li class="flex gap-2"><span class="text-slate-400 shrink-0">→</span><span><strong>Monitoring:</strong> Email stored only in D1, never sold. You can unsubscribe any time.</span></li>
-            <li class="flex gap-2"><span class="text-slate-400 shrink-0">→</span><span><strong>Rate limiting:</strong> 8 fresh audits/hour per IP. Cached report views are not counted.</span></li>
-            <li class="flex gap-2"><span class="text-slate-400 shrink-0">→</span><span><strong>AI models:</strong> AI scoring uses Cloudflare Workers AI or configured enrichment providers; results are informational estimates.</span></li>
-          </ul>
+        <div id="tab-privacy" class="hiw-panel">
+          <p data-i18n="modal.how.privacy.body" class="leading-relaxed">No account is required. Only public targets should be submitted. Cached results reduce duplicate work and do not consume fresh-audit quota.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
-
 <!-- ══════════════════════════════════════════════════════════════════
      NAV
 ═══════════════════════════════════════════════════════════════════ -->
@@ -733,21 +671,26 @@
         <circle cx="24" cy="9" r="2.5" fill="#34d399"/>
       </svg>
       <span class="text-lg font-bold text-slate-900 tracking-tight">GeoScore</span>
-      <span id="nav-free-label" class="hidden sm:inline text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Free</span>
+      <span id="nav-free-label" data-i18n="nav.free" class="hidden sm:inline text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Free</span>
     </a>
     <div class="flex items-center gap-2">
+      <label class="sr-only" for="ui-language-select" data-i18n="language.label">Language</label>
+      <select id="ui-language-select" data-language-select class="text-xs text-slate-600 border border-slate-200 bg-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Language">
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
       <a id="nav-tools-link" href="/tools" class="hidden sm:flex text-xs text-slate-500 hover:text-blue-600 transition-colors items-center gap-1.5 font-medium px-2.5 py-1.5 rounded-lg hover:bg-blue-50">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-        Free Tools
+        <span data-i18n="nav.tools">Free Tools</span>
       </a>
       <button id="hiw-open-btn"
         class="hidden sm:flex text-xs text-slate-500 hover:text-blue-600 transition-colors items-center gap-1.5 font-medium px-2.5 py-1.5 rounded-lg hover:bg-blue-50">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01"/></svg>
-        How it works
+        <span data-i18n="nav.how">How it works</span>
       </button>
       <button id="nav-fresh-btn" class="hidden text-xs text-orange-600 hover:text-orange-700 font-medium border border-orange-200 hover:border-orange-400 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        Start Fresh
+        <span data-i18n="nav.fresh">Start Fresh</span>
       </button>
     </div>
   </div>
@@ -765,37 +708,33 @@
     <div class="flex items-center justify-center gap-3 mb-6 flex-wrap">
       <span id="hero-free-label" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-sm">
         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        Free Forever
+        <span data-i18n="hero.eyebrow">Evidence-first SEO + GEO audit</span>
       </span>
-      <span id="hero-limit-label" class="text-xs text-slate-400 font-medium hidden sm:inline">No signup · 8 fresh audits/IP/hour · cached results free</span>
+      <span id="hero-limit-label" data-i18n="hero.limit" class="text-xs text-slate-400 font-medium hidden sm:inline">No signup · fair-use fresh audits · cached reports do not consume fresh-audit quota</span>
     </div>
 
     <!-- Headline -->
     <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.1] tracking-tight">
-      <span id="hero-title-prefix">Will AI search engines</span><br class="hidden sm:block">
-      <span id="hero-title-accent" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">cite your website?</span>
+      <span id="hero-title-prefix" data-i18n="hero.title" class="bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 bg-clip-text text-transparent">Make your website easier for search and AI to understand</span>
     </h1>
-    <p id="hero-description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">
-      The deepest free SEO &amp; GEO audit on the web — 39 checks across Technical SEO,
-      AI Citation Prediction, Schema, Authority, and real Core Web Vitals. Results in ~30 seconds.
-    </p>
+    <p id="hero-description" data-i18n="hero.description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">Audit public sites with bounded page sampling, factual SEO/GEO checks, PageSpeed data, and evidence-linked fixes. Predictions are shown separately and never change the factual score.</p>
 
     <!-- Feature chips -->
     <div class="grid grid-cols-3 gap-2 sm:gap-3 max-w-xl mx-auto mt-6">
       <div class="feature-chip">
         <div class="text-xl mb-1.5">⚙️</div>
-        <div id="feature-seo-title" class="text-xs font-bold text-slate-800">Technical SEO</div>
-        <div id="feature-seo-sub" class="text-[10px] text-slate-400 mt-0.5 leading-tight">39+ live checks<br>incl. AI bot policy</div>
+        <div id="feature-seo-title" data-i18n="hero.feature.seo.title" class="text-xs font-bold text-slate-800">Factual SEO</div>
+        <div id="feature-seo-sub" data-i18n="hero.feature.seo.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Indexability, metadata, structure, schema and performance</div>
       </div>
       <div class="feature-chip">
         <div class="text-xl mb-1.5">🤖</div>
-        <div id="feature-ai-title" class="text-xs font-bold text-slate-800">AI Visibility</div>
-        <div id="feature-ai-sub" class="text-[10px] text-slate-400 mt-0.5 leading-tight">ChatGPT · Perplexity<br>Gemini citation test</div>
+        <div id="feature-ai-title" data-i18n="hero.feature.geo.title" class="text-xs font-bold text-slate-800">GEO readiness</div>
+        <div id="feature-ai-sub" data-i18n="hero.feature.geo.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Entity clarity, extractability, authorship and source support</div>
       </div>
       <div class="feature-chip">
         <div class="text-xl mb-1.5">🏛️</div>
-        <div id="feature-authority-title" class="text-xs font-bold text-slate-800">Authority Signals</div>
-        <div id="feature-authority-sub" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Domain age · OPR<br>Wikipedia · Backlinks</div>
+        <div id="feature-authority-title" data-i18n="hero.feature.evidence.title" class="text-xs font-bold text-slate-800">Evidence first</div>
+        <div id="feature-authority-sub" data-i18n="hero.feature.evidence.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Every action names the page, observation, fix and re-check</div>
       </div>
     </div>
 
@@ -805,15 +744,15 @@
       <span class="text-slate-200">·</span>
       <span class="flex items-center gap-1">
         <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        <span id="trust-tracking-label">Zero tracking</span>
+        <span id="trust-tracking-label" data-i18n="hero.trust.noTracking">No advertising profiles</span>
       </span>
       <span class="text-slate-200">·</span>
       <span class="flex items-center gap-1">
         <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        <span id="trust-account-label">No account needed</span>
+        <span id="trust-account-label" data-i18n="hero.trust.noAccount">No account needed</span>
       </span>
       <span class="text-slate-200">·</span>
-      <span id="trust-open-label">Open-source stack</span>
+      <span id="trust-open-label" data-i18n="hero.trust.open">MIT open source</span>
     </p>
 
     <!-- Search box -->
@@ -824,21 +763,21 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
           </svg>
         </div>
-        <label for="search-input" class="sr-only">Enter a website domain to audit (for example: stripe.com)</label>
+        <label for="search-input" data-i18n="hero.input.label" class="sr-only">Website domain or public URL to audit</label>
         <input id="search-input" type="text" autocomplete="off" spellcheck="false"
           class="w-full pl-12 pr-32 py-4 rounded-2xl border-2 border-slate-200 focus:border-blue-500 shadow-sm text-base focus:outline-none bg-white transition-colors font-medium"
-          placeholder="stripe.com, bbc.co.uk, shopify.com…"
-          aria-label="Website domain to audit">
+          data-i18n-placeholder="hero.input.placeholder" placeholder="blog.example.com or https://example.com/post"
+          data-i18n-aria-label="hero.input.label" aria-label="Website domain or public URL to audit">
         <button id="audit-btn"
           class="absolute right-2 top-2 bottom-2 px-5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
-          Audit
+          <span data-i18n="hero.audit">Audit</span>
         </button>
         <ul id="suggestions" class="absolute z-10 w-full bg-white border border-slate-200 rounded-2xl shadow-xl mt-1.5 hidden overflow-hidden"></ul>
       </div>
       <div class="flex items-center justify-between mt-2.5 px-1 flex-wrap gap-2">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <span id="try-label" class="text-xs text-slate-400">Try:</span>
+          <span id="try-label" data-i18n="hero.try" class="text-xs text-slate-400">Try:</span>
           <button class="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors font-medium text-slate-600 shadow-sm" data-quick="stripe.com">
             <img src="https://www.google.com/s2/favicons?sz=16&domain_url=stripe.com" alt="" class="w-3 h-3 rounded-sm" onerror="this.style.display='none'">stripe.com</button>
           <button class="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors font-medium text-slate-600 shadow-sm" data-quick="booking.com">
@@ -854,7 +793,7 @@
       <div class="mt-4 text-center">
         <a href="/?d=stripe.com" class="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          See a live example audit →
+          <span data-i18n="hero.example">See a live example audit →</span>
         </a>
       </div>
       <!-- Recent audits — populated from localStorage -->
@@ -866,284 +805,66 @@
        HOMEPAGE INFO SECTIONS — visible only when no audit is running.
        Hidden via CSS :has() rule when #audit becomes visible.
   ═══════════════════════════════════════════════════════════════════ -->
-  <section id="homepage-info" class="mb-8 space-y-6 print:hidden">
-
-    <!-- ─── At a glance — facts & pricing for AI crawlers ──────── -->
+<section id="homepage-info" class="mb-8 space-y-6 print:hidden">
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">GeoScore at a glance</h2>
-      <p class="text-sm text-slate-500 mb-6 leading-relaxed">Key facts about the tool — cost, speed, limits, and what the audit covers.</p>
-      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="rounded-xl bg-green-50 border border-green-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Price</dt>
-          <dd class="text-3xl font-extrabold text-green-800">$0</dd>
-          <dd class="text-xs text-green-600 mt-0.5">Free forever · no tiers</dd>
-        </div>
-        <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Checks</dt>
-          <dd class="text-3xl font-extrabold text-blue-800">39</dd>
-          <dd class="text-xs text-blue-600 mt-0.5">Individual checks per audit</dd>
-        </div>
-        <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Modules</dt>
-          <dd class="text-3xl font-extrabold text-blue-800">15</dd>
-          <dd class="text-xs text-blue-600 mt-0.5">All run in parallel</dd>
-        </div>
-        <div class="rounded-xl bg-purple-50 border border-purple-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Speed</dt>
-          <dd class="text-3xl font-extrabold text-purple-800">&lt;30s</dd>
-          <dd class="text-xs text-purple-600 mt-0.5">Results stream live</dd>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Account</dt>
-          <dd class="text-sm font-bold text-slate-800">None required</dd>
-          <dd class="text-xs text-slate-500 mt-0.5">No API key · no signup</dd>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Usage limits</dt>
-          <dd class="text-sm font-bold text-slate-800">Fair-use</dd>
-          <dd class="text-xs text-slate-500 mt-0.5">8 fresh audits/IP/hour</dd>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Licence</dt>
-          <dd class="text-sm font-bold text-slate-800">MIT open source</dd>
-          <dd class="text-xs text-slate-500 mt-0.5"><a href="https://github.com/sprawf/geoscore" class="underline hover:text-blue-600 transition-colors">View on GitHub</a></dd>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-          <dt class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Privacy</dt>
-          <dd class="text-sm font-bold text-slate-800">Public results</dd>
-          <dd class="text-xs text-slate-500 mt-0.5">No account · no profiles · no ads</dd>
-        </div>
+      <h2 data-i18n="meta.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">GeoScore at a glance</h2>
+      <p data-i18n="meta.subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">Live product facts come from the deployed API.</p>
+      <dl id="meta-facts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-center"><dt data-i18n="meta.version" class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Version</dt><dd data-meta-fact="version" class="text-sm font-bold text-blue-800">...</dd></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.pages" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Site sample</dt><dd data-meta-fact="pages" class="text-sm font-bold text-slate-800">...</dd></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.modes" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Audit modes</dt><dd data-meta-fact="modes" class="text-sm font-bold text-slate-800">...</dd></div>
+        <div class="rounded-xl bg-green-50 border border-green-100 p-4 text-center"><dt data-i18n="meta.rate" class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Fresh-audit limit</dt><dd data-meta-fact="rate" class="text-sm font-bold text-green-800">...</dd></div>
+        <div class="rounded-xl bg-purple-50 border border-purple-100 p-4 text-center"><dt data-i18n="meta.license" class="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">License</dt><dd data-meta-fact="license" class="text-sm font-bold text-purple-800">MIT</dd></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.source" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Source</dt><dd><a data-meta-fact="source" href="https://github.com/Amiyadesi/geoscore" class="text-sm font-bold text-blue-700 underline hover:text-blue-600 transition-colors">GitHub</a></dd></div>
       </dl>
+      <p id="meta-facts-status" data-i18n="meta.loading" class="text-xs text-slate-400 mt-4 text-center">Loading live product facts...</p>
     </div>
-
-    <!-- ─── Scope & Disclaimer ───────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Scope and data sources</h2>
-      <p class="text-sm text-slate-500 mb-5 leading-relaxed">
-        GeoScore audits public domain hostnames only. It does not audit localhost, private networks, IP ranges,
-        IP address literals, custom ports, or specific URL paths.
-      </p>
+      <h2 data-i18n="scope.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Scope and data sources</h2>
+      <p data-i18n="scope.subtitle" class="text-sm text-slate-500 mb-5 leading-relaxed">GeoScore audits public HTTP(S) sites. Private networks, IP literals, credentials and custom ports are rejected.</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4">
-          <div class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Public fetches</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Homepage HTML, robots.txt, sitemap.xml, llms.txt, redirects, headers, TLS, DNS, and public metadata are fetched from the open web.</p>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4">
-          <div class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">External APIs</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Scores can use PageSpeed, CrUX, OpenPageRank, Mozilla Observatory, search gateway enrichment, public DNS, certificate logs, and AI inference.</p>
-        </div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4">
-          <div class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Not professional advice</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Results are informational SEO/GEO signals. They are not legal, financial, compliance, penetration testing, or professional security audit conclusions.</p>
-        </div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.fetch.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Bounded public fetches</div><p data-i18n="scope.fetch.body" class="text-xs text-slate-500 leading-relaxed">Site mode samples the homepage, About page and representative internal pages. URL mode audits the target and may read the homepage for context.</p></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.sources.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Optional evidence sources</div><p data-i18n="scope.sources.body" class="text-xs text-slate-500 leading-relaxed">PageSpeed, CrUX, W3C Nu, Common Crawl, DNS, certificate logs and other public APIs can add evidence. Provider failure is reported as unknown or error, not as a penalty.</p></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.advice.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Informational, not professional advice</div><p data-i18n="scope.advice.body" class="text-xs text-slate-500 leading-relaxed">Results are SEO/GEO signals, not legal, financial, compliance, penetration-testing or professional security conclusions.</p></div>
       </div>
     </div>
-
-    <!-- ─── What GeoScore Checks ─────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">What GeoScore Checks</h2>
-      <p class="text-sm text-slate-500 mb-6 leading-relaxed">
-        39 individual checks across 15 modules — every one runs live against your real domain.
-        No cached data, no estimates, no marketing fluff.
-      </p>
+      <h2 data-i18n="checks.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">What GeoScore checks</h2>
+      <p data-i18n="checks.subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">Known, applicable factual checks determine readiness scores. Unknown, error and not-applicable states do not reduce them.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">⚙️ Technical SEO</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Response time, page weight, render-blocking scripts, DOM size, compression, AI bot policy in robots.txt, llms.txt presence, sitemap discovery.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">📄 On-Page SEO</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Heading structure (H1–H3), word count, internal vs external links, image alt coverage, modern formats (WebP, AVIF), FAQ section detection.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">🗂️ Schema Markup</div>
-          <p class="text-xs text-slate-500 leading-relaxed">JSON-LD parsing, Organization, LocalBusiness, Product, FAQPage, BreadcrumbList, WebSite, Review and Offer coverage scoring.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">📝 Content Quality</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Flesch reading ease, average grade level, contact-signal detection, content depth, and language declaration.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">♿ Accessibility</div>
-          <p class="text-xs text-slate-500 leading-relaxed">WCAG 2.1 AA checks: alt text, form labels, ARIA landmarks, skip-nav, heading hierarchy, link text, language attribute.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">🛡️ Security Audit</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Live Mozilla Observatory scan: CSP, HSTS, X-Frame, CORS, COOP, SRI, and grade A+ to F with deduction explanations.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">🤖 AI Visibility</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Three real Llama 3.1 simulated queries predict whether ChatGPT, Perplexity, Claude, and Gemini would cite your site as a source.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">🏛️ Domain Authority</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Wikipedia presence, Wikidata entity detection, sampled backlinks, domain age, and Open PageRank score for entity grounding.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">📊 E-E-A-T Scorecard</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Google quality evaluator signals: Experience, Expertise, Authoritativeness, Trustworthiness — derived from on-page and off-page signals.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">🌐 DNS &amp; Network</div>
-          <p class="text-xs text-slate-500 leading-relaxed">IPv4, IPv6, nameservers, MX records, TXT count, email security (SPF, DMARC, DKIM), CDN identification, server location.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">🔗 Social &amp; Meta</div>
-          <p class="text-xs text-slate-500 leading-relaxed">SERP snippet preview, Twitter and LinkedIn card rendering, Open Graph completeness, social profile detection, hreflang scan.</p>
-        </div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">📈 Performance</div>
-          <p class="text-xs text-slate-500 leading-relaxed">Real Google CrUX field data: LCP, INP, CLS — Core Web Vitals from actual Chrome users, not synthetic Lighthouse runs.</p>
-        </div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.index.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Indexability and discovery</div><p data-i18n="checks.index.body" class="text-xs text-slate-500 leading-relaxed">robots.txt, sitemap discovery, canonical URLs, noindex directives and public fetch status.</p></div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.page.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Page semantics</div><p data-i18n="checks.page.body" class="text-xs text-slate-500 leading-relaxed">Titles, descriptions, headings, language, links, images and cross-page consistency.</p></div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.schema.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Schema fit</div><p data-i18n="checks.schema.body" class="text-xs text-slate-500 leading-relaxed">JSON-LD presence is separated from whether a schema type fits the detected site and page type.</p></div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.geo.title" class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">Factual GEO readiness</div><p data-i18n="checks.geo.body" class="text-xs text-slate-500 leading-relaxed">Entity and author consistency, direct answers, extractability, claim/source support, statistic provenance and freshness.</p></div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.performance.title" class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">Performance evidence</div><p data-i18n="checks.performance.body" class="text-xs text-slate-500 leading-relaxed">PageSpeed lab data and CrUX field data retain source, status and partial-failure details.</p></div>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.predicted.title" class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">Predicted visibility</div><p data-i18n="checks.predicted.body" class="text-xs text-slate-500 leading-relaxed">AI simulations are clearly labelled Predicted, carry zero scoring weight and are not presented as real citations.</p></div>
       </div>
     </div>
-
-    <!-- ─── Why It Matters ────────────────────────────────────────── -->
     <div class="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border border-blue-100 p-6 sm:p-8">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Why AI visibility matters in 2026</h2>
-      <p class="text-sm text-slate-600 leading-relaxed mb-4">
-        Search is splitting in two. Half your prospective customers still type into Google and click a blue link.
-        The other half ask ChatGPT, Perplexity, Claude, or Gemini and read a generated answer — and AI answers
-        only mention you if your site sends the right signals.
-      </p>
-      <p class="text-sm text-slate-600 leading-relaxed mb-4">
-        Traditional SEO targets <strong>ranking</strong>. GEO — Generative Engine Optimization — targets being
-        <strong>quoted</strong>. The two share some signals (schema, page authority, content quality), but GEO
-        also depends on entity grounding (Wikipedia, Wikidata), structured Q&amp;A, specific facts, and whether
-        AI crawlers can actually access your content.
-      </p>
-      <p class="text-sm text-slate-600 leading-relaxed mb-5">
-        GeoScore is the first free tool that scores both side by side. Run an audit and you'll see exactly
-        which signals are working, which are missing, and which fixes give the highest return for the effort.
-      </p>
-      <h3 class="text-sm font-bold text-slate-800 mb-3">What your audit report includes</h3>
+      <h2 data-i18n="why.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-3">SEO and GEO work together</h2>
+      <p data-i18n="why.body" class="text-sm text-slate-600 leading-relaxed mb-5">Search and answer systems both need crawlable pages, clear entities, extractable answers and well-supported claims. GeoScore turns those observable signals into a prioritized repair list without inventing business facts.</p>
+      <h3 data-i18n="report.includes.title" class="text-sm font-bold text-slate-800 mb-3">What the report includes</h3>
       <ul class="space-y-2.5 text-sm text-slate-700">
-        <li class="flex items-start gap-2.5">
-          <span class="text-blue-500 font-bold mt-0.5 shrink-0">→</span>
-          <span><strong>SEO score 0–100</strong> — weighted across Technical SEO, On-Page SEO, Schema Markup, Content Quality, Accessibility (9 WCAG 2.1 AA checks), Security, Social &amp; Meta, and real Core Web Vitals from Chrome UX data.</span>
-        </li>
-        <li class="flex items-start gap-2.5">
-          <span class="text-purple-500 font-bold mt-0.5 shrink-0">→</span>
-          <span><strong>GEO score 0–100</strong> — AI citation probability combining domain authority signals (70 %) with a live Llama 3.1 AI citation simulation (30 %), giving a single number for how likely ChatGPT, Perplexity, or Gemini would cite your page.</span>
-        </li>
-        <li class="flex items-start gap-2.5">
-          <span class="text-green-500 font-bold mt-0.5 shrink-0">→</span>
-          <span><strong>Ranked action plan</strong> — every finding sorted by impact score so you fix what moves the needle first, not what's easiest.</span>
-        </li>
-        <li class="flex items-start gap-2.5">
-          <span class="text-slate-400 font-bold mt-0.5 shrink-0">→</span>
-          <span><strong>PDF export &amp; embed badge</strong> — download a full report and embed a live score badge on your site.</span>
-        </li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.profile">Site profile and confidence before scores</span></li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.pages">The sampled pages and evidence source for each finding</span></li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.actions">Three priority actions with observation, reason, fix and verification</span></li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.fixpack">Optional AI fix packs grounded only in recorded failures</span></li>
       </ul>
     </div>
-
-    <!-- ─── FAQ ───────────────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Frequently asked questions</h2>
-      <p class="text-sm text-slate-500 mb-6">Quick answers about what GeoScore does, how it works, and what it costs.</p>
+      <h2 data-i18n="faq.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Frequently asked questions</h2>
+      <p data-i18n="faq.subtitle" class="text-sm text-slate-500 mb-6">Short answers about scoring, predictions, privacy and limits.</p>
       <div class="space-y-3">
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>Is GeoScore really free to use?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            Yes, free with no hidden tiers. There's no signup, no API key, and no credit card. To keep the public service
-            stable, fresh audits are fair-use limited to 8 per IP per hour. Cached results do not consume that quota.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>How does GeoScore check if ChatGPT would cite my website?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            We use Cloudflare Workers AI running Llama 3.1 to simulate three realistic AI search queries for your industry.
-            The model evaluates whether your page contains the structured facts, authority signals, and content depth
-            that AI engines look for when constructing cited answers. You get a citation probability score from 0 to 100
-            with per-query confidence levels and reasoning.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>What is GEO (Generative Engine Optimization)?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            GEO stands for Generative Engine Optimization — the practice of making your website more likely to be cited
-            by AI assistants like ChatGPT, Perplexity, Claude, and Gemini when they answer user questions. Unlike
-            traditional SEO which targets ranking in Google's results, GEO targets being quoted as a source in
-            AI-generated answers. Key GEO signals include schema markup, authority entities (Wikipedia, Wikidata),
-            specific facts, and structured Q&amp;A content.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>What does the GeoScore audit actually check?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            39 individual checks across 15 modules: Technical SEO, On-Page SEO, Schema Markup, Content Quality,
-            Accessibility (WCAG), Security Headers (Mozilla Observatory), International SEO, Social &amp; Meta Tags,
-            AI Visibility (citation prediction), Off-Page SEO, Domain Authority, Site Intelligence, DNS &amp; Network,
-            SSL Certificate, and Redirect Chain. All checks run live against your real domain — no cached or stale data.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>How long does a GeoScore audit take?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            Most audits complete in 15 to 30 seconds. All 15 modules run in parallel via Cloudflare Workers and stream
-            results over Server-Sent Events as each module finishes, so you start seeing data within the first second
-            instead of waiting for the full report.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>Does GeoScore store my data or track me?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            We store only the public audit results for the domain you requested, keyed by domain name and cached for
-            a short period. Rate-limit counters are keyed by IP for abuse control only. There's no user account requirement,
-            no user-profile logging, and no data resale. The full source code is on GitHub under the MIT licence so you can
-            verify this yourself.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>Can GeoScore audit localhost, private networks, or IP addresses?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            No. GeoScore only audits public domain hostnames. Localhost, internal hostnames, private networks,
-            IP literals, custom ports, and URL paths are rejected.
-          </div>
-        </details>
-
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200">
-          <summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none">
-            <span>Is GeoScore a legal, financial, or security audit?</span>
-            <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">
-            No. GeoScore reports public webpage, DNS, public API, PageSpeed/OpenPageRank/search enrichment, and AI-inferred
-            signals. It is not legal advice, financial advice, compliance review, penetration testing, or a professional
-            security audit.
-          </div>
-        </details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.free.q">Is GeoScore free?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.free.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Yes. The public service uses fair-use limits for fresh audits. Cached report views do not consume the fresh-audit quota.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.predicted.q">Does GeoScore monitor real AI citations?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.predicted.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. It audits factual SEO/GEO readiness and may show a separate Predicted simulation. It does not claim to observe live citations from third-party answer engines.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.score.q">How are scores calculated?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.score.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Only known, applicable pass/fail checks are scored. Unknown, error and not-applicable checks are excluded. Low coverage can produce an insufficient-evidence result instead of a misleading zero.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.language.q">Which language does the report use?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.language.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">The product follows your saved UI language. The report defaults to the audited page language and has its own saved English/Chinese switch.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.data.q">What data is stored?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.data.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">GeoScore stores public audit results and operational rate-limit/cache data. Do not submit confidential or private URLs.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.local.q">Can it audit localhost or private networks?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.local.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. Only public domain hostnames and public HTTP(S) URLs are accepted.</div></details>
       </div>
     </div>
-
   </section>
+
 
   <!-- Audit Results ─────────────────────────────────────────────── -->
   <div id="audit" class="hidden space-y-4">
@@ -1165,19 +886,19 @@
 
           <button id="share-btn" class="text-xs border border-slate-200 hover:border-green-300 hover:text-green-600 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 text-slate-600">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-            Share
+            <span data-i18n="audit.share">Share</span>
           </button>
-          <button id="tweet-btn" class="text-xs border border-slate-200 hover:border-sky-300 hover:text-sky-500 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 text-slate-600 print:hidden" title="Share score on X / Twitter">
+          <button id="tweet-btn" class="text-xs border border-slate-200 hover:border-sky-300 hover:text-sky-500 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 text-slate-600 print:hidden" data-i18n-title="audit.shareTitle" title="Share this audit on X">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            Share score
+            <span data-i18n="audit.shareScore">Share score</span>
           </button>
-          <button id="agent-btn" class="text-xs border border-violet-200 hover:border-violet-400 text-violet-700 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5" title="Download a structured markdown file optimised for AI coding agents (Claude Code, Cursor, etc.) to fix SEO issues automatically">
+          <button id="agent-btn" class="text-xs border border-violet-200 hover:border-violet-400 text-violet-700 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5" data-i18n-title="audit.fixTasksTitle" title="Download evidence-linked repair tasks for a coding assistant">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            Agent Tasks
+            <span data-i18n="audit.fixTasks">Fix tasks</span>
           </button>
           <button id="export-btn" class="text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Export PDF
+            <span data-i18n="audit.export">Export PDF</span>
           </button>
         </div>
       </div>
@@ -1222,7 +943,7 @@
               </div>
             </div>
             <div class="text-center">
-              <div id="seo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" title="Search Engine Optimization — how well search engines like Google can find, understand, and rank your pages.">SEO</span></div>
+              <div id="seo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" data-i18n-title="audit.seoTip" title="SEO reflects observable crawlability, metadata and page-structure checks.">SEO</span></div>
               <div id="seo-grade" class="mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block grade-b">—</div>
               <div id="seo-context" class="text-[10px] text-slate-400 mt-1 leading-tight max-w-[90px]"></div>
             </div>
@@ -1241,8 +962,8 @@
               </div>
             </div>
             <div class="text-center">
-              <div id="geo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" title="GEO = Generative Engine Optimization. How likely AI assistants (ChatGPT, Perplexity, Gemini) are to cite your site in their answers.">GEO · AI</span></div>
-              <div id="geo-sub-label" class="text-[9px] text-slate-400 -mt-0.5">Authority + Citation</div>
+              <div id="geo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" data-i18n-title="audit.geoTip" title="GEO readiness reflects observable entity, authorship, extractability and source signals.">GEO readiness</span></div>
+              <div id="geo-sub-label" data-i18n="audit.factualChecks" class="text-[9px] text-slate-400 -mt-0.5">Factual checks</div>
               <div id="geo-grade" class="mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block grade-b">—</div>
               <div id="geo-context" class="text-[10px] text-slate-400 mt-1 leading-tight max-w-[90px]"></div>
             </div>
@@ -1261,8 +982,8 @@
               </div>
             </div>
             <div class="text-center">
-              <div id="aeo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" title="AEO = Answer Engine Optimisation. Measures how well your website is structured for AI extraction — FAQ schema, question headings, content depth. Note: GEO measures actual AI citation frequency across the web (brand recognition), while AEO measures on-page signals that help AI engines extract and quote your content directly.">AEO</span></div>
-              <div id="aeo-sub-label" class="text-[9px] text-slate-400 -mt-0.5">Answer Engine</div>
+              <div id="aeo-label" class="text-xs font-bold text-slate-700 uppercase tracking-wide"><span class="tech-tip" data-i18n-title="audit.aeoTip" title="Answer readiness reflects observable structure and extractability, not live citations.">AEO</span></div>
+              <div id="aeo-sub-label" data-i18n="audit.extractability" class="text-[9px] text-slate-400 -mt-0.5">Extractability</div>
               <div id="aeo-grade" class="mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block grade-b">—</div>
               <div id="aeo-context" class="text-[10px] text-slate-400 mt-1 leading-tight max-w-[90px]"></div>
             </div>
@@ -1302,10 +1023,10 @@
 
         <!-- Data provenance row -->
         <div id="data-provenance-row" class="hidden mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-3 flex-wrap text-[10px] text-slate-400">
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>Live fetch</span>
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"></span>Google CrUX · PageSpeed</span>
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span>Workers AI · Llama 3.1</span>
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span>HTML parse · DNS</span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span><span data-i18n="audit.provenance.fetch">Public fetch</span></span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"></span><span data-i18n="audit.provenance.performance">CrUX · PageSpeed</span></span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span><span data-i18n="audit.provenance.predicted">AI/API · Predicted</span></span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span><span data-i18n="audit.provenance.parse">HTML parse · DNS</span></span>
         </div>
 
       </div>
@@ -1316,7 +1037,7 @@
           <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
             <div id="progress-fill" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
           </div>
-          <span id="progress-label" class="text-xs text-slate-400 shrink-0 w-28 text-right">0 / 13 modules</span>
+          <span id="progress-label" class="text-xs text-slate-400 shrink-0 w-28 text-right">0 / modules</span>
           <span id="audit-timer" class="text-xs font-mono text-blue-500 shrink-0 w-8 text-right">0s</span>
         </div>
         <div id="progress-status" class="text-[11px] text-slate-400 mt-1.5 min-h-[16px] italic truncate"></div>
@@ -1326,12 +1047,12 @@
     <!-- Category Tabs -->
     <div id="cat-tabs" class="hidden bg-white rounded-xl border border-slate-200 p-1.5 print:hidden">
       <div class="flex gap-1 flex-wrap">
-        <button class="cat-tab active text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="all">All</button>
-        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="seo">SEO Foundation</button>
-        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="geo">GEO &amp; AI</button>
-        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="authority">Authority</button>
-        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="site_intel">Site Intel</button>
-        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="previews">Previews &amp; Tools</button>
+        <button class="cat-tab active text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="all" data-i18n="audit.all">All</button>
+        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="seo" data-i18n="audit.seoFoundation">SEO foundation</button>
+        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="geo" data-i18n="audit.geoTab">GEO + AI</button>
+        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="authority" data-i18n="audit.authority">Authority</button>
+        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="site_intel" data-i18n="audit.siteIntel">Site intelligence</button>
+        <button class="cat-tab text-xs px-3 py-2 rounded-lg font-medium transition-colors" data-cat="previews" data-i18n="audit.previews">Previews + tools</button>
       </div>
     </div>
 
@@ -1341,10 +1062,10 @@
     <!-- Embed widget CTA (shown after all results) -->
     <div id="embed-cta" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl px-5 py-3.5 flex items-center justify-between print:hidden">
       <div class="text-white">
-        <div class="text-sm font-semibold">Add GeoScore to your website</div>
-        <div class="text-xs text-blue-100 mt-0.5">Embed a live audit badge for any domain — one line of code.</div>
+        <div class="text-sm font-semibold" data-i18n="audit.embed.title">Add GeoScore to your website</div>
+        <div class="text-xs text-blue-100 mt-0.5" data-i18n="audit.embed.body">Embed a live audit badge for any public domain.</div>
       </div>
-      <button id="show-embed-btn" class="shrink-0 bg-white text-blue-700 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">Get embed code</button>
+      <button id="show-embed-btn" data-i18n="audit.embed.action" class="shrink-0 bg-white text-blue-700 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">Get embed code</button>
     </div>
 
   </div>
@@ -1361,9 +1082,9 @@
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-semibold text-indigo-600 flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-            Ask AI about this audit
+            <span data-i18n="audit.chat.title">Ask AI about this audit</span>
           </span>
-          <button id="chat-minimize" class="text-slate-300 hover:text-slate-500 transition-colors p-1 rounded-lg hover:bg-slate-50" title="Minimize chat">
+        <button id="chat-minimize" class="text-slate-300 hover:text-slate-500 transition-colors p-1 rounded-lg hover:bg-slate-50" data-i18n-title="audit.chat.minimize" title="Minimize chat">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
           </button>
         </div>
@@ -1373,10 +1094,10 @@
 
         <!-- Suggestion chips — hidden once conversation starts -->
         <div id="chat-suggestions" class="flex flex-wrap items-center gap-1.5 mb-2">
-          <span class="text-[10px] text-slate-400 shrink-0">Try:</span>
-          <button class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">What's my biggest issue?</button>
-          <button class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">Quick wins to improve score</button>
-          <button class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">How's my GEO visibility?</button>
+          <span class="text-[10px] text-slate-400 shrink-0" data-i18n="hero.try">Try:</span>
+          <button data-i18n="audit.chat.biggest" class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">What's the biggest issue?</button>
+          <button data-i18n="audit.chat.quickWins" class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">Which fixes should I do first?</button>
+          <button data-i18n="audit.chat.geo" class="chat-suggestion text-[11px] border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">How can I improve factual GEO readiness?</button>
         </div>
 
         <!-- Input row -->
@@ -1384,11 +1105,13 @@
           <label for="chat-input" class="sr-only">Ask a question about this audit</label>
           <input id="chat-input" type="text"
             class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-slate-50 placeholder:text-slate-400"
-            placeholder="Ask anything about this audit…"
+            data-i18n-placeholder="audit.chat.placeholder"
+            data-i18n-aria-label="audit.chat.placeholder"
+            placeholder="Ask a question about this audit…"
             aria-label="Ask a question about this audit">
           <button id="chat-send"
             class="px-4 py-2 bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0">
-            Ask ↑
+            <span data-i18n="audit.chat.ask">Ask</span> ↑
           </button>
           <button id="chat-clear" class="hidden items-center gap-1 text-[11px] text-slate-400 hover:text-orange-500 hover:bg-orange-50 px-2 py-1.5 rounded-xl border border-slate-200 transition-colors shrink-0">
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -1405,11 +1128,11 @@
 <!-- Floating chat bubble (minimized state) -->
 <button id="chat-bubble" class="hidden fixed bottom-5 right-5 z-40 bg-gradient-to-br from-blue-600 to-violet-600 text-white rounded-2xl px-4 py-2.5 shadow-xl text-sm font-semibold hover:opacity-90 transition-all items-center gap-2 print:hidden">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-  Ask AI
+  <span data-i18n="audit.chat.title">Ask AI about this audit</span>
 </button>
 
 <!-- Scroll-to-top -->
-<button id="scroll-top" class="fixed bottom-20 right-4 z-40 w-9 h-9 bg-white border border-slate-200 rounded-full shadow-md hidden items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-300 print:hidden" aria-label="Back to top">
+<button id="scroll-top" class="fixed bottom-20 right-4 z-40 w-9 h-9 bg-white border border-slate-200 rounded-full shadow-md hidden items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-300 print:hidden" data-i18n-aria-label="audit.backToTop" aria-label="Back to top">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
 </button>
 
@@ -1429,23 +1152,23 @@
             <circle cx="24" cy="9" r="2.5" fill="#34d399"/>
           </svg>
           <span class="font-bold text-slate-900">GeoScore</span>
-          <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Free fair-use</span>
+          <span data-i18n="footer.fairUse" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Free fair-use</span>
         </div>
         <p class="text-xs text-slate-400 max-w-xs leading-relaxed">
-          Instant SEO &amp; AI visibility audits for public domains. Results come from public fetches, public APIs, and AI inference — free, no login, open source.
+          <span data-i18n="footer.tagline">Evidence-first SEO and GEO audits for public websites.</span>
         </p>
         <div class="flex items-center gap-3 flex-wrap">
           <span class="text-xs text-slate-400 flex items-center gap-1">
             <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-            No account needed
+            <span data-i18n="footer.noAccount">No account needed</span>
           </span>
           <span class="text-xs text-slate-400 flex items-center gap-1">
             <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-            Zero tracking
+            <span data-i18n="footer.noTracking">No advertising profiles</span>
           </span>
           <span class="text-xs text-slate-400 flex items-center gap-1">
             <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-            Open source
+            <span data-i18n="footer.opensource">Open source</span>
           </span>
         </div>
       </div>
@@ -1455,12 +1178,12 @@
         <div class="flex items-center gap-4">
           <button id="footer-hiw-btn"
             class="text-xs text-slate-500 hover:text-blue-600 transition-colors font-medium">
-            How it works
+            <span data-i18n="nav.how">How it works</span>
           </button>
           <a href="/?d=stripe.com" class="text-xs text-slate-500 hover:text-blue-600 transition-colors font-medium">
-            Example audit
+            <span data-i18n="footer.example">Example audit</span>
           </a>
-          <a href="https://github.com/sprawf/geoscore" target="_blank" rel="noopener"
+          <a href="https://github.com/Amiyadesi/geoscore" target="_blank" rel="noopener"
             class="text-xs text-slate-500 hover:text-slate-900 transition-colors font-medium flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
             GitHub
@@ -1468,16 +1191,16 @@
         </div>
 
         <!-- GitHub star CTA -->
-        <a href="https://github.com/sprawf/geoscore" target="_blank" rel="noopener"
+        <a href="https://github.com/Amiyadesi/geoscore" target="_blank" rel="noopener"
           class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors">
           <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-          Star on GitHub
+          <span data-i18n="footer.github">GitHub</span>
           <svg class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
         </a>
 
         <p class="text-[11px] text-slate-400">
-          Built on Cloudflare's free tier · MIT licence ·
-          <button id="footer-privacy-btn" class="underline hover:text-slate-600 transition-colors">Privacy</button>
+          <span data-i18n="footer.built">Built on Cloudflare's free tier · MIT license ·</span>
+          <button id="footer-privacy-btn" data-i18n="footer.privacy" class="underline hover:text-slate-600 transition-colors">Privacy</button>
         </p>
       </div>
 
@@ -1485,6 +1208,7 @@
   </div>
 </footer>
 
+<script src="i18n.js"></script>
 <script src="report-ui.js"></script>
 <script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "faab01a9e51d436c9d34f5902b5567e9"}'></script><!-- End Cloudflare Web Analytics -->

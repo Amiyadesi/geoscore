@@ -4,94 +4,67 @@ const API = window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].i
   ? LOCAL_API
   : PRODUCTION_API;
 const REPORT_UI = window.GeoScoreReport;
-const UI_LANGUAGE = REPORT_UI?.language(navigator.language) ?? 'en';
+const I18N = window.GeoScoreI18n;
+const UI_LANGUAGE = I18N ? I18N.getUiLanguage() : (REPORT_UI?.language(navigator.language) ?? 'en');
+const STORED_REPORT_LANGUAGE = I18N ? I18N.getReportLanguage() : null;
 let currentAuditId = null;
 let currentDomain = '';
 let currentAuditData = null;
 let currentLighthouseState = null;
 let currentAuditRequest = null;
-let reportLanguage = UI_LANGUAGE;
-let reportLanguageManuallySet = false;
+let reportLanguage = STORED_REPORT_LANGUAGE || UI_LANGUAGE;
+let reportLanguageManuallySet = Boolean(STORED_REPORT_LANGUAGE);
 const recMap = new Map(); // index → rec object, rebuilt on each audit
+
+function applyUiLanguage() {
+  I18N?.apply?.(document, UI_LANGUAGE);
+  I18N?.bindUiLanguageSelect?.(document);
+}
+
+function uiText(key, vars) {
+  return I18N?.t?.(key, vars, UI_LANGUAGE) ?? key;
+}
+
+function reportText(key, vars) {
+  return I18N?.t?.(key, vars, reportLanguage) ?? key;
+}
 
 document.documentElement.lang = UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en';
 applyUiLanguage();
+document.title = uiText('app.documentTitle');
+window.addEventListener('geoscore:ui-language-change', () => window.location.reload());
 
-function replaceControlLabel(id, label) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const textNodes = [...el.childNodes].filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-  if (textNodes.length) textNodes[textNodes.length - 1].textContent = `\n        ${label}\n      `;
-  else el.append(document.createTextNode(label));
-}
-
-function applyUiLanguage() {
-  if (UI_LANGUAGE !== 'zh') return;
-  const text = {
-    'nav-free-label': '免费',
-    'hero-limit-label': '无需注册 · 每 IP 每小时 8 次新审查 · 缓存结果免费',
-    'hero-title-prefix': 'AI 搜索引擎会',
-    'hero-title-accent': '引用你的网站吗？',
-    'hero-description': '免费、证据优先的 SEO 与 GEO 审查：检查技术 SEO、结构化数据、实体信号、AI 引用预测与真实 Core Web Vitals。',
-    'feature-seo-title': '技术 SEO',
-    'feature-seo-sub': '39+ 项实时检查<br>含 AI 爬虫策略',
-    'feature-ai-title': 'AI 可见性',
-    'feature-ai-sub': 'ChatGPT · Perplexity<br>Gemini 引用预测',
-    'feature-authority-title': '权威信号',
-    'feature-authority-sub': '域名年龄 · OPR<br>Wikipedia · 外链',
-    'trust-tracking-label': '不跟踪用户',
-    'trust-account-label': '无需账号',
-    'trust-open-label': '开源技术栈',
-    'try-label': '试试：',
-    'vm-title': '纠正站点类型',
-    'vm-placeholder': '选择正确的站点类型…',
-  };
-  Object.entries(text).forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = value;
-  });
-  replaceControlLabel('nav-tools-link', '免费工具');
-  replaceControlLabel('hiw-open-btn', '工作原理');
-  replaceControlLabel('nav-fresh-btn', '重新审查');
-  replaceControlLabel('hero-free-label', '永久免费');
-  replaceControlLabel('audit-btn', '开始审查');
-  replaceControlLabel('share-btn', '分享');
-  replaceControlLabel('tweet-btn', '分享分数');
-  replaceControlLabel('agent-btn', '修复任务');
-  replaceControlLabel('export-btn', '导出 PDF');
-  const detectedLabel = document.getElementById('vm-detected-label');
-  if (detectedLabel?.firstChild) detectedLabel.firstChild.textContent = '当前识别为：';
-  const vmSubmit = document.getElementById('vm-submit');
-  if (vmSubmit) vmSubmit.textContent = '应用并重新审查';
-  const vmCancel = document.getElementById('vm-cancel');
-  if (vmCancel) vmCancel.textContent = '取消';
-  const archetypeLabels = {
-    personal_blog: '个人博客', editorial: '编辑型内容站', news_media: '新闻媒体', documentation: '文档站',
-    saas: 'SaaS', ecommerce: '电商', local_business: '本地商家', professional_services: '专业服务',
-    portfolio: '作品集', community: '社区', nonprofit: '非营利组织', other: '其他', unknown: '未知',
-  };
-  document.querySelectorAll('#vm-vertical option[value]').forEach(option => {
-    if (archetypeLabels[option.value]) option.textContent = archetypeLabels[option.value];
-  });
-  const input = document.getElementById('search-input');
-  if (input) {
-    input.placeholder = 'blog.sayori.org、example.com…';
-    input.setAttribute('aria-label', '要审查的网站域名');
+// Product facts are served by the same Worker as audits so static claims do not drift.
+async function loadProductMeta() {
+  const status = document.getElementById('meta-facts-status');
+  try {
+    const response = await fetch(`${API}/api/meta`, { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`meta ${response.status}`);
+    const meta = await response.json();
+    const rate = meta.rate_limit || {};
+    const values = {
+      version: meta.version || meta.score_version || uiText('common.unknown'),
+      pages: meta.max_pages ? uiText('meta.pages.value', { count: meta.max_pages }) : uiText('common.unknown'),
+      modes: Array.isArray(meta.audit_modes) ? meta.audit_modes.join(' / ') : uiText('common.unknown'),
+      rate: rate.fresh_audits && rate.window_hours ? uiText('meta.rate.value', { count: rate.fresh_audits, hours: rate.window_hours }) : uiText('common.unknown'),
+      license: meta.license || 'MIT',
+      source: meta.source_url || 'GitHub',
+    };
+    document.querySelectorAll('[data-meta-fact]').forEach(el => {
+      const key = el.dataset.metaFact;
+      if (key === 'source') {
+        el.href = values.source;
+        el.textContent = 'GitHub';
+      } else if (values[key] != null) {
+        el.textContent = values[key];
+      }
+    });
+    if (status) status.textContent = '';
+  } catch {
+    if (status) status.textContent = uiText('meta.unavailable');
   }
-  const auditDate = document.getElementById('audit-date');
-  if (auditDate) auditDate.textContent = '正在审查…';
-  const tabLabels = {
-    all: '全部',
-    seo: 'SEO 基础',
-    geo: 'GEO 与 AI',
-    authority: '权威信号',
-    site_intel: '站点情报',
-    previews: '预览与工具',
-  };
-  document.querySelectorAll('.cat-tab').forEach(tab => {
-    if (tabLabels[tab.dataset.cat]) tab.textContent = tabLabels[tab.dataset.cat];
-  });
 }
+loadProductMeta();
 
 // ── "How it works?" modal ─────────────────────────────────────────────────
 const hiwModal  = document.getElementById('hiw-modal');
@@ -169,26 +142,25 @@ let computedSectionsRendered = false;
 let auditStartTime = 0;
 let auditTimerInterval = null;
 
-// Descriptive loading messages shown in the progress status bar — makes the audit feel live
-const MODULE_LOADING_MSG = {
-  technical_seo:   'Fetching robots.txt, sitemap & HTTP headers…',
-  schema_audit:    'Extracting JSON-LD structured data from HTML…',
-  content_quality: 'Analysing page content, headings & readability…',
-  authority:       'Querying Wayback Machine, Wikipedia & Open PageRank…',
-  geo_predicted:   'Running AI citation simulation via Llama 3.1…',
-  on_page_seo:     'Analysing headings, metadata and semantic structure…',
-  off_page_seo:    'Checking DNS records & social presence…',
-  site_intel:      'Looking up IP info & third-party scripts…',
-  redirect_chain:  'Tracing live HTTP redirect chain…',
-  accessibility:   'Checking WCAG accessibility patterns in the sampled HTML…',
-  security_audit:  'Scanning HTTP security headers via Mozilla Observatory…',
-  ssl_cert:        'Verifying TLS certificate via crt.sh CT log…',
-  domain_intel:    'Querying RDAP WHOIS & Cloudflare DoH DNS…',
-  crux:            'Fetching 28-day real Chrome user data from Google CrUX…',
-  keywords:        'Generating AI-powered keyword suggestions…',
-  html_validator:  'Validating the primary page with W3C Nu…',
-  common_crawl:    'Checking the latest Common Crawl index…',
-  lighthouse:      'Running Lighthouse performance audit via PageSpeed Insights API…',
+const MODULE_LOADING_KEY = {
+  technical_seo: 'progress.fetch',
+  schema_audit: 'progress.schema',
+  content_quality: 'progress.content',
+  authority: 'progress.authority',
+  geo_predicted: 'progress.predicted',
+  on_page_seo: 'progress.page',
+  off_page_seo: 'progress.authority',
+  site_intel: 'progress.fetch',
+  redirect_chain: 'progress.fetch',
+  accessibility: 'progress.accessibility',
+  security_audit: 'progress.fetch',
+  ssl_cert: 'progress.fetch',
+  domain_intel: 'progress.fetch',
+  crux: 'progress.crux',
+  keywords: 'progress.content',
+  html_validator: 'progress.validator',
+  common_crawl: 'progress.crawl',
+  lighthouse: 'progress.pagespeed',
 };
 
 const MODULE_CATEGORY = {
@@ -208,7 +180,7 @@ const MODULE_SOURCE = {
   schema_audit:    { label: 'HTML parse · JSON-LD',          cls: 'src-slate' },
   content_quality: { label: 'HTML parse',                    cls: 'src-slate' },
   authority:       { label: 'Wayback · Wikipedia · OPR',    cls: 'src-green' },
-  geo_predicted:   { label: 'Predicted · Workers AI · Llama 3.1', cls: 'src-purple' },
+  geo_predicted:   { label: 'Predicted · AI/API',                 cls: 'src-purple' },
   on_page_seo:     { label: 'HTML parse · semantic checks', cls: 'src-slate' },
   off_page_seo:    { label: 'DNS · Social scrape',           cls: 'src-teal' },
   site_intel:      { label: 'ipinfo · DoH DNS',              cls: 'src-slate' },
@@ -218,7 +190,7 @@ const MODULE_SOURCE = {
   ssl_cert:        { label: 'crt.sh CT log',                 cls: 'src-green' },
   domain_intel:    { label: 'RDAP · Cloudflare DoH',         cls: 'src-blue' },
   crux:            { label: 'Google CrUX API',               cls: 'src-green' },
-  keywords:        { label: 'Autocomplete · Workers AI',     cls: 'src-purple' },
+  keywords:        { label: 'Autocomplete · AI/API',         cls: 'src-purple' },
   robots_sitemap:  { label: 'Live fetch · XML parse',         cls: 'src-blue' },
   broken_links:    { label: 'Live HTTP checks',               cls: 'src-blue' },
   mobile_audit:    { label: 'HTML parse',                     cls: 'src-slate' },
@@ -314,23 +286,15 @@ function cardOrder(id) { return CARD_ORDER[id] ?? 500; }
 
 function scoreContext(score) {
   if (reportLanguage === 'zh') {
-    if (score >= 92) return '全球前 5%';
-    if (score >= 85) return '全球前 15%';
-    if (score >= 75) return '全球前 30% · 表现较强';
-    if (score >= 65) return '高于平均';
-    if (score >= 55) return '平均区间';
-    if (score >= 45) return '低于平均';
-    if (score >= 30) return '需要改进';
-    return '存在关键缺口';
+    if (score >= 80) return '事实就绪度较强';
+    if (score >= 60) return '事实就绪度中等';
+    if (score >= 40) return '事实就绪度有限';
+    return '需要优先修复';
   }
-  if (score >= 92) return 'Top 5% globally';
-  if (score >= 85) return 'Top 15% globally';
-  if (score >= 75) return 'Top 30% — strong';
-  if (score >= 65) return 'Above average';
-  if (score >= 55) return 'Average range';
-  if (score >= 45) return 'Below average';
-  if (score >= 30) return 'Needs work';
-  return 'Critical gaps';
+  if (score >= 80) return 'Strong factual readiness';
+  if (score >= 60) return 'Moderate factual readiness';
+  if (score >= 40) return 'Limited factual readiness';
+  return 'Prioritise repairs';
 }
 
 function effortTime(effort) {
@@ -351,7 +315,7 @@ function initProgress() {
   const timer = document.getElementById('audit-timer');
   if (bar) bar.classList.remove('hidden');
   if (fill) fill.style.width = '0%';
-  if (label) label.textContent = UI_LANGUAGE === 'zh' ? `0 / ${TOTAL_MODULES} 项` : `0 / ${TOTAL_MODULES} modules`;
+  if (label) label.textContent = uiText('progress.modules', { done: 0, total: TOTAL_MODULES });
   if (timer) timer.textContent = '0s';
 
   // Clear any previous timer before starting a new one
@@ -379,9 +343,7 @@ function tickProgress() {
   const fill = document.getElementById('progress-fill');
   const label = document.getElementById('progress-label');
   if (fill) fill.style.width = `${pct}%`;
-  if (label) label.textContent = UI_LANGUAGE === 'zh'
-    ? `${modulesComplete} / ${TOTAL_MODULES} 项`
-    : `${modulesComplete} / ${TOTAL_MODULES} modules`;
+  if (label) label.textContent = uiText('progress.modules', { done: modulesComplete, total: TOTAL_MODULES });
   if (modulesComplete >= TOTAL_MODULES) {
     stopAuditTimer();
     setTimeout(() => { const bar = document.getElementById('progress-bar'); if (bar) bar.classList.add('hidden'); }, 1200);
@@ -489,10 +451,10 @@ function setSemanticBadge(state) {
   if (!el) return;
   el.className = 'text-xs px-2 py-0.5 rounded';
   if (state === 'loading') {
-    el.textContent = '⚡ AI loading…';
+    el.textContent = `⚡ ${uiText('semantic.loading')}`;
     el.classList.add('bg-amber-50', 'text-amber-600');
   } else if (state === 'ready') {
-    el.textContent = '⚡ AI search';
+    el.textContent = `⚡ ${uiText('semantic.ready')}`;
     el.classList.add('bg-green-50', 'text-green-700', 'font-medium');
   } else {
     el.textContent = '';
@@ -660,9 +622,11 @@ document.addEventListener('click', (e) => {
   if (languageButton) {
     reportLanguage = REPORT_UI?.language(languageButton.dataset.reportLang) ?? 'en';
     reportLanguageManuallySet = true;
+    I18N?.setReportLanguage?.(reportLanguage);
     applyReportLanguageLabels();
     renderEvidenceFirstSummary(currentAuditData);
     renderScoreSummaryNote(currentAuditData);
+    renderEvidenceReportSections(currentAuditData);
     if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
     return;
   }
@@ -1128,7 +1092,7 @@ Add inside ${headFile}:
       ...(meta.description ? { "description": meta.description } : {})
     }, null, 2);
     addChange('🟠 HIGH', `Add ${schemaType} JSON-LD schema markup`,
-`No structured data found. Schema markup is how Google, ChatGPT, Gemini and Perplexity understand your business entity — without it, AI engines won't cite you.
+`No structured data found. Schema markup gives search and answer systems explicit entity facts; add only types and claims supported by this page.
 
 Add this inside ${headFile} (before </head>):
 \`\`\`html
@@ -1184,7 +1148,7 @@ Then submit it at https://search.google.com/search-console`);
   if (mods.technical_seo?.data && REPORT_UI?.llmsTxtView?.(tech, reportLanguage)?.state === 'missing') {
     const titleBrand = meta.title ? meta.title.split(/[|—-]/)[0].trim() : domain;
     addChange('🟠 HIGH', `Create llms.txt in ${pubDir}`,
-`llms.txt tells AI engines (ChatGPT, Claude, Gemini, Perplexity) what to know about your site and which pages to cite. It directly improves GEO (AI search visibility).
+`llms.txt is an optional, human-readable content index. It can make important pages easier for automated readers to discover, but it is not a citation guarantee.
 
 Create \`${pubDir.replace(/`/g,'')}/llms.txt\`:
 \`\`\`
@@ -1384,7 +1348,7 @@ Add to your footer or a contact section:
   const geoReliable = mods.geo_predicted?.data?.is_reliable !== false;
   if (!isPersonalEditorial && geoReliable && citatRate >= 0 && citatRate < 0.3) {
     addChange('🟡 MEDIUM', 'Improve AI search visibility (GEO)',
-`The site has a low AI citation rate. Beyond the llms.txt file above, these actions will help AI engines find and cite your brand:
+`The separate simulation found weak predicted visibility. Beyond the llms.txt file above, these actions can improve machine-readable discovery and entity corroboration:
 
 1. **Get a Wikidata entry**: Create a Wikidata item for your brand at https://www.wikidata.org/wiki/Special:NewItem — this is the single highest-impact GEO action
 2. **Get cited on authoritative sites**: Press mentions, directory listings, and .edu/.gov links all boost LLM training data inclusion
@@ -2012,8 +1976,9 @@ function showAuditShell(domain) {
   stopAuditTimer();
   currentAuditData = null;
   currentLighthouseState = null;
-  reportLanguageManuallySet = false;
-  reportLanguage = UI_LANGUAGE;
+  const savedReportLanguage = I18N?.getReportLanguage?.() ?? null;
+  reportLanguageManuallySet = Boolean(savedReportLanguage);
+  reportLanguage = savedReportLanguage || UI_LANGUAGE;
   document.getElementById('audit').classList.remove('hidden');
   document.getElementById('scores').classList.add('hidden');
   document.getElementById('score-insight')?.classList.add('hidden');
@@ -2090,8 +2055,8 @@ function spinnerCard(domain) {
   const faviconEl = document.getElementById('domain-favicon');
   if (nameEl) nameEl.textContent = domain;
   if (dateEl) dateEl.textContent = UI_LANGUAGE === 'zh'
-    ? '正在审查，通常需要约 60 秒…'
-    : 'Auditing — this takes about 60 seconds…';
+    ? '正在审查公开页面…'
+    : 'Auditing public pages…';
   if (faviconEl) {
     faviconEl.innerHTML = `<img src="https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(domain)}" alt="" class="w-6 h-6" onerror="this.style.display='none'">`;
   }
@@ -2157,15 +2122,14 @@ function setScoreCircle(key, score, color) {
 }
 
 function applyReportLanguageLabels() {
-  const zh = reportLanguage === 'zh';
   const labels = {
-    'overall-label': zh ? '总分' : 'Overall',
-    'seo-label': 'SEO',
-    'geo-label': 'GEO · AI',
-    'geo-sub-label': zh ? '权威度 + 引用信号' : 'Authority + Citation',
-    'aeo-label': 'AEO',
-    'aeo-sub-label': zh ? '答案引擎适配' : 'Answer Engine',
-    'perf-label': zh ? '性能' : 'Performance',
+    'overall-label': reportText('audit.overall'),
+    'seo-label': reportText('audit.seo'),
+    'geo-label': reportText('audit.geo'),
+    'geo-sub-label': reportLanguage === 'zh' ? '事实检查' : 'Factual checks',
+    'aeo-label': reportText('audit.aeo'),
+    'aeo-sub-label': reportLanguage === 'zh' ? '内容可提取性' : 'Extractability',
+    'perf-label': reportText('audit.performance'),
   };
   Object.entries(labels).forEach(([id, value]) => {
     const el = document.getElementById(id);
@@ -2210,6 +2174,22 @@ function renderEvidenceFirstSummary(data) {
   el.lang = reportLanguage === 'zh' ? 'zh-CN' : 'en';
   el.innerHTML = html;
   el.classList.remove('hidden');
+}
+
+function renderEvidenceReportSections(data) {
+  if (!REPORT_UI?.isEvidenceAudit?.(data)) return false;
+  const modules = document.getElementById('modules');
+  if (!modules) return true;
+  modules.innerHTML = '';
+  recMap.clear();
+  (data.recommendations_v2 ?? []).forEach((recommendation) => {
+    if (recommendation?.id) recMap.set(String(recommendation.id), recommendation);
+  });
+  const checks = REPORT_UI.renderNormalizedChecks(data, reportLanguage);
+  const recommendations = REPORT_UI.renderEvidenceRecommendations(data, reportLanguage);
+  modules.innerHTML = [checks, recommendations].filter(Boolean).join('');
+  document.getElementById('cat-tabs')?.classList.add('hidden');
+  return true;
 }
 
 function renderScoreSummaryNote(data) {
@@ -2652,6 +2632,7 @@ function renderSiteIntro(data) {
 function renderFullAudit(data) {
   if (!data?.domain) return;
   currentAuditData = data;
+  currentAuditId = data.audit_id ?? currentAuditId;
   if (!reportLanguageManuallySet) {
     reportLanguage = REPORT_UI?.inferReportLanguage(data, UI_LANGUAGE) ?? UI_LANGUAGE;
   }
@@ -2892,7 +2873,8 @@ function renderFullAudit(data) {
   // Wire action buttons
   wireActionButtons(data);
 
-  if (data.modules) {
+  const evidenceAudit = renderEvidenceReportSections(data);
+  if (!evidenceAudit && data.modules) {
     Object.entries(data.modules).forEach(([name, result]) => {
       const el = document.getElementById(`module-${name}`);
       if (!el || el.querySelector('.spinner')) renderSection({ module: name, ...result });
@@ -2900,7 +2882,20 @@ function renderFullAudit(data) {
   }
 
   // Pass/Fail summary bar
-  if (data.modules) {
+  if (evidenceAudit) {
+    const summary = REPORT_UI.checkSummary(data, reportLanguage);
+    const t = REPORT_UI.copy(reportLanguage);
+    const bar = document.getElementById('summary-bar');
+    if (bar) {
+      bar.innerHTML = [
+        summary.pass ? `<span class="text-green-700 font-medium">✓ ${summary.pass} ${esc(t.pass)}</span>` : '',
+        summary.fail ? `<span class="text-orange-700 font-medium">✕ ${summary.fail} ${esc(t.fail)}</span>` : '',
+        (summary.unknown + summary.error) ? `<span class="text-slate-500 font-medium">? ${summary.unknown + summary.error} ${esc(t.unknownStatus)}</span>` : '',
+        summary.not_applicable ? `<span class="text-slate-400 font-medium">– ${summary.not_applicable} ${esc(t.notApplicable)}</span>` : '',
+      ].filter(Boolean).join('<span class="text-slate-300">·</span>');
+      bar.classList.toggle('hidden', !bar.innerHTML);
+    }
+  } else if (data.modules) {
     let passed = 0, warnings = 0, critical = 0;
     Object.values(data.modules).forEach((m) => {
       if (m.status === 'ok') passed++;
@@ -2918,14 +2913,14 @@ function renderFullAudit(data) {
     }
   }
 
-  if (Array.isArray(data.recommendations_v2)) {
-    document.getElementById('recs-section')?.remove();
-  } else if (data.modules?.recommendations?.data?.length) {
+  if (!evidenceAudit && data.modules?.recommendations?.data?.length) {
     renderRecommendations(data.modules.recommendations.data);
   }
 
-  renderSiteIntro(data);
-  renderComputedSections(data);
+  if (!evidenceAudit) {
+    renderSiteIntro(data);
+    renderComputedSections(data);
+  }
 
   // Update category tab counts once all cards are inserted
   setTimeout(updateCatTabCounts, 350);
@@ -3085,9 +3080,9 @@ function updateModuleProgress(name, status, detail) {
   // Update progress status text with descriptive per-module message
   const statusEl = document.getElementById('progress-status');
   if (statusEl) {
-    const desc = MODULE_LOADING_MSG[name];
+    const desc = MODULE_LOADING_KEY[name] ? uiText(MODULE_LOADING_KEY[name]) : null;
     const label = moduleName(name).replace(/^[^a-zA-Z]+/, '').trim();
-    const msg = desc || `Checking ${label}…`;
+    const msg = desc || (UI_LANGUAGE === 'zh' ? `正在检查 ${label}…` : `Checking ${label}…`);
     statusEl.innerHTML = `<span class="module-checking"><span class="status-pulse inline-block mr-1.5"></span>${msg}</span>`;
   }
   if (document.getElementById(`module-${name}`)) return;
@@ -3465,7 +3460,7 @@ function renderSection(d) {
           ${q.reasoning ? (() => {
             const isHeuristic = q.reasoning.startsWith('AI unavailable');
             return isHeuristic
-              ? `<div class="text-xs text-slate-400 leading-relaxed ml-6 italic" title="Llama 3.1 was temporarily unavailable — this score is estimated from keyword matching and structured data signals, not live AI inference">⚠ ${esc(q.reasoning)}</div>`
+              ? `<div class="text-xs text-slate-400 leading-relaxed ml-6 italic" title="The prediction provider was unavailable — this result is estimated from observable page signals, not a live citation">⚠ ${esc(q.reasoning)}</div>`
               : `<div class="text-xs text-slate-500 leading-relaxed ml-6">${esc(q.reasoning)}</div>`;
           })() : ''}
         </div>`;
@@ -3473,10 +3468,10 @@ function renderSection(d) {
 
     // Verdict copy
     const verdict = citedCount === totalQ
-      ? `AI engines would cite ${esc(currentDomain)} for all ${totalQ} test queries — excellent visibility.`
+      ? `Predicted visibility was positive for all ${totalQ} simulated questions. This is not an observed citation result.`
       : citedCount === 0
-      ? `AI engines wouldn't cite ${esc(currentDomain)} for any of the ${totalQ} test queries. See recommendations below to fix this.`
-      : `AI engines would cite ${esc(currentDomain)} for ${citedCount} of ${totalQ} test queries.`;
+      ? `The simulation found no positive visibility signal across ${totalQ} questions. Treat this as directional evidence only.`
+      : `The simulation found a positive visibility signal for ${citedCount} of ${totalQ} questions. This is not an observed citation result.`;
 
     const overrideApplied = !!data.vertical_override_applied;
     const verticalBadge = data.vertical ? `
@@ -4283,8 +4278,8 @@ function wireCopyReport(data) {
     }
     const geo = data.modules?.geo_predicted?.data;
     if (geo && geo.is_reliable !== false) {
-      lines.push('── GEO / AI Citation Prediction ──');
-      lines.push(`Citation rate: ${Math.round((geo.citation_rate || 0) * 100)}%  |  Avg confidence: ${Math.round((geo.avg_confidence || 0) * 100)}%`);
+      lines.push('── GEO / Predicted Visibility Simulation ──');
+      lines.push(`Predicted positive rate: ${Math.round((geo.citation_rate || 0) * 100)}%  |  Avg confidence: ${Math.round((geo.avg_confidence || 0) * 100)}%`);
       (geo.queries || []).forEach(q => lines.push(`  ${q.cited ? '✓' : '✗'} ${q.query}`));
       lines.push('');
     }
@@ -4426,10 +4421,13 @@ async function toggleWhatToDo(btn) {
   if (!box) return;
 
   const isHidden = box.classList.toggle('hidden');
-  btn.textContent = isHidden ? 'How to fix ▾' : 'How to fix ▴';
+  btn.textContent = isHidden ? uiText('fix.show') : uiText('fix.hide');
   if (isHidden || box.dataset.loaded) return;
 
-  const rec = recMap.get(Number(btn.dataset.recIndex));
+  const recommendationId = btn.dataset.recommendationId;
+  const rec = recommendationId
+    ? recMap.get(String(recommendationId))
+    : recMap.get(Number(btn.dataset.recIndex));
   if (!rec) return;
 
   // First open — fetch AI-generated fix guide
@@ -4437,7 +4435,7 @@ async function toggleWhatToDo(btn) {
   const fixStart = Date.now();
   const fixTimerEl = document.createElement('div');
   fixTimerEl.className = 'text-xs text-slate-400 italic flex items-center gap-2';
-  fixTimerEl.innerHTML = 'Generating fix guide… <span class="font-mono text-blue-400">0s</span>';
+  fixTimerEl.innerHTML = `${esc(uiText('fix.generating'))} <span class="font-mono text-blue-400">0s</span>`;
   box.innerHTML = '';
   box.appendChild(fixTimerEl);
   const fixTimerInterval = setInterval(() => {
@@ -4446,43 +4444,48 @@ async function toggleWhatToDo(btn) {
   }, 1000);
 
   try {
+    if (!currentAuditId || !recommendationId) throw new Error('Fix pack requires an evidence audit');
     const res = await fetch(`${API}/api/fix`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        domain: currentDomain,
-        title: rec.title,
-        why: rec.why,
-        template_id: rec.template_id,
+        audit_id: currentAuditId,
+        recommendation_id: recommendationId,
+        language: reportLanguage,
+        output: 'full',
       }),
     });
-    if (!res.ok || !res.body) throw new Error('Fix guide unavailable');
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let raw = '';
-    box.innerHTML = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-        const payload = line.slice(6).trim();
-        if (payload === '[DONE]') continue;
-        try { raw += JSON.parse(payload).response ?? ''; } catch { /* skip */ }
-      }
-      box.innerHTML = renderFixMarkdown(raw);
-    }
+    const pack = await res.json().catch(() => null);
+    if (!res.ok || !pack) throw new Error(pack?.error?.message || 'Fix pack unavailable');
     clearInterval(fixTimerInterval);
-    box.innerHTML = renderFixMarkdown(raw) +
-      `<div class="text-[10px] text-slate-300 mt-2 text-right">Generated in ${fmtSecs(Date.now() - fixStart)}</div>`;
+    box.innerHTML = renderFixPack(pack) +
+      `<div class="text-[10px] text-slate-300 mt-2 text-right">${fmtSecs(Date.now() - fixStart)}</div>`;
   } catch {
     clearInterval(fixTimerInterval);
-    box.innerHTML = '<div class="text-xs text-blue-500">Could not load fix guide. Try again.</div>';
+    box.innerHTML = `<div class="text-xs text-blue-500">${esc(uiText('fix.failed'))}</div>`;
     delete box.dataset.loaded;
   }
+}
+
+function renderFixPack(pack) {
+  const sections = [];
+  const evidence = pack?.evidence;
+  if (evidence) {
+    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '证据摘要' : 'Evidence summary'}</div><div class="text-xs text-slate-500">${esc((evidence.observed ?? []).join(' · ') || evidence.why || '')}</div></div>`);
+  }
+  if (pack?.code_snippets?.length) {
+    sections.push(pack.code_snippets.map(item => `<div><div class="font-semibold text-slate-700 mb-1">${esc(item.label || 'Code')}</div><pre class="bg-slate-900 text-green-300 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">${esc(item.code || '')}</pre></div>`).join(''));
+  }
+  if (pack?.fix_steps?.length) {
+    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '修改步骤' : 'Fix steps'}</div><ol class="list-decimal ml-5 text-xs text-slate-600 space-y-1">${pack.fix_steps.map(item => `<li>${esc(item)}</li>`).join('')}</ol></div>`);
+  }
+  if (pack?.verify?.length) {
+    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '复验清单' : 'Verification'}</div><ul class="list-disc ml-5 text-xs text-slate-600 space-y-1">${pack.verify.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>`);
+  }
+  if (pack?.handoff_prompt) {
+    sections.push(`<div><div class="flex items-center justify-between gap-2 mb-1"><div class="font-semibold text-slate-700">${reportLanguage === 'zh' ? '交给开发 AI' : 'Developer AI handoff'}</div><button type="button" data-copy="${esc(pack.handoff_prompt)}" class="text-[10px] text-blue-600 border border-blue-200 rounded px-2 py-1">${esc(uiText('common.copy'))}</button></div><pre class="bg-slate-50 border border-slate-200 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap text-slate-600">${esc(pack.handoff_prompt)}</pre></div>`);
+  }
+  return `<div class="space-y-3">${sections.join('')}</div>`;
 }
 
 function renderFixMarkdown(text) {
@@ -5321,7 +5324,7 @@ function renderComputedSections(data) {
       <span class="text-xs text-slate-400 font-normal ml-2">AI-written for ${esc(data.domain)}</span>
     </div>
     <div class="text-xs text-slate-500 mb-3">
-      llms.txt helps ChatGPT, Claude, Perplexity, and Gemini discover and correctly understand your site's content.
+      llms.txt is an optional content index for automated readers; it does not guarantee citations or rankings.
       <span class="${llmsView.state === 'present' ? 'text-green-600' : llmsView.state === 'missing' ? 'text-amber-600' : 'text-slate-500'} font-medium">${esc(llmsView.generatorMessage)}</span>
     </div>
     <div id="llms-gen-output" class="hidden mb-3 border border-slate-200 rounded-lg bg-slate-900 p-3">
@@ -5378,7 +5381,7 @@ function renderComputedSections(data) {
           data-name="${esc(businessName)}"
           class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium shrink-0">Check visibility</button>
       </div>
-      <div class="text-xs text-slate-500 mb-3">Checks whether AI engines (ChatGPT, Gemini, Claude) have been trained on structured knowledge about this brand. Wikipedia/Wikidata presence is the primary signal.</div>
+      <div class="text-xs text-slate-500 mb-3">Checks public entity references and structured knowledge signals. Wikipedia/Wikidata presence is treated as supporting evidence, not proof of AI training or citation.</div>
       <div id="geo-probe-output" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div id="geo-probe-result"></div>
       </div>
@@ -5786,7 +5789,7 @@ function renderComputedSections(data) {
           }).join('')}
         </div>
       </div>
-      ${hasGeo ? '<div class="mt-2 text-[10px] text-slate-400">✦ = keyword likely to trigger AI-generated answers in ChatGPT, Perplexity &amp; Gemini</div>' : ''}
+      ${hasGeo ? '<div class="mt-2 text-[10px] text-slate-400">✦ = predicted topic opportunity from the available page signals</div>' : ''}
     `);
   }
 
@@ -5870,11 +5873,11 @@ function renderComputedSections(data) {
     // images missing alt happen to live in those sections.
     const imgAudit = techData?.image_audit;
     if ((imgAudit?.missing_alt ?? 1) === 0 && (imgAudit?.total ?? 0) > 0) positives.push('Images have descriptive labels — helps accessibility and image search');
-    if (hasAnySchema) positives.push('Structured data present — AI engines can extract key business facts');
-    if (llmsState === 'present') positives.push('llms.txt file found — AI search engines have a content index to work from');
+    if (hasAnySchema) positives.push('Structured data present — explicit facts are easier for automated readers to extract');
+    if (llmsState === 'present') positives.push('llms.txt file found — selected pages have an optional content index');
     if ((techData?.sitemap_url_count ?? 0) > 0) positives.push('XML sitemap found — search engines can map all your pages');
-    if (authData?.wikidata_id) positives.push('Wikidata entity — AI engines have structured knowledge about this business');
-    if (authData?.wikipedia) positives.push('Wikipedia presence — strong authority signal for AI citation');
+    if (authData?.wikidata_id) positives.push('Wikidata entity — a supporting public knowledge signal was found');
+    if (authData?.wikipedia) positives.push('Wikipedia presence — a supporting public authority signal was found');
     if ((authData?.indexed_page_count ?? 0) >= 10) positives.push(`${authData.indexed_page_count}+ pages indexed in Common Crawl — broad web footprint`);
     if (contentData?.has_email && contentData?.has_phone) positives.push('Contact information visible — builds visitor trust and local SEO signals');
     else if (contentData?.has_email) positives.push('Email address visible on site — helps visitors and search engines find you');
@@ -5884,12 +5887,12 @@ function renderComputedSections(data) {
     const critical = [], important = [], minor = [];
 
     if (contentData?.has_noindex) critical.push('Pages are hidden from all search engines — a "noindex" tag is blocking Google and AI crawlers');
-    if ((techData?.blocked_ai_bots?.length ?? 0) > 0) critical.push(`AI search engines are blocked (${(techData.blocked_ai_bots).join(', ')}) — they cannot crawl or cite this site`);
+    if ((techData?.blocked_ai_bots?.length ?? 0) > 0) critical.push(`Automated readers are blocked (${(techData.blocked_ai_bots).join(', ')}) — review whether this matches your publishing policy`);
     if (sslDefinitelyBad) critical.push('SSL certificate is invalid or expired — browsers warn visitors about security risks');
     if (wc > 0 && wc < 50) critical.push(`Almost no readable text found (${wc} words) — the page likely requires JavaScript to load, which most search engines cannot see`);
 
     if (!hasAnySchema) important.push('No structured data — search and AI engines cannot reliably extract business name, address, or services');
-    if (llmsState === 'missing') important.push('No llms.txt file — AI engines like Perplexity and ChatGPT have no content index to reference');
+    if (llmsState === 'missing') important.push('No llms.txt file — an optional content index could make selected pages easier for automated readers to discover');
     if (wc >= 50 && wc < 300) important.push(`Very little content (${wc} words) — search engines need at least 300 words to understand what you offer`);
     if (techData?.checks?.find(c => c.name === 'Open Graph tags complete' && !c.passed)) important.push('No social preview tags — shared links show no image or description on social media');
     if ((techData?.sitemap_url_count ?? 0) === 0) important.push('No XML sitemap — search engines must discover pages by guessing, and may miss some');
@@ -5934,7 +5937,7 @@ function renderComputedSections(data) {
 
       ${(geoData?.citation_rate != null && geoData?.is_reliable !== false) ? `
       <div class="flex items-center gap-3 mb-4 p-2.5 bg-slate-50 rounded-lg">
-        <div class="text-xs text-slate-500 shrink-0">AI citation probability</div>
+        <div class="text-xs text-slate-500 shrink-0">Predicted visibility (simulated)</div>
         ${likelySPA
           ? `<div class="flex-1 text-xs text-slate-400 italic">Requires JavaScript — not measurable for client-rendered pages</div>`
           : `<div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="h-full rounded-full ${citeBarColor} transition-all" style="width:${citePct}%"></div></div><div class="text-xs font-semibold ${citeLabelColor} shrink-0">${citeLabel} · ${citePct}%</div>`

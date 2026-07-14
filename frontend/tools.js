@@ -1,3 +1,13 @@
+const I18N = window.GeoScoreI18n;
+const UI_LANGUAGE = I18N?.getUiLanguage?.() ?? (/^zh(?:-|_|$)/i.test(navigator.language) ? 'zh' : 'en');
+const text = (key, vars) => I18N?.t?.(key, vars, UI_LANGUAGE) ?? key;
+
+document.documentElement.lang = UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en';
+I18N?.apply?.(document, UI_LANGUAGE);
+I18N?.bindUiLanguageSelect?.(document);
+document.title = text('tools.documentTitle');
+window.addEventListener('geoscore:ui-language-change', () => window.location.reload());
+
 // ── Tool switcher ────────────────────────────────────────────────────────────
 function switchTool(name) {
   document.querySelectorAll('.tool-panel').forEach(p => p.classList.remove('active'));
@@ -19,7 +29,7 @@ function copyOutput(id, btn) {
   navigator.clipboard.writeText(el.value).then(() => {
     if (btn) {
       const orig = btn.textContent;
-      btn.textContent = 'Copied!';
+      btn.textContent = text('status.copied');
       setTimeout(() => btn.textContent = orig, 1800);
     }
   }).catch(() => { el.select(); document.execCommand('copy'); });
@@ -50,7 +60,7 @@ function addRobotRule(agent='*', directive='Disallow', path='') {
       <option value="Allow">Allow</option><option value="Disallow">Disallow</option>
     </select>
     <div class="flex gap-1">
-      <input class="rb-path flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm" placeholder="/" value="${esc(path)}">
+      <input class="rb-path flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm" placeholder="${esc(text('tools.placeholder.path'))}" value="${esc(path)}">
       <button data-action="remove-robot-row" class="text-slate-400 hover:text-red-500 px-1 text-lg leading-none">×</button>
     </div>`;
   row.querySelector('.rb-agent').value = agent;
@@ -162,7 +172,7 @@ function updateSerpPreview() {
   if (dc) { dc.textContent = `${descLen}/160`; dc.className = `text-xs ${descLen > 160 ? 'text-orange-500 font-semibold' : 'text-slate-400'}`; }
 
   // Title (truncate at 60 chars)
-  const displayTitle = title || 'Page Title';
+  const displayTitle = title || text('tools.meta.pageTitle');
   const truncTitle = displayTitle.length > 60 ? displayTitle.slice(0, 60) + '…' : displayTitle;
   document.getElementById('sp-title-display').textContent = truncTitle;
 
@@ -184,12 +194,12 @@ function updateSerpPreview() {
   }
 
   // Description (truncate at 160 chars)
-  const displayDesc = desc || 'Your meta description will appear here. Keep it between 120–160 characters for best results.';
+  const displayDesc = desc || text('tools.serp.defaultDescription');
   const truncDesc = displayDesc.length > 160 ? displayDesc.slice(0, 160) + '…' : displayDesc;
   let descHtml = truncDesc;
   if (dateVal) {
     const d = new Date(dateVal + 'T12:00:00');
-    const formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const formatted = d.toLocaleDateString(UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     descHtml = `<span style="color:#70757a">${formatted} — </span>${truncDesc}`;
   }
   document.getElementById('sp-desc-display').innerHTML = descHtml;
@@ -197,10 +207,10 @@ function updateSerpPreview() {
   // Warnings
   const warnings = document.getElementById('sp-warnings');
   const warningItems = [];
-  if (title.length > 60)  warningItems.push({ type: 'warn', msg: `Title is ${title.length} chars — Google may truncate after ~60.` });
-  if (title.length < 30 && title.length > 0)  warningItems.push({ type: 'info', msg: `Title is short (${title.length} chars) — aim for 50–60.` });
-  if (desc.length > 160)  warningItems.push({ type: 'warn', msg: `Description is ${desc.length} chars — Google may truncate after ~160.` });
-  if (desc.length < 80 && desc.length > 0)  warningItems.push({ type: 'info', msg: `Description is short (${desc.length} chars) — aim for 120–160.` });
+  if (title.length > 60) warningItems.push({ type: 'warn', msg: text('tools.serp.titleLong') });
+  if (title.length < 30 && title.length > 0) warningItems.push({ type: 'info', msg: text('tools.serp.titleShort') });
+  if (desc.length > 160) warningItems.push({ type: 'warn', msg: text('tools.serp.descriptionLong') });
+  if (desc.length < 80 && desc.length > 0) warningItems.push({ type: 'info', msg: text('tools.serp.descriptionShort') });
   warnings.innerHTML = warningItems.map(w =>
     `<div class="text-xs px-3 py-2 rounded-lg ${w.type === 'warn' ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
       ${w.type === 'warn' ? '⚠️' : 'ℹ️'} ${w.msg}
@@ -210,8 +220,8 @@ function updateSerpPreview() {
 
 // ── 4. Open Graph Preview ─────────────────────────────────────────────────────
 function updateOgPreview() {
-  const title   = document.getElementById('og-title').value || 'Page Title';
-  const desc    = document.getElementById('og-desc').value || 'Description…';
+  const title   = document.getElementById('og-title').value || text('tools.og.defaultTitle');
+  const desc    = document.getElementById('og-desc').value || text('tools.og.defaultDescription');
   const image   = document.getElementById('og-image').value.trim();
   const siteName = document.getElementById('og-site').value.trim() || 'yoursite.com';
 
@@ -230,11 +240,11 @@ function updateOgPreview() {
     if (image) {
       img.src = image;
       img.classList.remove('hidden');
-      img.onerror = () => { img.classList.add('hidden'); ph.classList.remove('hidden'); ph.textContent = 'Image failed to load'; };
+      img.onerror = () => { img.classList.add('hidden'); ph.classList.remove('hidden'); ph.textContent = text('tools.og.imageFailed'); };
       if (ph) ph.classList.add('hidden');
     } else {
       img.classList.add('hidden');
-      if (ph) { ph.classList.remove('hidden'); ph.textContent = 'No image set'; }
+      if (ph) { ph.classList.remove('hidden'); ph.textContent = text('tools.og.noImage'); }
     }
   });
 }
@@ -243,7 +253,7 @@ async function fetchOgFromUrl() {
   const url = document.getElementById('og-url-input').value.trim();
   const status = document.getElementById('og-fetch-status');
   if (!url) return;
-  status.textContent = 'Fetching…'; status.classList.remove('hidden');
+  status.textContent = text('status.searching'); status.classList.remove('hidden');
   try {
     // Use allorigins proxy to avoid CORS issues
     const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url.startsWith('http') ? url : 'https://' + url)}`);
@@ -259,9 +269,9 @@ async function fetchOgFromUrl() {
     document.getElementById('og-image').value  = getTag('og:image');
     document.getElementById('og-site').value   = getTag('og:site_name') || (() => { try { return new URL(url).hostname; } catch { return ''; } })();
     updateOgPreview();
-    status.textContent = '✓ Tags loaded'; status.className = 'text-xs text-green-600 mt-1.5';
+    status.textContent = `✓ ${text('tools.og.tagsLoaded')}`; status.className = 'text-xs text-green-600 mt-1.5';
   } catch {
-    status.textContent = 'Could not fetch — enter tags manually below'; status.className = 'text-xs text-orange-600 mt-1.5';
+    status.textContent = text('tools.og.fetchFailed'); status.className = 'text-xs text-orange-600 mt-1.5';
   }
 }
 
@@ -417,32 +427,35 @@ const SC_FIELDS = {
 };
 
 function renderField(f) {
+  const labelKey = `tools.schema.field.${f.id}`;
+  const translatedLabel = text(labelKey);
+  const label = translatedLabel === labelKey ? f.label : translatedLabel;
   if (f.type === 'faq') return `
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1.5">FAQ Items</label>
+      <label class="block text-sm font-medium text-slate-700 mb-1.5">${text('tools.schema.faqItems')}</label>
       <div id="sc-faq-list" class="space-y-2"></div>
-      <button id="sc-faq-add" class="mt-2 text-sm text-blue-600 hover:underline">+ Add question</button>
+      <button id="sc-faq-add" class="mt-2 text-sm text-blue-600 hover:underline">${text('tools.schema.addQuestion')}</button>
     </div>`;
   if (f.type === 'textarea') return `
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}${f.required?' <span class="text-red-500">*</span>':''}</label>
+      <label class="block text-sm font-medium text-slate-700 mb-1">${label}${f.required?' <span class="text-red-500">*</span>':''}</label>
       <textarea id="${f.id}" rows="3" placeholder="${esc(f.ph||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
     </div>`;
   if (f.type === 'date') return `
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}</label>
+      <label class="block text-sm font-medium text-slate-700 mb-1">${label}</label>
       <input id="${f.id}" type="date" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
     </div>`;
   if (f.type === 'select') return `
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}</label>
+      <label class="block text-sm font-medium text-slate-700 mb-1">${label}</label>
       <select id="${f.id}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
         ${f.opts.map(o=>`<option value="${o}">${o}</option>`).join('')}
       </select>
     </div>`;
   return `
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}${f.required?' <span class="text-red-500">*</span>':''}</label>
+      <label class="block text-sm font-medium text-slate-700 mb-1">${label}${f.required?' <span class="text-red-500">*</span>':''}</label>
       <input id="${f.id}" type="${f.type||'text'}" placeholder="${esc(f.ph||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
     </div>`;
 }
@@ -453,9 +466,9 @@ function addFaqItem(q='', a='') {
   const item = document.createElement('div');
   item.className = 'border border-slate-200 rounded-lg p-3 space-y-2 relative';
   item.innerHTML = `
-    <button data-action="remove-faq-item" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 text-lg leading-none">×</button>
-    <input placeholder="Question" value="${esc(q)}" class="sc-faq-q w-full border border-slate-200 rounded px-2 py-1.5 text-sm">
-    <textarea rows="2" placeholder="Answer" class="sc-faq-a w-full border border-slate-200 rounded px-2 py-1.5 text-sm resize-none">${esc(a)}</textarea>`;
+    <button data-action="remove-faq-item" title="${esc(text('tools.schema.remove'))}" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 text-lg leading-none">×</button>
+    <input placeholder="${esc(text('tools.schema.question'))}" value="${esc(q)}" class="sc-faq-q w-full border border-slate-200 rounded px-2 py-1.5 text-sm">
+    <textarea rows="2" placeholder="${esc(text('tools.schema.answer'))}" class="sc-faq-a w-full border border-slate-200 rounded px-2 py-1.5 text-sm resize-none">${esc(a)}</textarea>`;
   list.appendChild(item);
 }
 
@@ -465,8 +478,8 @@ function resetSchema() {
   const container = document.getElementById('sc-fields');
   container.innerHTML = fields.map(renderField).join('');
   if (type === 'FAQPage') {
-    addFaqItem('What is [your product/service]?', 'Brief answer to the question…');
-    addFaqItem('How does it work?', 'Step-by-step explanation…');
+    addFaqItem('', '');
+    addFaqItem('', '');
     // Wire up the "Add question" button rendered by renderField
     document.getElementById('sc-faq-add')?.addEventListener('click', () => addFaqItem());
   }

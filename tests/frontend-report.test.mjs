@@ -65,9 +65,89 @@ test('site type correction is request-local and uses fixed archetypes', () => {
   }
 });
 
-test('an empty v2 recommendation list does not fall back to legacy recommendations', () => {
-  assert.match(appSource, /if \(Array\.isArray\(data\.recommendations_v2\)\) \{/);
-  assert.doesNotMatch(appSource, /Array\.isArray\(data\.recommendations_v2\) && data\.recommendations_v2\.length/);
+test('evidence audits replace legacy modules even when the recommendation list is empty', () => {
+  assert.match(appSource, /const evidenceAudit = renderEvidenceReportSections\(data\)/);
+  assert.match(appSource, /if \(!evidenceAudit\) \{\s*renderSiteIntro\(data\);\s*renderComputedSections\(data\);/);
+  assert.match(source, /Array\.isArray\(data\?\.recommendations_v2\)/);
+});
+
+test('normalized checks keep predicted simulations outside factual failure counts', () => {
+  const checks = report.normalizeChecks({
+    checks: [
+      { id: 'seo.title', status: 'fail', weight: 2, evidence: ['missing title'] },
+      { id: 'geo.predicted_visibility', status: 'fail', weight: 0, predicted: true, evidence: ['simulation'] },
+    ],
+  }, 'en');
+  assert.equal(checks.length, 2);
+  assert.equal(checks[1].predicted, true);
+  const summary = report.checkSummary({ checks }, 'en');
+  assert.equal(summary.pass, 0);
+  assert.equal(summary.fail, 1);
+  assert.equal(summary.not_applicable, 0);
+  assert.equal(summary.unknown, 0);
+  assert.equal(summary.error, 0);
+  const html = report.renderNormalizedChecks({ checks }, 'en');
+  assert.match(html, /Predicted simulations/);
+  assert.match(html, /zero scoring weight/i);
+});
+
+test('manual report language selects localized check and recommendation templates', () => {
+  const data = {
+    checks: [{
+      id: 'seo.title',
+      title: '页面标题',
+      localized_title: { en: 'Page title', zh: '页面标题' },
+      status: 'fail',
+      weight: 2,
+      evidence: ['No title found'],
+    }],
+    recommendations_v2: [{
+      id: 'seo.title',
+      title: '为页面添加唯一标题',
+      why: '页面缺少标题。',
+      fix: '添加标题。',
+      verify: '重新审计。',
+      localized: {
+        en: {
+          title: 'Add a unique page title',
+          why: 'The page has no title.',
+          fix: 'Add a title.',
+          verify: 'Re-run the audit.',
+        },
+        zh: {
+          title: '为页面添加唯一标题',
+          why: '页面缺少标题。',
+          fix: '添加标题。',
+          verify: '重新审计。',
+        },
+      },
+    }],
+  };
+
+  assert.equal(report.normalizeChecks(data, 'en')[0].title, 'Page title');
+  assert.equal(report.normalizeChecks(data, 'zh')[0].title, '页面标题');
+  assert.equal(report.normalizeAllActions(data, 'en')[0].title, 'Add a unique page title');
+  assert.equal(report.normalizeAllActions(data, 'zh')[0].fix, '添加标题。');
+  assert.match(report.renderEvidenceRecommendations(data, 'en'), /The page has no title/);
+  assert.match(report.renderEvidenceRecommendations(data, 'zh'), /页面缺少标题/);
+});
+
+test('evidence recommendations use the stored-audit fix-pack contract', () => {
+  const html = report.renderEvidenceRecommendations({
+    recommendations_v2: [{
+      id: 'seo.title',
+      title: 'Add a factual title',
+      page_url: 'https://example.com/',
+      evidence: 'title is missing',
+      why: 'the page has no title',
+      fix: 'add a title element',
+      verify: 'fetch the page again',
+    }],
+  }, 'en');
+  assert.match(html, /data-recommendation-id="seo\.title"/);
+  assert.match(appSource, /audit_id: currentAuditId/);
+  assert.match(appSource, /recommendation_id: recommendationId/);
+  assert.match(appSource, /output: 'full'/);
 });
 
 test('v2 insufficient evidence remains null instead of using legacy zero projections', () => {

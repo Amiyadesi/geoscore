@@ -1,6 +1,10 @@
 (function (global) {
   'use strict';
 
+  // The report keeps evidence-specific copy here, while the shared catalog owns
+  // browser/report language detection and any product-wide fallback labels.
+  const SHARED_I18N = global.GeoScoreI18n;
+
   const COPY = {
     en: {
       profile: 'Site profile',
@@ -41,6 +45,24 @@
       auditedLocale: 'Audited locale',
       correctType: 'Correct type',
       browserRendered: 'Browser Run rendered',
+      scoreVersion: 'Score version',
+      factualChecks: 'Factual checks',
+      predictedChecks: 'Predicted simulations',
+      predictedNote: 'Predicted simulations are informational and have zero scoring weight.',
+      allActions: 'Evidence-linked repair plan',
+      noActions: 'No applicable failed checks produced a recommendation.',
+      pass: 'Pass',
+      fail: 'Fail',
+      notApplicable: 'Not applicable',
+      unknownStatus: 'Unknown',
+      checkError: 'Error',
+      howToFix: 'Generate fix pack',
+      pageTypeHome: 'Home',
+      pageTypeAbout: 'About',
+      pageTypeArticle: 'Article',
+      pageTypePage: 'Page',
+      pageStatusComplete: 'Complete',
+      pageStatusError: 'Error',
     },
     zh: {
       profile: '站点画像',
@@ -81,6 +103,24 @@
       auditedLocale: '被测页面语言',
       correctType: '纠正类型',
       browserRendered: 'Browser Run 渲染',
+      scoreVersion: '评分版本',
+      factualChecks: '事实检查',
+      predictedChecks: '预测模拟',
+      predictedNote: '预测模拟仅供参考，评分权重固定为 0。',
+      allActions: '证据关联修复计划',
+      noActions: '当前没有由适用失败项生成的建议。',
+      pass: '通过',
+      fail: '失败',
+      notApplicable: '不适用',
+      unknownStatus: '未知',
+      checkError: '错误',
+      howToFix: '生成修复包',
+      pageTypeHome: '首页',
+      pageTypeAbout: '关于页',
+      pageTypeArticle: '文章页',
+      pageTypePage: '页面',
+      pageStatusComplete: '完成',
+      pageStatusError: '错误',
     },
   };
 
@@ -101,11 +141,21 @@
   };
 
   function language(value) {
-    return /^zh(?:-|_|$)/i.test(String(value || '')) ? 'zh' : 'en';
+    return SHARED_I18N?.language?.(value) ?? (/^zh(?:-|_|$)/i.test(String(value || '')) ? 'zh' : 'en');
   }
 
   function copy(lang) {
-    return COPY[language(lang)];
+    const selected = language(lang);
+    const base = COPY[selected];
+    if (!SHARED_I18N?.t) return base;
+    return new Proxy(base, {
+      get(target, key) {
+        if (key in target) return target[key];
+        const sharedKey = `report.${String(key)}`;
+        const translated = SHARED_I18N.t(sharedKey, {}, selected);
+        return translated === sharedKey ? undefined : translated;
+      },
+    });
   }
 
   function llmsTxtView(data, lang) {
@@ -379,6 +429,10 @@
   }
 
   function normalizeActions(data, lang) {
+    return normalizeAllActions(data, lang).slice(0, 3);
+  }
+
+  function normalizeAllActions(data, lang) {
     const priorityRank = { critical: 0, high: 1, medium: 2, low: 3 };
     const actions = Array.isArray(data?.recommendations_v2) ? [...data.recommendations_v2] : [];
     actions.sort((a, b) => {
@@ -386,20 +440,86 @@
       const bRank = priorityRank[String(b?.priority ?? '').toLowerCase()] ?? 99;
       return aRank - bRank;
     });
-    return actions.slice(0, 3).map((action, index) => {
+    return actions.map((action, index) => {
+      const actionLanguage = language(lang);
+      const actionCopy = action?.localized?.[actionLanguage]
+        && typeof action.localized[actionLanguage] === 'object'
+        ? action.localized[actionLanguage]
+        : {};
       const pages = action?.applicable_pages ?? action?.pages ?? action?.page_urls;
       const page = action?.page_url ?? action?.url ?? (Array.isArray(pages) ? pages[0] : pages);
       return {
         id: action?.id ?? `action-${index + 1}`,
-        title: localized(action?.title ?? action?.name, lang),
+        title: localized(actionCopy.title ?? action?.title ?? action?.name, lang),
         page: localized(page, lang),
         observed: localized(action?.observed ?? action?.observation ?? action?.evidence, lang),
-        reason: localized(action?.reason ?? action?.why, lang),
-        fix: localized(action?.fix ?? action?.how_to_fix ?? action?.recommendation, lang),
-        verify: localized(action?.verification ?? action?.verify ?? action?.retest, lang),
+        reason: localized(actionCopy.why ?? action?.reason ?? action?.why, lang),
+        fix: localized(actionCopy.fix ?? action?.fix ?? action?.how_to_fix ?? action?.recommendation, lang),
+        verify: localized(actionCopy.verify ?? action?.verification ?? action?.verify ?? action?.retest, lang),
+        priority: String(action?.priority ?? '').toLowerCase(),
         predicted: action?.predicted === true || String(action?.certainty ?? action?.source_type ?? '').toLowerCase() === 'predicted',
       };
     });
+  }
+
+  function isEvidenceAudit(data) {
+    return Array.isArray(data?.normalized_checks)
+      || Array.isArray(data?.checks)
+      || Array.isArray(data?.recommendations_v2)
+      || Boolean(data?.score_summary?.score_version);
+  }
+
+  function normalizeChecks(data, lang) {
+    const checks = Array.isArray(data?.normalized_checks)
+      ? data.normalized_checks
+      : Array.isArray(data?.checks)
+        ? data.checks
+        : [];
+    return checks.map((check, index) => {
+      const rawStatus = String(check?.status ?? (check?.passed === true ? 'pass' : check?.passed === false ? 'fail' : 'unknown')).toLowerCase();
+      const status = ['pass', 'fail', 'not_applicable', 'unknown', 'error'].includes(rawStatus)
+        ? rawStatus
+        : rawStatus === 'ok' ? 'pass' : rawStatus === 'failed' ? 'fail' : 'unknown';
+      const pages = check?.applicable_pages ?? check?.pages ?? check?.page_urls;
+      const page = check?.page_url ?? check?.url ?? (Array.isArray(pages) ? pages[0] : pages);
+      const evidence = Array.isArray(check?.evidence)
+        ? check.evidence.map(item => evidenceText(item, lang)).filter(Boolean)
+        : [evidenceText(check?.evidence ?? check?.detail ?? check?.observed, lang)].filter(Boolean);
+      const predicted = check?.predicted === true
+        || /predicted/i.test(String(check?.category ?? check?.source_type ?? check?.id ?? ''));
+      return {
+        id: String(check?.id ?? `check-${index + 1}`),
+        title: localized(check?.localized_title ?? check?.title ?? check?.name ?? check?.label ?? check?.id, lang),
+        category: String(check?.category ?? check?.group ?? 'other'),
+        status,
+        source: localized(check?.source ?? check?.detected_by, lang),
+        page: localized(page, lang),
+        evidence,
+        confidence: percentValue(check?.confidence),
+        predicted,
+        weight: finiteNumber(check?.weight),
+      };
+    });
+  }
+
+  function checkSummary(data, lang) {
+    const factual = normalizeChecks(data, lang).filter(check => !check.predicted);
+    return factual.reduce((summary, check) => {
+      summary[check.status] = (summary[check.status] ?? 0) + 1;
+      return summary;
+    }, { pass: 0, fail: 0, not_applicable: 0, unknown: 0, error: 0 });
+  }
+
+  function pageTypeLabel(value, lang) {
+    const t = copy(lang);
+    const labels = { home: t.pageTypeHome, about: t.pageTypeAbout, article: t.pageTypeArticle, page: t.pageTypePage };
+    return labels[String(value ?? '').toLowerCase()] ?? String(value || t.pageTypePage).replace(/_/g, ' ');
+  }
+
+  function pageStatusLabel(value, lang) {
+    const t = copy(lang);
+    const labels = { complete: t.pageStatusComplete, ok: t.pageStatusComplete, error: t.pageStatusError, failed: t.pageStatusError };
+    return labels[String(value ?? '').toLowerCase()] ?? String(value || '');
   }
 
   function inferReportLanguage(data, fallback) {
@@ -483,8 +603,8 @@
         ? `<span class="ml-1.5 inline-flex items-center rounded border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">${escapeHtml(t.browserRendered)}${page.browserMsUsed === null ? '' : ` · ${escapeHtml(page.browserMsUsed)} ms`}</span>`
         : '';
       return `<li class="flex items-start gap-2 py-1.5 border-b border-slate-100 last:border-0">
-        <span class="mt-0.5 text-[10px] font-semibold uppercase text-slate-400 w-16 shrink-0">${escapeHtml(String(page.type).replace(/_/g, ' '))}</span>
-        <span class="min-w-0 text-xs">${link}${page.status ? `<span class="ml-1.5 text-[10px] text-slate-400">${escapeHtml(page.status)}</span>` : ''}${browserBadge}</span>
+        <span class="mt-0.5 text-[10px] font-semibold uppercase text-slate-400 w-16 shrink-0">${escapeHtml(pageTypeLabel(page.type, lang))}</span>
+        <span class="min-w-0 text-xs">${link}${page.status ? `<span class="ml-1.5 text-[10px] text-slate-400">${escapeHtml(pageStatusLabel(page.status, lang))}</span>` : ''}${browserBadge}</span>
       </li>`;
     }).join('');
 
@@ -522,7 +642,7 @@
             ${confidence ? `<span class="text-xs text-slate-500">${escapeHtml(t.confidence)} ${escapeHtml(confidence)}</span>` : ''}
             ${coverage ? `<span class="text-xs text-slate-500">${escapeHtml(t.coverage)} ${escapeHtml(coverage)}</span>` : ''}
           </div>
-          ${scores.scoreVersion ? `<div class="text-[10px] text-slate-400 mt-1">Score version ${escapeHtml(scores.scoreVersion)}</div>` : ''}
+          ${scores.scoreVersion ? `<div class="text-[10px] text-slate-400 mt-1">${escapeHtml(t.scoreVersion)} ${escapeHtml(scores.scoreVersion)}</div>` : ''}
         </div>
         <div class="shrink-0 print:hidden" role="group" aria-label="${escapeHtml(ui.reportLanguage)}">
           <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
@@ -543,6 +663,91 @@
       </div>
       ${actions.length ? `<section class="mt-5 pt-4 border-t border-slate-200"><h3 class="text-sm font-bold text-slate-900 mb-1">${escapeHtml(t.actions)}</h3><ol>${actionRows}</ol></section>` : ''}
     </div>`;
+  }
+
+  function statusView(status, lang) {
+    const t = copy(lang);
+    const views = {
+      pass: { label: t.pass, cls: 'border-green-200 bg-green-50 text-green-700', icon: '✓' },
+      fail: { label: t.fail, cls: 'border-orange-200 bg-orange-50 text-orange-700', icon: '✕' },
+      not_applicable: { label: t.notApplicable, cls: 'border-slate-200 bg-slate-50 text-slate-500', icon: '–' },
+      error: { label: t.checkError, cls: 'border-red-200 bg-red-50 text-red-700', icon: '!' },
+      unknown: { label: t.unknownStatus, cls: 'border-slate-200 bg-slate-50 text-slate-500', icon: '?' },
+    };
+    return views[status] ?? views.unknown;
+  }
+
+  function renderCheckRows(checks, lang) {
+    const t = copy(lang);
+    return checks.map(check => {
+      const view = check.predicted
+        ? { label: t.predicted, cls: 'border-purple-200 bg-purple-50 text-purple-700', icon: '◇' }
+        : statusView(check.status, lang);
+      const href = safeHttpUrl(check.page);
+      const page = check.page ? compact(pageLabel(check.page), 84) : '';
+      const source = check.source ? `${t.source}: ${check.source}` : '';
+      const confidence = formatPercent(check.confidence);
+      return `<li class="py-3 border-t border-slate-100 first:border-t-0">
+        <div class="flex items-start gap-3">
+          <span class="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold ${view.cls}"><span>${view.icon}</span>${escapeHtml(view.label)}</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-3">
+              <h4 class="text-sm font-semibold text-slate-800 break-words">${escapeHtml(check.title || check.id)}</h4>
+              <code class="text-[10px] text-slate-400 break-all">${escapeHtml(check.id)}</code>
+            </div>
+            ${page ? `<div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)}</div>` : ''}
+            ${check.evidence.length ? `<ul class="mt-1.5 space-y-1">${check.evidence.slice(0, 5).map(item => `<li class="text-xs text-slate-500 flex gap-2"><span class="text-slate-300">•</span><span class="break-words">${escapeHtml(compact(item, 420))}</span></li>`).join('')}</ul>` : ''}
+            ${(source || confidence) ? `<div class="text-[10px] text-slate-400 mt-1.5">${escapeHtml([source, confidence ? `${t.confidence} ${confidence}` : ''].filter(Boolean).join(' · '))}</div>` : ''}
+          </div>
+        </div>
+      </li>`;
+    }).join('');
+  }
+
+  function renderNormalizedChecks(data, lang) {
+    const checks = normalizeChecks(data, lang);
+    if (!checks.length) return '';
+    const t = copy(lang);
+    const factual = checks.filter(check => !check.predicted);
+    const predicted = checks.filter(check => check.predicted);
+    const summary = checkSummary(data, lang);
+    return `<section id="card-evidence-checks" class="bg-white rounded-xl border border-slate-200 p-4 fade-in" data-category="all">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.factualChecks)}</h2>
+          <p class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(`${summary.pass} ${t.pass} · ${summary.fail} ${t.fail} · ${summary.unknown + summary.error} ${t.unknownStatus} · ${summary.not_applicable} ${t.notApplicable}`)}</p>
+        </div>
+      </div>
+      <ul>${renderCheckRows(factual, lang)}</ul>
+      ${predicted.length ? `<div class="mt-4 pt-4 border-t border-purple-100"><h3 class="font-semibold text-sm text-purple-800">${escapeHtml(t.predictedChecks)}</h3><p class="text-xs text-purple-600 mt-1">${escapeHtml(t.predictedNote)}</p><ul class="mt-2">${renderCheckRows(predicted, lang)}</ul></div>` : ''}
+    </section>`;
+  }
+
+  function renderEvidenceRecommendations(data, lang) {
+    const actions = normalizeAllActions(data, lang).filter(action => !action.predicted);
+    const t = copy(lang);
+    if (!Array.isArray(data?.recommendations_v2)) return '';
+    return `<section id="recs-section" class="bg-white rounded-xl border border-blue-200 p-4 fade-in" data-category="all">
+      <div class="mb-3"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.allActions)}</h2><p class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(t.scoreEvidence)}</p></div>
+      ${actions.length ? `<ol class="space-y-3">${actions.map((action, index) => {
+        const href = safeHttpUrl(action.page);
+        const page = action.page ? compact(pageLabel(action.page), 84) : '';
+        return `<li class="border border-slate-100 rounded-xl p-3.5" data-recommendation-id="${escapeHtml(action.id)}">
+          <div class="flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">${index + 1}</span><div class="min-w-0 flex-1">
+            <div class="flex items-start gap-2 flex-wrap"><h3 class="font-semibold text-sm text-slate-900">${escapeHtml(action.title || action.id)}</h3>${action.priority ? `<span class="text-[10px] uppercase border border-slate-200 rounded px-1.5 py-0.5 text-slate-500">${escapeHtml(action.priority)}</span>` : ''}</div>
+            ${page ? `<div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)}</div>` : ''}
+            <div class="text-xs text-slate-500 leading-relaxed mt-2 space-y-1">
+              ${action.observed ? `<p><strong class="text-slate-600">${escapeHtml(t.observed)}:</strong> ${escapeHtml(action.observed)}</p>` : ''}
+              ${action.reason ? `<p><strong class="text-slate-600">${escapeHtml(t.reason)}:</strong> ${escapeHtml(action.reason)}</p>` : ''}
+              ${action.fix ? `<p><strong class="text-slate-600">${escapeHtml(t.fix)}:</strong> ${escapeHtml(action.fix)}</p>` : ''}
+              ${action.verify ? `<p><strong class="text-slate-600">${escapeHtml(t.verify)}:</strong> ${escapeHtml(action.verify)}</p>` : ''}
+            </div>
+            <button type="button" data-action="toggle-fix" data-recommendation-id="${escapeHtml(action.id)}" class="mt-3 text-xs font-semibold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5 print:hidden">${escapeHtml(t.howToFix)} ▾</button>
+            <div class="hidden mt-3 what-to-do"></div>
+          </div></div>
+        </li>`;
+      }).join('')}</ol>` : `<p class="text-xs text-slate-500">${escapeHtml(t.noActions)}</p>`}
+    </section>`;
   }
 
   function sanitizeError(error) {
@@ -671,11 +876,17 @@
     lighthouseStatus,
     llmsTxtView,
     normalizeActions,
+    normalizeAllActions,
+    normalizeChecks,
     normalizeContext,
     normalizePages,
     normalizeScoreSummary,
+    checkSummary,
+    isEvidenceAudit,
     parseAuditInput,
+    renderEvidenceRecommendations,
     renderEvidenceSummary,
+    renderNormalizedChecks,
     renderLighthouse,
     readabilityView,
     sanitizeError,
