@@ -66,6 +66,8 @@ test('frontend CSP permits every declared runtime resource without inline execut
   assert.doesNotMatch(index, /<script>\s*tailwind\.config\s*=/);
   assert.match(headers, /style-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
   assert.match(headers, /font-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
+  assert.match(headers, /script-src[^;\n]*'wasm-unsafe-eval'/);
+  assert.match(headers, /connect-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
   assert.match(headers, /connect-src[^;\n]*https:\/\/cloudflareinsights\.com/);
   assert.match(headers, /connect-src[^;\n]*https:\/\/\*\.xethub\.hf\.co/);
 });
