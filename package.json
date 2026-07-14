@@ -1,7 +1,16 @@
 {
   "name": "sayori-geoscore",
-  "version": "1.0.0",
-  "private": true,
+  "version": "2.1.0",
+  "private": false,
+  "license": "MIT",
+  "homepage": "https://geo.sayori.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amiyadesi/geoscore.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Amiyadesi/geoscore/issues"
+  },
   "scripts": {
     "dev": "wrangler dev --config wrangler.jsonc",
     "check": "tsc --noEmit",

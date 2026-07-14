@@ -1,7 +1,4 @@
-# GeoScore — SEO & AI Visibility Audit Tool
-
-> **Private operational repository.** See [LICENSE-STATUS.md](./LICENSE-STATUS.md)
-> before redistributing this derivative.
+# GeoScore - Evidence-First SEO and GEO Audit
 
 <p align="center">
   <a href="https://geo.sayori.org">
@@ -9,12 +6,15 @@
   </a>
 </p>
 
-A free SEO and AI-visibility audit service that analyses any website in under 60 seconds. Built entirely on **Cloudflare's free tier** (Workers, Pages, D1, KV, Vectorize, Workers AI). This derivative's source is private while upstream redistribution terms remain unresolved.
+An open-source, evidence-first SEO and GEO audit service built on Cloudflare
+Workers, Pages, D1, KV, Vectorize, Workers AI, and optional public evidence
+providers. It reports what was observed, what could not be verified, and which
+failed checks are worth fixing first.
 
 **Live demo → [geo.sayori.org](https://geo.sayori.org)**  
 **Example → [stripe.com audit](https://geo.sayori.org/?d=stripe.com)**
 
-GeoScore 2.0 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.1 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -32,7 +32,7 @@ unknown, provider errors, and not-applicable checks do not become zeroes.
 | **Content Quality** | Word count, readability (Flesch), keyword density, FAQ detection |
 | **Off-Page SEO** | Backlink signals, social profile detection, SPF/DMARC/DKIM email security |
 | **Domain Authority** | Domain age, Wikipedia/Wikidata presence, backlink sample |
-| **AI Visibility (GEO)** | Citation prediction — simulates whether ChatGPT/Claude/Perplexity would cite your site for relevant queries |
+| **GEO Readiness** | Entity clarity, authorship, extractability, source support, factual provenance, freshness, and cross-page consistency |
 | **Keywords** | Opportunity keywords by intent (informational, commercial, transactional) with geo-potential flags |
 | **Accessibility** | WCAG 2.1 A/AA checks — alt text, labels, skip links, landmarks, heading hierarchy |
 | **Security Audit** | CSP, HSTS, X-Frame-Options, referrer policy, SSL certificate validity |
@@ -47,7 +47,7 @@ unknown, provider errors, and not-applicable checks do not become zeroes.
 - Readability score
 - Font performance
 - DNS & network
-- AI Content Insights (business context, trust scores, freshness, opportunities)
+- Predicted AI content opportunities, clearly separated from factual scores
 - llms.txt generator
 
 ---
@@ -114,41 +114,17 @@ npx wrangler d1 create audit-db
 npx wrangler kv namespace create AUDIT_KV
 npx wrangler kv namespace create BUDGET_KV
 
-# Vectorize index (768 dims = Workers AI embedding size)
-npx wrangler vectorize create audit-vectors --dimensions=768 --metric=cosine
+# Vectorize index used by the current embedding model
+npx wrangler vectorize create audit-vectors --dimensions=384 --metric=cosine
 ```
 
 ---
 
-### Step 4 — Configure wrangler.toml
+### Step 4 — Configure Cloudflare resources
 
-```bash
-cp wrangler.toml.example wrangler.toml
-```
-
-Open `wrangler.toml` and replace the placeholder values with the IDs from Step 3:
-
-```toml
-[[d1_databases]]
-database_id = "YOUR_D1_DATABASE_ID"    # ← paste here
-
-[[kv_namespaces]]
-binding = "AUDIT_KV"
-id = "YOUR_AUDIT_KV_ID"               # ← paste here
-
-[[kv_namespaces]]
-binding = "BUDGET_KV"
-id = "YOUR_BUDGET_KV_ID"              # ← paste here
-```
-
-Also update the `NOMINATIM_USER_AGENT` variable with your own contact info (required by OpenStreetMap's terms of use):
-
-```toml
-[vars]
-NOMINATIM_USER_AGENT = "YourAppName/1.0 (you@yourdomain.com)"
-```
-
-> **Note:** `wrangler.toml` is in `.gitignore` so your IDs are never committed. Only `wrangler.toml.example` is tracked.
+Run `npm run prepare:cloudflare`. It discovers or creates the named resources
+and writes their IDs to ignored `wrangler.generated.jsonc`. Update the public
+URLs and `NOMINATIM_USER_AGENT` in `wrangler.jsonc` before deploying a fork.
 
 ---
 
@@ -235,12 +211,12 @@ The deployment generator copies `wrangler.jsonc` to `wrangler.generated.jsonc`
 while replacing only resource IDs, so the binding is preserved automatically.
 The binding does not require a Browser Rendering REST API token or Worker secret.
 
-Workers Free currently includes 10 browser minutes per day. GeoScore clamps its
-configured allowance to 540 seconds/day, leaving 60 seconds of headroom for up to
-three concurrent 20-second reservations. Each eligible audit reserves 20 seconds
-in `BUDGET_KV` before invoking the binding. Quota exhaustion, KV failure, timeout,
-rate limiting, malformed responses, and target-page HTTP errors remain structured
-`unknown/error` evidence; they never become a successful empty page.
+GeoScore applies its own configurable daily budget below the account allowance.
+Each eligible audit reserves a bounded attempt in `BUDGET_KV` before invoking
+the binding. Quota exhaustion, KV failure, timeout, rate limiting, malformed
+responses, and target-page HTTP errors remain structured `unknown/error`
+evidence; they never become a successful empty page. Check current Browser
+Rendering limits in Cloudflare's documentation before changing the budget.
 
 ### Email alerts (weekly score monitoring)
 
@@ -275,31 +251,26 @@ use Workers AI and content-derived fallbacks.
 ### Optional external LLM fallbacks
 
 Deterministic audit checks and recommendation templates remain authoritative.
-LLM calls use the KV cache first, then Workers AI, then exactly one optional
-external provider: generic `API_KEY` when configured, otherwise Groq when
-`GROQ_API_KEY` is configured, otherwise OpenRouter when
-`OPENROUTER_API_KEY` is configured. A failed external request does not cascade
-into another provider, which keeps each audit's provider budget bounded.
-
-OpenRouter uses the dynamic `openrouter/free` route. Free-model availability,
-privacy terms, and limits can change; the documented baseline is 20 requests per
-minute and 50 free-model requests per day for accounts with less than USD 10 in
-purchased credits. Treat it as a low-volume fallback, send only excerpts from
-already-public pages, and never depend on it for deterministic scoring.
+LLM calls use the KV cache first, then Workers AI. When both the generic API
+configuration and Groq are healthy, a stable request hash chooses one of them;
+OpenRouter is considered only when neither primary external entry is available.
+A request calls at most one external entry, so failures never cascade through
+multiple quotas. All of these paths are optional and non-authoritative.
 
 ```bash
 npx wrangler secret put API_KEY --config wrangler.generated.jsonc
+npx wrangler secret put API_BASE_URL --config wrangler.generated.jsonc
+npx wrangler secret put API_MODEL --config wrangler.generated.jsonc
 npx wrangler secret put GROQ_API_KEY --config wrangler.generated.jsonc
 npx wrangler secret put OPENROUTER_API_KEY --config wrangler.generated.jsonc
 ```
 
 The deployment workflow accepts optional GitHub Actions secrets
-`GEOSCORE_GROQ_API_KEY` and `GEOSCORE_OPENROUTER_API_KEY`. Missing either secret
-prints a notice and does not block deployment. It also leaves any previously
-uploaded Worker secret unchanged. `API_KEY` is intentionally configured directly
-in the Worker and not mirrored into GitHub Actions; remove it explicitly with
-`wrangler secret delete API_KEY --config wrangler.generated.jsonc` when rotating
-or disabling it. No key belongs in tracked files or public frontend state.
+`GEOSCORE_API_KEY`, `GEOSCORE_API_BASE_URL`, `GEOSCORE_API_MODEL`,
+`GEOSCORE_GROQ_API_KEY`, and `GEOSCORE_OPENROUTER_API_KEY`. Missing optional
+secrets do not block deployment and leave existing Worker secrets unchanged.
+Remove a retired value explicitly with `wrangler secret delete`; no key,
+endpoint, or model belongs in tracked files or public frontend state.
 
 ---
 
@@ -310,7 +281,7 @@ or disabling it. No key belongs in tracked files or public frontend state.
 | `NOMINATIM_USER_AGENT` | Yes | Your app name + contact email for OpenStreetMap geocoding API |
 | `SEARXNG_URL` | No | URL of a SearXNG search instance |
 | `SEARCH_GATEWAY_URL` | No | URL of the protected Search Gateway used for keyword evidence |
-| `DAILY_BROWSER_BUDGET_SECONDS` | No | Max reserved Browser Run seconds/day, clamped to 540 (60-second free-tier headroom) |
+| `DAILY_BROWSER_BUDGET_SECONDS` | No | Operator-defined daily Browser Run reservation budget |
 | `ADMIN_TOKEN` | Recommended for production | Protects debug/admin endpoints and enables operator-only rate-limit bypass |
 | `GOOGLE_API_KEY` | No | Chrome UX Report API key |
 | `PAGESPEED_API_KEY` | No | PageSpeed Insights / Lighthouse API key |
@@ -318,8 +289,14 @@ or disabling it. No key belongs in tracked files or public frontend state.
 | `RESEND_API_KEY` | No | Resend API key for weekly monitoring alert emails |
 | `SEARCH_GATEWAY_API_KEY` | No | API key sent as `X-API-Key` to the protected Search Gateway |
 | `API_KEY` | No | Worker-only generic external LLM fallback; never passed to a client or public report |
-| `GROQ_API_KEY` | No | Preferred external LLM fallback after Workers AI; optional and non-authoritative |
-| `OPENROUTER_API_KEY` | No | Low-volume `openrouter/free` fallback used only when Groq is not configured |
+| `API_BASE_URL` | With `API_KEY` | Worker-only OpenAI-compatible base URL |
+| `API_MODEL` | With `API_KEY` | Worker-only model identifier for the generic API |
+| `GROQ_API_KEY` | No | Optional primary external LLM entry; non-authoritative |
+| `OPENROUTER_API_KEY` | No | Optional reserve external LLM entry; non-authoritative |
+
+See [docs/manual-service-actions.md](./docs/manual-service-actions.md) for
+optional integrations that require billing, OAuth, verified ownership, or a
+new account credential.
 
 ---
 
@@ -352,7 +329,7 @@ geoscore/
 │   │   ├── content_quality.ts
 │   │   ├── crux.ts           # Chrome UX Report (CrUX) API
 │   │   ├── domain_intel.ts
-│   │   ├── geo_predicted.ts  # AI citation prediction
+│   │   ├── geo_predicted.ts  # Predicted visibility simulation
 │   │   ├── keywords.ts
 │   │   ├── off_page_seo.ts
 │   │   ├── on_page_seo.ts
@@ -389,25 +366,17 @@ geoscore/
 
 ---
 
-## Cloudflare free tier limits
+## Cloudflare usage boundaries
 
-This project is designed to run comfortably within Cloudflare's free tier:
-
-| Resource | Free limit | Typical usage |
-|---|---|---|
-| Workers requests | 100,000/day | ~1 request per audit |
-| Workers CPU time | 10ms per request | Each module is async I/O, minimal CPU |
-| D1 reads | 5M/day | ~50 reads per audit |
-| D1 writes | 100K/day | ~5 writes per audit |
-| KV reads | 100K/day | 1–2 reads per audit (cache check) |
-| KV writes | 1,000/day | 1 write per audit (cache store) |
-| Workers AI | ~10K neurons/day | Used for keyword + GEO + AI insights modules |
-| Pages builds | 500/month | 1 per frontend deploy |
-
-For high-traffic use, the AI modules (geo_predicted, keywords, ai_content_insights) are the first to hit limits. They fall back gracefully when quota is exceeded.
+The implementation keeps crawls, browser rendering, subrequests, and model
+calls bounded so it can operate on low-cost Cloudflare plans. Cloudflare limits
+change over time; check the current product documentation before production
+deployment. Optional providers fail open and never determine factual scores.
 
 ---
 
-## License
+## License and attribution
 
-This derivative is not currently licensed for redistribution. See [LICENSE-STATUS.md](./LICENSE-STATUS.md) before copying, publishing, or accepting contributions.
+MIT. See [LICENSE](./LICENSE) and
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). This project is derived
+from [`sprawf/geoscore`](https://github.com/sprawf/geoscore).
