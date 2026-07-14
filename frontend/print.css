@@ -1,0 +1,81 @@
+/* ── GeoScore PDF / Print Stylesheet ──────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 18mm 15mm;
+    size: A4 portrait;
+  }
+
+  /* Reset Tailwind's bg-slate-50 body */
+  body {
+    background: #fff !important;
+    font-family: 'Inter', Arial, sans-serif !important;
+    font-size: 10pt;
+    color: #1e293b;
+  }
+
+  /* Hide interactive elements */
+  nav,
+  #chat-section,
+  .hero-gradient,
+  #cat-tabs,
+  #embed-cta,
+  #monitor-btn,
+  #export-btn,
+  #monitor-banner,
+  #progress-bar,
+  [data-action="toggle-fix"],
+  button,
+  .print\:hidden { display: none !important; }
+
+  /* Expand all collapsed details */
+  details { display: block !important; }
+  details > summary { display: none !important; }
+
+  /* Score header card */
+  #score-header {
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    page-break-inside: avoid;
+    margin-bottom: 16pt;
+  }
+
+  /* Score rings — reduce size for print */
+  .relative.w-28.h-28 { width: 72pt !important; height: 72pt !important; }
+
+  /* Module cards */
+  .module-card,
+  #modules > div {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    page-break-inside: avoid;
+    margin-bottom: 8pt !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep colors in print */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Page break helpers */
+  #recs-section,
+  #card-eeat,
+  #card-serp-preview { page-break-before: auto; }
+
+  /* Print header */
+  #score-header::before {
+    content: "GeoScore Audit Report — " attr(data-domain);
+    display: block;
+    font-size: 8pt;
+    color: #94a3b8;
+    padding: 8pt 16pt 4pt;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  /* Links — show href */
+  a[href]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #94a3b8; }
+  a[href^="#"]::after,
+  a[href^="javascript"]::after { content: ""; }
+
+  /* Computed cards — full width in print */
+  #modules { display: block !important; }
+  #modules > div { display: block !important; width: 100% !important; }
+}

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Free SEO Tools — robots.txt Generator, Meta Tags, SERP Preview & More | GeoScore</title>
+  <meta name="description" content="Free SEO tools: robots.txt generator, meta tag generator, Open Graph preview, SERP snippet preview, sitemap XML builder, security headers generator. No signup required.">
+  <link rel="canonical" href="https://geo.sayori.org/tools">
+  <meta property="og:title" content="Free SEO Tools — GeoScore">
+  <meta property="og:description" content="7 free SEO tools: robots.txt, meta tags, SERP preview, Open Graph, sitemap, security headers & schema generator.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://geo.sayori.org/tools">
+  <meta property="og:image" content="https://geo.sayori.org/og-image.svg">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563eb'/><path d='M8 22 L13 14 L18 18 L23 10' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='23' cy='10' r='2.5' fill='%2334d399'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tool-tab.active { background:#2563eb; color:#fff; box-shadow:0 1px 4px rgba(37,99,235,.3); }
+    .tool-tab:not(.active) { background:#f8fafc; color:#64748b; }
+    .tool-tab:not(.active):hover { background:#f1f5f9; color:#334155; }
+    .tool-panel { display:none; }
+    .tool-panel.active { display:block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+    .output-box { font-family: 'Fira Code', 'Cascadia Code', Menlo, monospace; font-size:12.5px; line-height:1.7; }
+    textarea:focus, select:focus, input:focus { outline:2px solid #2563eb; outline-offset:1px; }
+    .copy-btn:active { transform:scale(.96); }
+    .tag-pill { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .serp-title { color:#1a0dab; font-size:18px; font-weight:normal; line-height:1.3; }
+    .serp-url { color:#006621; font-size:13px; }
+    .serp-desc { color:#4d5156; font-size:13px; line-height:1.5; }
+    .og-card { border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; max-width:420px; }
+    .og-image-placeholder { background:linear-gradient(135deg,#dbeafe,#ede9fe); display:flex; align-items:center; justify-content:center; }
+    .robots-rule-row + .robots-rule-row { border-top:1px solid #f1f5f9; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen" style="font-family:'Inter',system-ui,sans-serif">
+
+  <!-- ── Nav ───────────────────────────────────────────────────────────── -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-2 shrink-0">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#2563eb"/><path d="M7 22L12 13L17 18L23 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="9" r="2.5" fill="#34d399"/></svg>
+        <span class="font-bold text-slate-900 text-[15px]">GeoScore</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">← Audit Tool</a>
+        <span class="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">Free Tools</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <div class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <h1 class="text-2xl font-extrabold text-slate-900">Free SEO Tools</h1>
+      <p class="text-slate-500 mt-1 text-sm max-w-xl">Generate robots.txt, meta tags, sitemaps, schema markup and more. Everything runs in your browser — no signup, no data sent to servers.</p>
+    </div>
+  </div>
+
+  <!-- ── Layout ────────────────────────────────────────────────────────── -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex gap-6">
+
+    <!-- Sidebar nav -->
+    <aside class="hidden md:block w-52 shrink-0">
+      <nav class="sticky top-20 space-y-1">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-3 mb-2">Tools</p>
+        <button id="tab-robots"  class="tool-tab active w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🤖 robots.txt Generator</button>
+        <button id="tab-meta"    class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🏷️ Meta Tag Generator</button>
+        <button id="tab-serp"    class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🔍 SERP Preview</button>
+        <button id="tab-og"      class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">📸 Open Graph Preview</button>
+        <button id="tab-sitemap" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🗺️ Sitemap XML Builder</button>
+        <button id="tab-headers" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🛡️ Security Headers</button>
+        <button id="tab-schema"  class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🗂️ Schema Generator</button>
+        <div class="border-t border-slate-200 pt-3 mt-3">
+          <a href="/" class="block px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors">⚡ Run Full Audit →</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Mobile tab strip -->
+    <div class="md:hidden w-full mb-4 -mx-4 px-4 overflow-x-auto">
+      <div class="flex gap-2 pb-1" style="width:max-content">
+        <button id="tab-robots-m"  class="tool-tab active px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🤖 robots.txt</button>
+        <button id="tab-meta-m"    class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🏷️ Meta Tags</button>
+        <button id="tab-serp-m"    class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🔍 SERP</button>
+        <button id="tab-og-m"      class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">📸 OG Preview</button>
+        <button id="tab-sitemap-m" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🗺️ Sitemap</button>
+        <button id="tab-headers-m" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🛡️ Headers</button>
+        <button id="tab-schema-m"  class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">🗂️ Schema</button>
+      </div>
+    </div>
+
+    <!-- ── Tool Panels ─────────────────────────────────────────────────── -->
+    <main class="flex-1 min-w-0 space-y-0">
+
+      <!-- ── 1. robots.txt Generator ──────────────────────────────────── -->
+      <section id="panel-robots" class="tool-panel active">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">robots.txt Generator</h2>
+          <p class="text-sm text-slate-500 mb-5">Control which pages search engines and AI crawlers can access. Generates a compliant <code class="bg-slate-100 px-1 rounded text-xs">robots.txt</code> file.</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- Form -->
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Sitemap URL <span class="text-slate-400 font-normal">(optional)</span></label>
+                <input id="rb-sitemap" type="url" placeholder="https://example.com/sitemap.xml" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Crawl rules</label>
+                <div id="rb-rules" class="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
+                  <div class="robots-rule-row p-3 grid grid-cols-3 gap-2">
+                    <select class="rb-agent border border-slate-200 rounded px-2 py-1.5 text-sm col-span-1">
+                      <option>*</option><option>Googlebot</option><option>GPTBot</option><option>ClaudeBot</option><option>PerplexityBot</option><option>anthropic-ai</option><option>CCBot</option><option>Bingbot</option><option>facebookexternalhit</option><option>Twitterbot</option>
+                    </select>
+                    <select class="rb-directive border border-slate-200 rounded px-2 py-1.5 text-sm">
+                      <option value="Allow">Allow</option><option value="Disallow">Disallow</option>
+                    </select>
+                    <input class="rb-path border border-slate-200 rounded px-2 py-1.5 text-sm" placeholder="/ or /path" value="/">
+                  </div>
+                </div>
+                <button id="rb-add-rule" class="mt-2 text-sm text-blue-600 hover:underline">+ Add rule</button>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">AI crawler presets</label>
+                <div class="flex flex-wrap gap-2">
+                  <button id="rb-preset-allow"    class="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full hover:bg-green-100 transition-colors">✓ Allow all crawlers</button>
+                  <button id="rb-preset-block-ai" class="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-full hover:bg-orange-100 transition-colors">🚫 Block AI crawlers</button>
+                  <button id="rb-preset-block-all"class="text-xs px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full hover:bg-red-100 transition-colors">✗ Block everything</button>
+                </div>
+              </div>
+
+              <button id="rb-generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">Generate robots.txt →</button>
+            </div>
+
+            <!-- Output -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-slate-700">Output</label>
+                <div class="flex gap-2">
+                  <button id="rb-copy"     class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+                  <button id="rb-download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                </div>
+              </div>
+              <textarea id="rb-output" rows="16" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Click &quot;Generate robots.txt&quot; to see output…"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2. Meta Tag Generator ─────────────────────────────────────── -->
+      <section id="panel-meta" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">Meta Tag Generator</h2>
+          <p class="text-sm text-slate-500 mb-5">Generate all essential meta tags including Open Graph and Twitter Cards. Copy and paste into your <code class="bg-slate-100 px-1 rounded text-xs">&lt;head&gt;</code>.</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Page Title <span class="text-xs text-slate-400" id="mt-title-count">0/60</span></label>
+                <input id="mt-title" type="text" maxlength="70" placeholder="My Page Title" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Meta Description <span class="text-xs text-slate-400" id="mt-desc-count">0/160</span></label>
+                <textarea id="mt-desc" rows="3" maxlength="170" placeholder="A short description of this page." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Canonical URL</label>
+                <input id="mt-canonical" type="url" placeholder="https://example.com/page" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">OG Image URL</label>
+                <input id="mt-og-image" type="url" placeholder="https://example.com/og.jpg" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">OG Type</label>
+                  <select id="mt-og-type" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="website">website</option><option value="article">article</option><option value="product">product</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Robots</label>
+                  <select id="mt-robots" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="index, follow">index, follow</option>
+                    <option value="noindex, follow">noindex, follow</option>
+                    <option value="index, nofollow">index, nofollow</option>
+                    <option value="noindex, nofollow">noindex, nofollow</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Twitter handle <span class="text-slate-400 font-normal">(optional)</span></label>
+                <input id="mt-twitter" type="text" placeholder="@yourhandle" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <button id="mt-generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">Generate Tags →</button>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-slate-700">HTML Output</label>
+                <button id="mt-copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+              </div>
+              <textarea id="mt-output" rows="22" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Fill in the form and click Generate →"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. SERP Preview ───────────────────────────────────────────── -->
+      <section id="panel-serp" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">SERP Snippet Preview</h2>
+          <p class="text-sm text-slate-500 mb-5">Preview exactly how your page will appear in Google search results. Title cut-off is at ~580px width (~60 chars), description at ~920px (~160 chars).</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-sm font-medium text-slate-700">Page Title</label>
+                  <span id="sp-title-count" class="text-xs text-slate-400">0/60</span>
+                </div>
+                <input id="sp-title" type="text" maxlength="70" placeholder="Your Page Title" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-sm font-medium text-slate-700">URL</label>
+                </div>
+                <input id="sp-url" type="url" placeholder="https://example.com/page" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-sm font-medium text-slate-700">Meta Description</label>
+                  <span id="sp-desc-count" class="text-xs text-slate-400">0/160</span>
+                </div>
+                <textarea id="sp-desc" rows="4" maxlength="165" placeholder="Your page description…" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Date <span class="text-slate-400 font-normal">(optional)</span></label>
+                  <input id="sp-date" type="date" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Favicon domain</label>
+                  <input id="sp-favicon" type="text" placeholder="example.com" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                </div>
+              </div>
+            </div>
+
+            <!-- Live SERP Preview -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">Live Preview</label>
+              <div class="border border-slate-200 rounded-xl p-5 bg-white" style="font-family:arial,sans-serif">
+                <div class="flex items-center gap-2 mb-3">
+                  <div id="sp-fav-img" class="w-4 h-4 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                    <img id="sp-fav-el" src="" alt="" class="w-full h-full object-cover hidden">
+                  </div>
+                  <div>
+                    <div id="sp-url-display" class="serp-url text-[13px] text-[#006621]">example.com</div>
+                  </div>
+                </div>
+                <div id="sp-title-display" class="serp-title text-[18px] text-[#1a0dab] leading-snug mb-1 cursor-pointer hover:underline" style="font-family:arial,sans-serif">Page Title</div>
+                <div id="sp-desc-display" class="serp-desc text-[13px] text-[#4d5156] leading-snug" style="font-family:arial,sans-serif">Your meta description will appear here. Keep it between 120–160 characters for best results.</div>
+              </div>
+
+              <!-- Truncation warnings -->
+              <div id="sp-warnings" class="mt-3 space-y-1.5"></div>
+
+              <!-- Tips -->
+              <div class="mt-4 bg-slate-50 rounded-lg p-3 text-xs text-slate-500 space-y-1">
+                <div>✅ Title: 50–60 chars ideal · Description: 120–160 chars ideal</div>
+                <div>⚠️ Google may rewrite titles that are too short, too long, or keyword-stuffed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. Open Graph Preview ─────────────────────────────────────── -->
+      <section id="panel-og" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">Open Graph Preview</h2>
+          <p class="text-sm text-slate-500 mb-5">See how your page looks when shared on Twitter/X, Facebook, LinkedIn, and Slack. Preview social cards from any URL or enter tags manually.</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-sm font-semibold text-blue-800 mb-1.5">Fetch from URL</p>
+                <div class="flex gap-2">
+                  <input id="og-url-input" type="url" placeholder="https://example.com" class="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  <button id="og-fetch" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Fetch</button>
+                </div>
+                <p id="og-fetch-status" class="text-xs text-blue-600 mt-1.5 hidden"></p>
+              </div>
+              <div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div><div class="relative flex justify-center"><span class="bg-white px-2 text-xs text-slate-400">or enter manually</span></div></div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">OG Title</label>
+                <input id="og-title" type="text" placeholder="Page title" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
+                <textarea id="og-desc" rows="3" placeholder="Description for social sharing…" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">OG Image URL</label>
+                <input id="og-image" type="url" placeholder="https://example.com/image.jpg" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Site Name</label>
+                <input id="og-site" type="text" placeholder="Your Site" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+            </div>
+
+            <!-- Social card previews -->
+            <div class="space-y-4">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Twitter / X</p>
+                <div class="og-card" style="max-width:100%">
+                  <div id="og-img-twitter" class="og-image-placeholder h-48 bg-slate-200 relative">
+                    <img id="og-img-twitter-el" src="" alt="" class="w-full h-full object-cover hidden absolute inset-0">
+                    <span id="og-img-twitter-ph" class="text-slate-400 text-sm">No image set</span>
+                  </div>
+                  <div class="p-3 bg-white">
+                    <p id="og-site-twitter" class="text-[12px] text-slate-400 mb-0.5">yoursite.com</p>
+                    <p id="og-title-twitter" class="font-bold text-slate-900 text-sm leading-snug">Page Title</p>
+                    <p id="og-desc-twitter" class="text-[12px] text-slate-500 mt-0.5 leading-snug line-clamp-2">Description…</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Facebook / LinkedIn</p>
+                <div class="og-card" style="max-width:100%">
+                  <div id="og-img-fb" class="og-image-placeholder h-36 bg-slate-200 relative">
+                    <img id="og-img-fb-el" src="" alt="" class="w-full h-full object-cover hidden absolute inset-0">
+                    <span id="og-img-fb-ph" class="text-slate-400 text-sm">No image set</span>
+                  </div>
+                  <div class="p-3 bg-[#f2f3f5] border-t border-slate-200">
+                    <p id="og-site-fb" class="text-[11px] text-slate-500 uppercase tracking-wide mb-0.5">yoursite.com</p>
+                    <p id="og-title-fb" class="font-semibold text-slate-900 text-sm leading-snug">Page Title</p>
+                    <p id="og-desc-fb" class="text-[12px] text-slate-500 mt-0.5 leading-snug line-clamp-2 hidden">Description…</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. Sitemap XML Builder ─────────────────────────────────────── -->
+      <section id="panel-sitemap" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">Sitemap XML Builder</h2>
+          <p class="text-sm text-slate-500 mb-5">Generate a valid <code class="bg-slate-100 px-1 rounded text-xs">sitemap.xml</code> to submit to Google Search Console. Add your URLs below, one per line.</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">URLs <span class="text-slate-400 font-normal">(one per line)</span></label>
+                <textarea id="sm-urls" rows="10" placeholder="https://example.com/&#10;https://example.com/about&#10;https://example.com/contact&#10;https://example.com/blog" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono resize-none"></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Change Frequency</label>
+                  <select id="sm-freq" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="weekly">weekly</option><option value="daily">daily</option>
+                    <option value="monthly">monthly</option><option value="always">always</option><option value="never">never</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+                  <select id="sm-priority" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="0.8">0.8 (high)</option><option value="0.5">0.5 (medium)</option>
+                    <option value="1.0">1.0 (homepage)</option><option value="0.3">0.3 (low)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <input id="sm-lastmod" type="checkbox" checked class="rounded">
+                <label for="sm-lastmod" class="text-sm text-slate-700">Include today's date as &lt;lastmod&gt;</label>
+              </div>
+              <button id="sm-generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">Generate Sitemap →</button>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-slate-700">sitemap.xml</label>
+                <div class="flex gap-2">
+                  <button id="sm-copy"     class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+                  <button id="sm-download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                </div>
+              </div>
+              <textarea id="sm-output" rows="20" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Add URLs and click Generate →"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6. Security Headers Generator ─────────────────────────────── -->
+      <section id="panel-headers" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">Security Headers Generator</h2>
+          <p class="text-sm text-slate-500 mb-5">Generate HTTP security headers to protect your site. Pick your hosting platform and tune each header — then copy the config snippet.</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Platform</label>
+                <select id="sh-platform" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="cloudflare">Cloudflare Pages / _headers</option>
+                  <option value="nginx">Nginx</option>
+                  <option value="apache">Apache (.htaccess)</option>
+                  <option value="netlify">Netlify (_headers)</option>
+                  <option value="vercel">Vercel (vercel.json)</option>
+                  <option value="nextjs">Next.js (next.config.js)</option>
+                </select>
+              </div>
+
+              <div class="space-y-3">
+                <p class="text-sm font-medium text-slate-700">Headers to include</p>
+
+                <div class="border border-slate-200 rounded-lg p-3 space-y-3">
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-hsts" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">HSTS</div><div class="text-xs text-slate-500">Force HTTPS, protect from SSL stripping attacks</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-csp" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">Content Security Policy</div><div class="text-xs text-slate-500">Prevent XSS and code injection attacks</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-xframe" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">X-Frame-Options</div><div class="text-xs text-slate-500">Block clickjacking via iframes</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-xcontent" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">X-Content-Type-Options</div><div class="text-xs text-slate-500">Prevent MIME-type sniffing attacks</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-referrer" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">Referrer-Policy</div><div class="text-xs text-slate-500">Control what referrer info is sent with requests</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-permissions" checked class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">Permissions-Policy</div><div class="text-xs text-slate-500">Disable unused browser features (camera, mic, etc.)</div></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" id="sh-corp" class="mt-0.5">
+                    <div><div class="text-sm font-medium text-slate-800">Cross-Origin Policies</div><div class="text-xs text-slate-500">COEP + COOP + CORP for advanced isolation</div></div>
+                  </label>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">CSP Preset</label>
+                  <select id="sh-csp-preset" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="strict">Strict (recommended)</option>
+                    <option value="moderate">Moderate (allows inline scripts)</option>
+                    <option value="open">Open (minimal restrictions)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-slate-700">Config Output</label>
+                <div class="flex gap-2">
+                  <button id="sh-copy"     class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+                  <button id="sh-download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                </div>
+              </div>
+              <textarea id="sh-output" rows="24" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 7. Schema Generator ────────────────────────────────────────── -->
+      <section id="panel-schema" class="tool-panel">
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 class="text-lg font-bold mb-1">Schema Markup Generator</h2>
+          <p class="text-sm text-slate-500 mb-5">Generate JSON-LD structured data. Schema markup helps Google understand your content and can earn rich results (stars, FAQs, breadcrumbs).</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Schema Type</label>
+                <select id="sc-type" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="Organization">Organization</option>
+                  <option value="LocalBusiness">LocalBusiness</option>
+                  <option value="FAQPage">FAQ Page</option>
+                  <option value="Article">Article / Blog Post</option>
+                  <option value="BreadcrumbList">Breadcrumb</option>
+                  <option value="Product">Product</option>
+                  <option value="WebSite">WebSite + Sitelinks Search</option>
+                </select>
+              </div>
+
+              <!-- Dynamic fields rendered here -->
+              <div id="sc-fields" class="space-y-3"></div>
+
+              <button id="sc-generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">Generate JSON-LD →</button>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-slate-700">JSON-LD Output</label>
+                <button id="sc-copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+              </div>
+              <textarea id="sc-output" rows="20" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Fill in the form and click Generate →"></textarea>
+              <div class="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <span>Validate at:</span>
+                <a href="https://validator.schema.org/" target="_blank" rel="noopener" class="text-blue-600 hover:underline">schema.org validator</a>
+                <span>·</span>
+                <a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener" class="text-blue-600 hover:underline">Google Rich Results Test</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="mt-16 border-t border-slate-200 bg-white py-8 text-center">
+    <div class="text-sm text-slate-500">
+      <a href="/" class="hover:text-slate-900 transition-colors">← Back to GeoScore Audit Tool</a>
+      <span class="mx-3 text-slate-300">·</span>
+      <span>All tools run in your browser · No data stored</span>
+    </div>
+  </footer>
+
+<script src="tools.js" defer></script>
+</body>
+</html>

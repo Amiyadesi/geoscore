@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Wrangler local state
+.wrangler/
+.wrangler-*-dry-run/
+.wrangler-dry-run/
+.dev.vars
+resource-summary.json
+wrangler.generated.jsonc
+.wrangler.no-routes.*.jsonc
+# Legacy/local config may contain account resource IDs.
+wrangler.toml
+
+# Local D1 database files
+*.db
+*.db-shm
+*.db-wal
+
+# Build output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env / secrets - never commit these
+.env
+.env.local
+.env.*
+
+# Test output
+*.log

@@ -1,0 +1,30 @@
+{
+  "name": "sayori-geoscore",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --config wrangler.jsonc",
+    "check": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "smoke:pagespeed": "node scripts/smoke-pagespeed.mjs",
+    "prepare:cloudflare": "node scripts/prepare-cloudflare.mjs",
+    "ensure:pages-domain": "node scripts/ensure-pages-domain.mjs",
+    "deploy": "wrangler deploy --config wrangler.generated.jsonc --minify",
+    "deploy:no-routes": "node scripts/deploy-no-routes.mjs wrangler.generated.jsonc",
+    "deploy:ui-worker": "wrangler deploy --config wrangler.ui.jsonc --minify",
+    "deploy:ui-worker:no-routes": "node scripts/deploy-no-routes.mjs wrangler.ui.jsonc",
+    "db:migrate": "wrangler d1 migrations apply sayori-geoscore-db --remote --config wrangler.generated.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply sayori-geoscore-db --local --config wrangler.jsonc",
+    "deploy:pages": "wrangler pages deploy frontend --project-name=sayori-geoscore --branch main"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250510.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^4.90.0"
+  },
+  "dependencies": {
+    "linkedom": "^0.18.9",
+    "tldts": "^7.4.8",
+    "ulid": "^2.3.0"
+  }
+}

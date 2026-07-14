@@ -1,0 +1,103 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,sans-serif">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#eff6ff"/>
+      <stop offset="60%" style="stop-color:#f8fafc"/>
+      <stop offset="100%" style="stop-color:#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#1e293b" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Decorative dots pattern top-right -->
+  <g opacity="0.07">
+    <circle cx="900" cy="80" r="4" fill="#2563eb"/><circle cx="940" cy="80" r="4" fill="#2563eb"/><circle cx="980" cy="80" r="4" fill="#2563eb"/><circle cx="1020" cy="80" r="4" fill="#2563eb"/><circle cx="1060" cy="80" r="4" fill="#2563eb"/><circle cx="1100" cy="80" r="4" fill="#2563eb"/>
+    <circle cx="900" cy="120" r="4" fill="#2563eb"/><circle cx="940" cy="120" r="4" fill="#2563eb"/><circle cx="980" cy="120" r="4" fill="#2563eb"/><circle cx="1020" cy="120" r="4" fill="#2563eb"/><circle cx="1060" cy="120" r="4" fill="#2563eb"/><circle cx="1100" cy="120" r="4" fill="#2563eb"/>
+    <circle cx="900" cy="160" r="4" fill="#2563eb"/><circle cx="940" cy="160" r="4" fill="#2563eb"/><circle cx="980" cy="160" r="4" fill="#2563eb"/><circle cx="1020" cy="160" r="4" fill="#2563eb"/><circle cx="1060" cy="160" r="4" fill="#2563eb"/><circle cx="1100" cy="160" r="4" fill="#2563eb"/>
+    <circle cx="900" cy="200" r="4" fill="#2563eb"/><circle cx="940" cy="200" r="4" fill="#2563eb"/><circle cx="980" cy="200" r="4" fill="#2563eb"/><circle cx="1020" cy="200" r="4" fill="#2563eb"/>
+  </g>
+
+  <!-- Logo mark -->
+  <rect x="60" y="56" width="52" height="52" rx="14" fill="url(#blueGrad)"/>
+  <polyline points="74,96 84,80 94,87 106,70" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="106" cy="70" r="4.5" fill="#34d399"/>
+
+  <!-- Brand name -->
+  <text x="128" y="90" font-size="32" font-weight="800" fill="#0f172a" letter-spacing="-0.5">GeoScore</text>
+  <rect x="270" y="72" width="52" height="24" rx="12" fill="#dbeafe"/>
+  <text x="296" y="89" font-size="12" font-weight="600" fill="#1d4ed8" text-anchor="middle">Free</text>
+
+  <!-- Main headline -->
+  <text x="60" y="200" font-size="52" font-weight="800" fill="#0f172a" letter-spacing="-1.5">How visible is your website</text>
+  <text x="60" y="264" font-size="52" font-weight="800" fill="#2563eb" letter-spacing="-1.5">to Google &amp; AI search engines?</text>
+
+  <!-- Subheadline -->
+  <text x="60" y="316" font-size="22" fill="#64748b">Instant SEO &amp; GEO audit — will ChatGPT, Perplexity &amp; Gemini cite you?</text>
+
+  <!-- Score cards -->
+  <!-- Card 1: Overall -->
+  <rect x="60" y="370" width="240" height="170" rx="16" fill="white" filter="url(#shadow)"/>
+  <circle cx="180" cy="445" r="46" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+  <circle cx="180" cy="445" r="46" fill="none" stroke="#2563eb" stroke-width="9" stroke-dasharray="289 0" stroke-linecap="round" transform="rotate(-90 180 445)"/>
+  <text x="180" y="453" font-size="30" font-weight="800" fill="#0f172a" text-anchor="middle">89</text>
+  <text x="180" y="470" font-size="11" fill="#94a3b8" text-anchor="middle">/100</text>
+  <text x="180" y="526" font-size="13" font-weight="700" fill="#475569" text-anchor="middle" letter-spacing="0.5">OVERALL</text>
+  <rect x="148" y="533" width="64" height="18" rx="9" fill="#dbeafe"/>
+  <text x="180" y="546" font-size="10" font-weight="600" fill="#1d4ed8" text-anchor="middle">A+</text>
+
+  <!-- Card 2: SEO -->
+  <rect x="320" y="370" width="240" height="170" rx="16" fill="white" filter="url(#shadow)"/>
+  <circle cx="440" cy="445" r="46" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+  <circle cx="440" cy="445" r="46" fill="none" stroke="#2563eb" stroke-width="9" stroke-dasharray="248 41" stroke-linecap="round" transform="rotate(-90 440 445)"/>
+  <text x="440" y="453" font-size="30" font-weight="800" fill="#2563eb" text-anchor="middle">79</text>
+  <text x="440" y="470" font-size="11" fill="#94a3b8" text-anchor="middle">/100</text>
+  <text x="440" y="526" font-size="13" font-weight="700" fill="#475569" text-anchor="middle" letter-spacing="0.5">SEO</text>
+  <rect x="410" y="533" width="60" height="18" rx="9" fill="#dbeafe"/>
+  <text x="440" y="546" font-size="10" font-weight="600" fill="#1d4ed8" text-anchor="middle">B+</text>
+
+  <!-- Card 3: GEO·AI -->
+  <rect x="580" y="370" width="240" height="170" rx="16" fill="white" filter="url(#shadow)"/>
+  <circle cx="700" cy="445" r="46" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+  <circle cx="700" cy="445" r="46" fill="none" stroke="#7c3aed" stroke-width="9" stroke-dasharray="314 0" stroke-linecap="round" transform="rotate(-90 700 445)"/>
+  <text x="700" y="453" font-size="30" font-weight="800" fill="#7c3aed" text-anchor="middle">100</text>
+  <text x="700" y="470" font-size="11" fill="#94a3b8" text-anchor="middle">/100</text>
+  <text x="700" y="518" font-size="13" font-weight="700" fill="#475569" text-anchor="middle" letter-spacing="0.5">GEO · AI</text>
+  <text x="700" y="532" font-size="10" fill="#94a3b8" text-anchor="middle">Authority + Citation</text>
+  <rect x="668" y="539" width="64" height="18" rx="9" fill="#ede9fe"/>
+  <text x="700" y="552" font-size="10" font-weight="600" fill="#6d28d9" text-anchor="middle">A+</text>
+
+  <!-- Card 4: Performance -->
+  <rect x="840" y="370" width="240" height="170" rx="16" fill="white" filter="url(#shadow)"/>
+  <circle cx="960" cy="445" r="46" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+  <circle cx="960" cy="445" r="46" fill="none" stroke="#16a34a" stroke-width="9" stroke-dasharray="267 47" stroke-linecap="round" transform="rotate(-90 960 445)"/>
+  <text x="960" y="453" font-size="30" font-weight="800" fill="#16a34a" text-anchor="middle">85</text>
+  <text x="960" y="470" font-size="11" fill="#94a3b8" text-anchor="middle">/100</text>
+  <text x="960" y="526" font-size="13" font-weight="700" fill="#475569" text-anchor="middle" letter-spacing="0.5">PERFORMANCE</text>
+  <rect x="928" y="533" width="64" height="18" rx="9" fill="#dcfce7"/>
+  <text x="960" y="546" font-size="10" font-weight="600" fill="#15803d" text-anchor="middle">A</text>
+
+  <!-- Bottom badges -->
+  <rect x="60" y="565" width="140" height="30" rx="15" fill="#f1f5f9"/>
+  <text x="130" y="585" font-size="12" fill="#475569" text-anchor="middle">✓ Zero tracking</text>
+
+  <rect x="216" y="565" width="150" height="30" rx="15" fill="#f1f5f9"/>
+  <text x="291" y="585" font-size="12" fill="#475569" text-anchor="middle">✓ No account needed</text>
+
+  <rect x="382" y="565" width="150" height="30" rx="15" fill="#f1f5f9"/>
+  <text x="457" y="585" font-size="12" fill="#475569" text-anchor="middle">✓ Open source</text>
+
+  <rect x="548" y="565" width="160" height="30" rx="15" fill="#f1f5f9"/>
+  <text x="628" y="585" font-size="12" fill="#475569" text-anchor="middle">✓ 15 audit modules</text>
+
+  <!-- URL badge -->
+  <rect x="900" y="558" width="240" height="42" rx="21" fill="url(#blueGrad)"/>
+  <text x="1020" y="584" font-size="16" font-weight="700" fill="white" text-anchor="middle">geo.sayori.org</text>
+</svg>

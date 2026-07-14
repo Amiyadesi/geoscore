@@ -1,0 +1,118 @@
+name: Deploy GeoScore
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: geoscore-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy geo.sayori.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GEOSCORE_CF_ACCOUNT_ID: ${{ secrets.GEOSCORE_CF_ACCOUNT_ID }}
+      GEOSCORE_CF_API_TOKEN: ${{ secrets.GEOSCORE_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GEOSCORE_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.GEOSCORE_CF_API_TOKEN }}
+      GEOSCORE_ADMIN_TOKEN: ${{ secrets.GEOSCORE_ADMIN_TOKEN }}
+      GEOSCORE_GOOGLE_API_KEY: ${{ secrets.GEOSCORE_GOOGLE_API_KEY }}
+      GEOSCORE_PAGESPEED_API_KEY: ${{ secrets.GEOSCORE_PAGESPEED_API_KEY }}
+      GEOSCORE_OPENPAGERANK_KEY: ${{ secrets.GEOSCORE_OPENPAGERANK_KEY }}
+      GEOSCORE_RESEND_API_KEY: ${{ secrets.GEOSCORE_RESEND_API_KEY }}
+      GEOSCORE_SEARCH_GATEWAY_API_KEY: ${{ secrets.GEOSCORE_SEARCH_GATEWAY_API_KEY }}
+      GEOSCORE_GROQ_API_KEY: ${{ secrets.GEOSCORE_GROQ_API_KEY }}
+      GEOSCORE_OPENROUTER_API_KEY: ${{ secrets.GEOSCORE_OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check deployment credentials
+        id: cloudflare
+        shell: bash
+        run: |
+          if [[ -z "${GEOSCORE_CF_ACCOUNT_ID}" || -z "${GEOSCORE_CF_API_TOKEN}" ]]; then
+            echo "::warning::Cloudflare deploy skipped. Add GEOSCORE_CF_ACCOUNT_ID and GEOSCORE_CF_API_TOKEN repository secrets. Existing Worker secrets are not changed."
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "ready=true" >> "${GITHUB_OUTPUT}"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run check
+      - name: Test
+        run: npm test
+      - name: Prepare Cloudflare resources
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: npm run prepare:cloudflare
+      - name: Upload Worker secrets
+        if: steps.cloudflare.outputs.ready == 'true'
+        shell: bash
+        run: |
+          secret_file="${RUNNER_TEMP}/geoscore-worker-secrets.json"
+          node --input-type=module - "${secret_file}" <<'NODE'
+          import fs from 'node:fs';
+          const mappings = {
+            ADMIN_TOKEN: process.env.GEOSCORE_ADMIN_TOKEN,
+            GOOGLE_API_KEY: process.env.GEOSCORE_GOOGLE_API_KEY,
+            PAGESPEED_API_KEY: process.env.GEOSCORE_PAGESPEED_API_KEY,
+            OPENPAGERANK_KEY: process.env.GEOSCORE_OPENPAGERANK_KEY,
+            RESEND_API_KEY: process.env.GEOSCORE_RESEND_API_KEY,
+            SEARCH_GATEWAY_API_KEY: process.env.GEOSCORE_SEARCH_GATEWAY_API_KEY,
+            GROQ_API_KEY: process.env.GEOSCORE_GROQ_API_KEY,
+            OPENROUTER_API_KEY: process.env.GEOSCORE_OPENROUTER_API_KEY,
+          };
+          const payload = Object.fromEntries(Object.entries(mappings).filter(([, value]) => value));
+          if (!Object.keys(payload).length) process.exit(0);
+          fs.writeFileSync(process.argv[2], JSON.stringify(payload), { mode: 0o600 });
+          NODE
+          if [[ ! -f "${secret_file}" ]]; then
+            echo "::notice::No optional Worker secrets were supplied. Existing Worker secrets are unchanged."
+            exit 0
+          fi
+          npx wrangler secret bulk "${secret_file}" --config wrangler.generated.jsonc
+          rm -f "${secret_file}"
+      - name: Apply D1 migrations
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: npm run db:migrate
+      - name: Deploy Worker
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: npm run deploy:no-routes
+      - name: Smoke PageSpeed Insights
+        if: steps.cloudflare.outputs.ready == 'true'
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm run smoke:pagespeed -- --require-score; then
+              exit 0
+            fi
+            if [[ "${attempt}" -lt 3 ]]; then
+              echo "PageSpeed smoke attempt ${attempt} failed; retrying in 10 seconds."
+              sleep 10
+            fi
+          done
+          exit 1
+      - name: Deploy Pages frontend
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: npm run deploy:pages
+      - name: Deploy UI custom-domain Worker
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: npm run deploy:ui-worker:no-routes
+      - name: Verify Worker metadata
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: |
+          npx wrangler secret list --config wrangler.generated.jsonc
+          npx wrangler d1 list
+          npx wrangler kv namespace list
+          npx wrangler vectorize list

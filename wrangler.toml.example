@@ -1,0 +1,69 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# wrangler.toml.example — copy this to wrangler.toml and fill in your own IDs
+#
+# Steps:
+#   1. cp wrangler.toml.example wrangler.toml
+#   2. Replace every placeholder below with real values from your Cloudflare dashboard
+#   3. Run `npm run db:migrate` to apply schema migrations
+# ─────────────────────────────────────────────────────────────────────────────
+
+name = "audit-api"                  # Your Worker name — becomes <name>.<subdomain>.workers.dev
+main = "src/index.ts"
+compatibility_date = "2025-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ── D1 Database ───────────────────────────────────────────────────────────────
+# Create with: wrangler d1 create audit-db
+[[d1_databases]]
+binding = "DB"
+database_name = "audit-db"
+database_id = "YOUR_D1_DATABASE_ID"   # e.g. 40e24c90-028c-4c9c-b202-88cb6d892a45
+
+# ── KV Namespaces ─────────────────────────────────────────────────────────────
+# Create with: wrangler kv namespace create AUDIT_KV
+[[kv_namespaces]]
+binding = "AUDIT_KV"
+id = "YOUR_AUDIT_KV_ID"              # e.g. ea17e4192b59401587bdc22889b9d975
+
+# Create with: wrangler kv namespace create BUDGET_KV
+[[kv_namespaces]]
+binding = "BUDGET_KV"
+id = "YOUR_BUDGET_KV_ID"             # e.g. be511b47bdaf4ea8b476b14ce2146893
+
+# ── Vectorize Index ───────────────────────────────────────────────────────────
+# Create with: wrangler vectorize create audit-vectors --dimensions=768 --metric=cosine
+[[vectorize]]
+binding = "VECTORS"
+index_name = "audit-vectors"
+
+# ── Workers AI ────────────────────────────────────────────────────────────────
+[ai]
+binding = "AI"
+
+# ── Scheduled cron jobs ───────────────────────────────────────────────────────
+# 02:00 UTC daily  — clean up budget counters
+# 08:00 UTC Monday — monitoring alerts + weekly pattern learning
+[triggers]
+crons = ["0 2 * * *", "0 8 * * 1"]
+
+# ── Environment variables ─────────────────────────────────────────────────────
+[vars]
+# Nominatim (OpenStreetMap geocoding) requires a user-agent string.
+# Format: "AppName/Version (contact@yourdomain.com)"
+NOMINATIM_USER_AGENT = "YourAppName/1.0 (contact@yourdomain.com)"
+
+# Optional: URL of a SearXNG instance for fallback search (leave empty to skip)
+SEARXNG_URL = ""
+
+# Optional: URL of the protected Sayori Search Gateway. The API key must be set
+# as Worker secret SEARCH_GATEWAY_API_KEY.
+SEARCH_GATEWAY_URL = ""
+
+# Daily browser (Puppeteer) budget in seconds. 540 = 9 minutes.
+DAILY_BROWSER_BUDGET_SECONDS = "540"
+
+# ── Secrets (set via `wrangler secret put`, NOT in this file) ─────────────────
+# RESEND_API_KEY — for weekly monitoring alert emails (optional feature)
+#   wrangler secret put RESEND_API_KEY
+# SEARCH_GATEWAY_API_KEY — protected search gateway key (optional)
+#   wrangler secret put SEARCH_GATEWAY_API_KEY

@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sayori-geoscore-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "f900c87e727fb95fd5a74dfca03f2571",
+  "workers_dev": false,
+  "keep_vars": true,
+  "vars": {
+    "PUBLIC_APP_URL": "https://geo.sayori.org",
+    "PUBLIC_API_URL": "https://geo-api.sayori.org",
+    "ALLOWED_ORIGINS": "https://geo.sayori.org,https://sayori-geoscore.pages.dev",
+    "RESEND_FROM": "Sayori GeoScore <alerts@sayori.org>",
+    "NOMINATIM_USER_AGENT": "SayoriGeoScore/2.1 (+https://geo.sayori.org)",
+    "SEARXNG_URL": "",
+    "SEARCH_GATEWAY_URL": "https://search.sayori.org",
+    "DAILY_BROWSER_BUDGET_SECONDS": "540",
+    "AUDIT_RATE_LIMIT_PER_HOUR": "8",
+    "SEARCH_RATE_LIMIT_PER_MINUTE": "60"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sayori-geoscore-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "AUDIT_KV",
+      "id": "00000000000000000000000000000000"
+    },
+    {
+      "binding": "BUDGET_KV",
+      "id": "11111111111111111111111111111111"
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "VECTORS",
+      "index_name": "sayori-geoscore-vectors"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "browser": {
+    "binding": "BROWSER"
+  },
+  "triggers": {
+    "crons": ["0 2 * * *", "0 8 * * 1"]
+  },
+  "routes": [
+    {
+      "pattern": "geo-api.sayori.org",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

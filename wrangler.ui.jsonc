@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sayori-geoscore-ui",
+  "main": "ui-worker/index.ts",
+  "compatibility_date": "2026-06-20",
+  "account_id": "f900c87e727fb95fd5a74dfca03f2571",
+  "workers_dev": false,
+  "keep_vars": true,
+  "vars": {
+    "UPSTREAM_ORIGIN": "https://sayori-geoscore.pages.dev"
+  },
+  "routes": [
+    {
+      "pattern": "geo.sayori.org",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
