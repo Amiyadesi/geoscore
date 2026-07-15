@@ -1,5 +1,7 @@
 # GeoScore - Evidence-First SEO and GEO Audit
 
+[中文 README](./README.zh-CN.md) · English
+
 <p align="center">
   <a href="https://geo.sayori.org">
     <img src="https://geo.sayori.org/og-image.svg" alt="GeoScore — Free SEO & AI Visibility Audit" width="100%"/>
