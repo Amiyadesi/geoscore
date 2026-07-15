@@ -9,17 +9,14 @@ import {
   buildAuditContext,
   buildRecommendations,
   buildNormalizedChecks,
-  canCompareMonitorBaseline,
   CHECK_SEVERITIES,
   FACTUAL_CHECK_IDS,
   isSiteArchetype,
   mergeLighthouseChecks,
-  monitorBaselineFromSummary,
   scoreChecks,
   SCORE_POLICY,
   SCORE_VERSION,
   type AuditContext,
-  type MonitorScoreBaseline,
   type NormalizedCheck,
 } from './lib/audit-core';
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
@@ -34,6 +31,20 @@ import { handleSerpGen } from './routes/serp_gen';
 import { handleSchemaGen } from './routes/schema_gen';
 import { handleGeoProbe } from './routes/geo_probe';
 import { handleHistory } from './routes/history';
+import { handleEvidenceMap } from './routes/evidence-map';
+import { handleAnswerModels } from './routes/answer-models';
+import {
+  handleMonitorProjects,
+  MONITOR_RETENTION_LIMIT,
+  runWeeklyMonitorProjects,
+} from './routes/monitoring';
+import {
+  EVIDENCE_SNAPSHOT_VERSION,
+  MAX_FREE_ANSWER_PROVIDERS_PER_RUN,
+  MAX_FREE_EVIDENCE_QUERIES,
+  MAX_FREE_SEARCH_PROVIDERS_PER_QUERY,
+} from './lib/query-evidence';
+import { buildRepairGroups } from './lib/repair-groups';
 import { handleFeedback, handleLearningAdmin } from './routes/feedback';
 import {
   corsHeaders,
@@ -48,8 +59,8 @@ import {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Project-Token, X-API-Key',
 };
 
 export default {
@@ -66,11 +77,10 @@ export default {
     await env.BUDGET_KV.delete(`browser:${yesterday}`);
     await env.BUDGET_KV.delete(`ai:${yesterday}`);
 
-    // Weekly monitoring: re-audit subscribed domains and email if scores changed
-    // Also run pattern learning aggregation
+    // Capture weekly dated evidence for monitoring projects and aggregate learning patterns.
     if (event.cron === '0 8 * * 1') { // Mondays at 08:00 UTC
       await Promise.all([
-        runMonitoringAlerts(env),
+        runWeeklyMonitorProjects(env),
         runWeeklyLearning(env),
       ]);
     }
@@ -78,6 +88,7 @@ export default {
 };
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
+export const PRODUCT_VERSION = '2.3.0';
 const MAX_AUDIT_PAGES = 5;
 const OPTIONAL_ANONYMOUS_MODULES = [
   'keywords',
@@ -96,8 +107,9 @@ export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
   const freshAuditLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 8;
   const informationalChecks = FACTUAL_CHECK_IDS.filter(id => CHECK_SEVERITIES[id] === 'info').length;
   return {
-    version: SCORE_VERSION,
+    version: PRODUCT_VERSION,
     score_version: SCORE_VERSION,
+    snapshot_version: EVIDENCE_SNAPSHOT_VERSION,
     max_pages: MAX_AUDIT_PAGES,
     max_audited_pages: MAX_AUDIT_PAGES,
     audit_modes: ['site', 'url'] as const,
@@ -121,10 +133,22 @@ export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
       unknown_error_penalty: false,
       predicted_weight: 0,
     },
+    limits: {
+      evidence_queries_per_project: MAX_FREE_EVIDENCE_QUERIES,
+      search_providers_per_query: MAX_FREE_SEARCH_PROVIDERS_PER_QUERY,
+      answer_providers_per_run: MAX_FREE_ANSWER_PROVIDERS_PER_RUN,
+      monitoring_schedule: 'weekly' as const,
+      retained_snapshots: MONITOR_RETENTION_LIMIT,
+    },
     license: 'MIT',
     source_url: PUBLIC_SOURCE_URL,
     capabilities: {
-      ai_citation_monitoring: 'predicted_only',
+      query_evidence_map: true,
+      api_answer_snapshots: true,
+      accountless_monitoring: true,
+      request_scoped_api_key: true,
+      api_key_persistence: 'none' as const,
+      consumer_ai_citation_monitoring: false,
       full_markdown_repair_report: true,
       lighthouse_score_merge: true,
       optional_modules_not_run: OPTIONAL_ANONYMOUS_MODULES,
@@ -187,6 +211,7 @@ async function persistLighthouseAuditUpdate(
     },
   };
   const recommendations = buildRecommendations(context, checks);
+  const repairGroups = buildRepairGroups(checks, recommendations);
   const updatedAudit = {
     ...audit,
     score_version: scoreSummary.score_version,
@@ -194,6 +219,7 @@ async function persistLighthouseAuditUpdate(
     normalized_checks: checks,
     score_summary: scoreSummary,
     recommendations_v2: recommendations,
+    repair_groups: repairGroups,
     modules,
     ...legacyScores,
   };
@@ -304,6 +330,25 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const { limited } = await searchRateLimit(env, ip);
       if (limited) return rateLimitedResponse(60);
       return handleSearch(req, env);
+    }
+
+    if (pathname === '/api/answer-models' && req.method === 'POST') {
+      const { limited } = await searchRateLimit(env, ip);
+      if (limited) return rateLimitedResponse(60);
+      return handleAnswerModels(req, env);
+    }
+
+    const evidenceMapMatch = pathname.match(/^\/api\/audits\/([^/]+)\/evidence-map$/);
+    if (evidenceMapMatch && req.method === 'POST') {
+      const { limited } = await searchRateLimit(env, ip);
+      if (limited) return rateLimitedResponse(60);
+      return handleEvidenceMap(req, decodeURIComponent(evidenceMapMatch[1]), env);
+    }
+
+    if (pathname === '/api/monitor-projects' || pathname.startsWith('/api/monitor-projects/')) {
+      const { limited } = await searchRateLimit(env, ip);
+      if (limited && req.method !== 'GET') return rateLimitedResponse(60);
+      return handleMonitorProjects(req, env);
     }
 
     if (pathname.startsWith('/api/audit/') && pathname.endsWith('/cache') && req.method === 'DELETE') {
@@ -588,13 +633,6 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const { limited } = await auditRateLimit(env, ip);
       if (limited) return rateLimitedResponse(60);
       return handleCompare(domains as string[], env);
-    }
-
-    // ── Monitor endpoint: POST /api/monitor ──────────────────────────────────
-    if (pathname === '/api/monitor' && req.method === 'POST') {
-      const denied = requireAdmin(req, env);
-      if (denied) return denied;
-      return handleMonitor(req, env);
     }
 
     // ── Embed widget script: GET /embed.js ───────────────────────────────────
@@ -956,134 +994,6 @@ async function handleCompare(domains: string[], env: Env): Promise<Response> {
   return new Response(JSON.stringify(results), {
     headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
-}
-
-// ── /api/monitor ─────────────────────────────────────────────────────────────
-async function handleMonitor(req: Request, env: Env): Promise<Response> {
-  try {
-    const { domain, email } = await req.json() as { domain?: string; email?: string };
-    const cleanDomain = parseStrictPublicDomain(domain ?? '');
-    if (!cleanDomain) {
-      return jsonError(PUBLIC_DOMAIN_ERROR, 400);
-    }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return jsonError('Invalid email', 400);
-    }
-
-    // Ensure table exists (idempotent)
-    await env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS monitor_subs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        domain TEXT NOT NULL,
-        email TEXT NOT NULL,
-        last_overall INTEGER DEFAULT 0,
-        created_at INTEGER DEFAULT (unixepoch()),
-        UNIQUE(domain, email)
-      )
-    `).run();
-
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO monitor_subs (domain, email) VALUES (?, ?)`
-    ).bind(cleanDomain, email.toLowerCase()).run();
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-    });
-  } catch {
-    return jsonError('Failed to save subscription', 500);
-  }
-}
-
-// ── Monitoring cron job ───────────────────────────────────────────────────────
-async function runMonitoringAlerts(env: Env): Promise<void> {
-  try {
-    const rows = await env.DB.prepare(
-      `SELECT domain, email, last_overall FROM monitor_subs ORDER BY domain`
-    ).all();
-
-    if (!rows.results?.length) return;
-
-    const { runTechnicalSeo } = await import('./modules/technical_seo');
-    const { runSchemaAudit }  = await import('./modules/schema_audit');
-    const { runContentQuality } = await import('./modules/content_quality');
-
-    for (const row of rows.results as { domain: string; email: string; last_overall: number }[]) {
-      try {
-        const page = await fetchAuditPage({
-          url: `https://${row.domain}/`,
-          page_type: 'home',
-          source: 'requested',
-        });
-        const context = buildAuditContext({ domain: row.domain, pages: [page] });
-        const [tech, schema, content] = await Promise.all([
-          runTechnicalSeo(row.domain, page.html, page.headers, page.response_ms, page.final_url)
-            .then(data => ({ status: 'ok', data } as ModuleResult))
-            .catch(error => ({ status: 'failed', error: error instanceof Error ? error.message : 'technical audit failed' } as ModuleResult)),
-          runSchemaAudit(row.domain, page.html, [], context.site_archetype)
-            .then(data => ({ status: 'ok', data } as ModuleResult))
-            .catch(error => ({ status: 'failed', error: error instanceof Error ? error.message : 'schema audit failed' } as ModuleResult)),
-          runContentQuality(row.domain, page.html)
-            .then(data => ({ status: 'ok', data } as ModuleResult))
-            .catch(error => ({ status: 'failed', error: error instanceof Error ? error.message : 'content audit failed' } as ModuleResult)),
-        ]);
-        const modules: Record<string, ModuleResult> = { technical_seo: tech, schema_audit: schema, content_quality: content };
-        const checks = buildNormalizedChecks(context, [page], modules);
-        const summary = scoreChecks(checks);
-        const newScore = summary.overall.score;
-        const baselineKey = `monitor-baseline:${encodeURIComponent(row.domain)}:${encodeURIComponent(row.email)}`;
-        const previousRaw = await env.AUDIT_KV.get(baselineKey);
-        let previous: Partial<MonitorScoreBaseline> | null = null;
-        try { previous = previousRaw ? JSON.parse(previousRaw) : null; } catch { previous = null; }
-        const baseline = monitorBaselineFromSummary(summary);
-        await env.AUDIT_KV.put(baselineKey, JSON.stringify(baseline), { expirationTtl: 60 * 60 * 24 * 90 });
-
-        if (!canCompareMonitorBaseline(previous, baseline)) {
-          if (newScore !== null) {
-            await env.DB.prepare(`UPDATE monitor_subs SET last_overall = ? WHERE domain = ? AND email = ?`)
-              .bind(newScore, row.domain, row.email).run();
-          }
-          continue;
-        }
-
-        const delta = newScore! - previous!.score!;
-        if (Math.abs(delta) >= 5 && (env as any).RESEND_API_KEY) {
-          await sendAlertEmail(env, row.email, row.domain, previous!.score!, newScore!, delta);
-        }
-
-        await env.DB.prepare(
-          `UPDATE monitor_subs SET last_overall = ? WHERE domain = ? AND email = ?`
-        ).bind(newScore, row.domain, row.email).run();
-      } catch { /* skip individual failures */ }
-    }
-  } catch { /* skip if table doesn't exist yet */ }
-}
-
-async function sendAlertEmail(env: Env, to: string, domain: string, oldScore: number, newScore: number, delta: number): Promise<void> {
-  const direction = delta > 0 ? '📈 improved' : '📉 dropped';
-  const auditUrl  = `${publicAppUrl(env)}/?d=${encodeURIComponent(domain)}`;
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${(env as any).RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.RESEND_FROM || 'Sayori GeoScore <alerts@sayori.org>',
-      to: [to],
-      subject: `${domain} SEO score ${direction} by ${Math.abs(delta)} points`,
-      html: `
-        <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #e2e8f0">
-          <h2 style="margin:0 0 8px;font-size:20px;color:#1e293b">SEO Score Alert</h2>
-          <p style="margin:0 0 20px;color:#64748b;font-size:14px">Weekly update for <strong>${domain}</strong></p>
-          <div style="background:${delta>0?'#dcfce7':'#fee2e2'};border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
-            <div style="font-size:36px;font-weight:800;color:${delta>0?'#15803d':'#b91c1c'}">${newScore}</div>
-            <div style="font-size:13px;color:${delta>0?'#166534':'#991b1b'};margin-top:4px">${direction} from ${oldScore} (${delta>0?'+':''}${delta} points)</div>
-          </div>
-          <a href="${auditUrl}" style="display:block;text-align:center;background:#2563eb;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">View Full Audit →</a>
-          <p style="margin-top:16px;font-size:11px;color:#94a3b8;text-align:center">You subscribed to weekly alerts for ${domain}. <a href="${auditUrl}" style="color:#94a3b8">Unsubscribe</a></p>
-        </div>`,
-    }),
-  }).catch(() => {});
 }
 
 // ── Weekly pattern learning (Layer 3) ────────────────────────────────────────

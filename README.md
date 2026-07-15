@@ -23,7 +23,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.2 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.3 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -36,7 +36,7 @@ an A-range result.
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.2 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.3 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -57,12 +57,35 @@ optional modules that were not run, score caps, verification steps, and one
 provider-neutral handoff prompt. It does not require an AI call. Per-item AI
 FixPacks remain available only as optional advanced details for stored failures.
 
+### Evidence Map and accountless monitoring
+
+The Evidence Map turns a completed audit into at most three bounded queries. A
+protected Search Gateway can collect dated search evidence from up to two
+providers per query, while one optional answer provider can produce a clearly
+labelled API answer snapshot. These observations are provenance data, not proof
+of a real consumer-product citation, and they never change the factual SEO/GEO
+score.
+
+Monitoring does not require an account. Project creation returns a high-entropy
+management token once; D1 stores only a versioned, peppered HMAC plus a short
+display hint. The project keeps at most 12 real snapshots and runs weekly. A
+request-scoped BYOK value is forwarded for one answer request only and is never
+stored in D1, KV, URLs, reports, or frontend persistence.
+
+Email alerts require a verified address. Baseline establishment, score-version
+changes, and insufficient coverage/confidence suppress comparisons. For a
+comparable non-zero factual score change, the run and dated snapshot are stored
+before Resend is called, and delivery status is written separately so provider
+failure cannot erase a completed monitoring run. A project owner can retry a
+failed delivery through the run-scoped alert endpoint; the run ID is reused as
+the provider idempotency key.
+
 ### Retained code that is not run in the anonymous hot path
 
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.2 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.3 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected.
@@ -242,16 +265,22 @@ responses, and target-page HTTP errors remain structured `unknown/error`
 evidence; they never become a successful empty page. Check current Browser
 Rendering limits in Cloudflare's documentation before changing the budget.
 
-### Email alerts (weekly score monitoring)
+### Accountless evidence monitoring and email alerts
 
-The tool has a built-in monitoring system that re-audits subscribed domains weekly and emails if the score changes ≥5 points. It uses [Resend](https://resend.com) (free tier: 3,000 emails/month).
-
-1. Sign up at [resend.com](https://resend.com) and get an API key
-2. Add it as a secret (never put it in `wrangler.toml`):
+Monitoring captures weekly dated Evidence Map snapshots against the latest
+compatible completed audit. It does not claim to re-run every audit module or
+observe a consumer answer-engine UI. Generate a private token pepper of at least
+32 characters and configure it together with an optional Resend key:
 
 ```bash
-npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put MONITOR_TOKEN_PEPPER --config wrangler.generated.jsonc
+npx wrangler secret put RESEND_API_KEY --config wrangler.generated.jsonc
 ```
+
+The GitHub Actions deployment maps `GEOSCORE_MONITOR_TOKEN_PEPPER` to the Worker
+secret `MONITOR_TOKEN_PEPPER`. Losing the one-time project management token means
+the project cannot be recovered; rotate it while the current token is still
+available or create a new monitoring project.
 
 ### Search Gateway / SearXNG (fallback search)
 
@@ -312,6 +341,7 @@ endpoint, or model belongs in tracked files or public frontend state.
 | `OPENPAGERANK_KEY` | No | OpenPageRank authority data |
 | `RESEND_API_KEY` | No | Resend API key for weekly monitoring alert emails |
 | `SEARCH_GATEWAY_API_KEY` | No | API key sent as `X-API-Key` to the protected Search Gateway |
+| `MONITOR_TOKEN_PEPPER` | Required for monitoring | At least 32 characters; used to HMAC one-time project and email-verification tokens before D1 storage |
 | `API_KEY` | No | Worker-only generic external LLM fallback; never passed to a client or public report |
 | `API_BASE_URL` | With `API_KEY` | Worker-only OpenAI-compatible base URL |
 | `API_MODEL` | With `API_KEY` | Worker-only model identifier for the generic API |

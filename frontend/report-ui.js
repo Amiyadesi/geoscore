@@ -76,6 +76,53 @@
       lighthouseDesktop: 'Lighthouse desktop',
       pageSpeedFallback: 'PageSpeed fallback',
       cruxRealUser: 'CrUX real-user data',
+      expandDetails: 'Show details',
+      profileDetails: 'Profile, classification evidence and audited pages',
+      actionDetails: 'Evidence and verification',
+      evidenceMap: 'Query Evidence Map',
+      evidenceMapBody: 'A dated search snapshot that maps supported queries to observed sources and audited pages.',
+      evidenceMapRun: 'Run Evidence Map',
+      evidenceMapRefresh: 'Refresh snapshot',
+      evidenceMapRunning: 'Building search snapshot…',
+      evidenceMapEmpty: 'No search snapshot has been generated for this audit.',
+      evidenceMapZeroWeight: 'Search snapshots never change the factual score.',
+      appearances: 'Audited-root appearances',
+      observedQueries: 'Observed queries',
+      contentOpportunities: 'Content opportunities',
+      diagnosis: 'Pipeline diagnosis',
+      provenance: 'Source provenance and provider runs',
+      providerRuns: 'Provider runs',
+      limitations: 'Limitations',
+      monitoring: 'Weekly evidence monitoring',
+      monitoringBody: 'Keep up to twelve dated search/API snapshots. They do not prove consumer AI citations and remain separate from the factual readiness score.',
+      createMonitor: 'Create monitoring project',
+      optionalEmail: 'Email for weekly change alerts (optional)',
+      managementToken: 'Management token',
+      tokenWarning: 'Shown once. Save it now; GeoScore cannot recover it.',
+      tokenSaved: 'I saved the token',
+      querySettings: 'Queries',
+      saveQueries: 'Save queries',
+      runDefault: 'Run with hosted API',
+      runByok: 'Run once with API key',
+      apiKey: 'API key',
+      apiKeyPrivacy: 'Used only for this request. It is cleared immediately and is never stored.',
+      monitorHistory: 'Monitoring history',
+      noHistory: 'No monitoring runs yet.',
+      baseline: 'Baseline',
+      scoreDelta: 'Score change',
+      status: 'Status',
+      created: 'Created',
+      saving: 'Saving…',
+      running: 'Running…',
+      historyRetention: 'The free project retains the latest 12 snapshots.',
+      queryIntent: 'Intent',
+      intentBranded: 'Branded',
+      intentInformational: 'Informational',
+      intentTask: 'Task',
+      intentComparison: 'Comparison',
+      intentLocal: 'Local',
+      intentNavigational: 'Navigational',
+      requestFailed: 'Request failed',
     },
     zh: {
       profile: '站点画像',
@@ -147,6 +194,53 @@
       lighthouseDesktop: 'Lighthouse 桌面端',
       pageSpeedFallback: 'PageSpeed 备用数据',
       cruxRealUser: 'CrUX 真实用户数据',
+      expandDetails: '展开详情',
+      profileDetails: '画像字段、分类证据与审查页面',
+      actionDetails: '证据与复验详情',
+      evidenceMap: '查询证据地图',
+      evidenceMapBody: '按时间保存搜索快照，把有依据的查询映射到已观察来源与被审查页面。',
+      evidenceMapRun: '生成证据地图',
+      evidenceMapRefresh: '刷新快照',
+      evidenceMapRunning: '正在生成搜索快照…',
+      evidenceMapEmpty: '本次审查尚未生成搜索快照。',
+      evidenceMapZeroWeight: '搜索快照绝不会改变事实评分。',
+      appearances: '根域名出现次数',
+      observedQueries: '已观察查询',
+      contentOpportunities: '内容机会',
+      diagnosis: '流程诊断',
+      provenance: '来源溯源与 API 运行明细',
+      providerRuns: 'API 运行记录',
+      limitations: '限制说明',
+      monitoring: '每周证据监控',
+      monitoringBody: '最多保留十二次带日期的搜索/API 快照；它们不能证明消费端 AI 引用，并始终与事实就绪度评分分离。',
+      createMonitor: '创建监控项目',
+      optionalEmail: '接收每周变化提醒的邮箱（可选）',
+      managementToken: '管理 Token',
+      tokenWarning: '只展示一次。请立即保存，GeoScore 无法找回。',
+      tokenSaved: '我已保存 Token',
+      querySettings: '查询设置',
+      saveQueries: '保存查询',
+      runDefault: '使用托管 API 运行',
+      runByok: '使用 API Key 单次运行',
+      apiKey: 'API Key',
+      apiKeyPrivacy: '仅用于本次请求；提交后立即清空，绝不存储。',
+      monitorHistory: '监控历史',
+      noHistory: '尚无监控运行记录。',
+      baseline: '基线',
+      scoreDelta: '分数变化',
+      status: '状态',
+      created: '创建时间',
+      saving: '正在保存…',
+      running: '正在运行…',
+      historyRetention: '免费项目只保留最近 12 次快照。',
+      queryIntent: '意图',
+      intentBranded: '品牌',
+      intentInformational: '信息',
+      intentTask: '任务',
+      intentComparison: '对比',
+      intentLocal: '本地',
+      intentNavigational: '导航',
+      requestFailed: '请求失败',
     },
   };
 
@@ -599,7 +693,8 @@
     return [
       summary.pass ? `<span class="text-green-700 font-medium">✓ ${summary.pass} ${escapeHtml(t.pass)}</span>` : '',
       summary.fail ? `<span class="text-orange-700 font-medium">✕ ${summary.fail} ${escapeHtml(t.fail)}</span>` : '',
-      (summary.unknown + summary.error) ? `<span class="text-slate-500 font-medium">? ${summary.unknown + summary.error} ${escapeHtml(t.unknownStatus)}</span>` : '',
+      summary.unknown ? `<span class="text-slate-500 font-medium">? ${summary.unknown} ${escapeHtml(t.unknownStatus)}</span>` : '',
+      summary.error ? `<span class="text-red-600 font-medium">! ${summary.error} ${escapeHtml(t.checkError)}</span>` : '',
       summary.not_applicable ? `<span class="text-slate-400 font-medium">– ${summary.not_applicable} ${escapeHtml(t.notApplicable)}</span>` : '',
     ].filter(Boolean).join('<span class="text-slate-300">·</span>');
   }
@@ -640,6 +735,14 @@
         name,
         reason: localized(result?.data?.reason ?? result?.error, selected),
       }));
+    const repairGroups = Array.isArray(data?.repair_groups) ? data.repair_groups : [];
+    const evidenceMap = data?.evidence_map && typeof data.evidence_map === 'object' ? data.evidence_map : null;
+    const monitoringHistory = Array.isArray(data?.monitoring_history) ? data.monitoring_history : [];
+    const limitations = [
+      ...(Array.isArray(data?.limitations) ? data.limitations : []),
+      ...(Array.isArray(data?.predicted_visibility?.limitations) ? data.predicted_visibility.limitations : []),
+      ...(Array.isArray(evidenceMap?.limitations) ? evidenceMap.limitations : []),
+    ].map(item => localized(item, selected)).filter(Boolean);
 
     const labels = zh ? {
       title: 'GeoScore 完整修复报告', audit: '审计信息', generated: '生成时间', version: '评分版本', mode: '审计模式', target: '目标',
@@ -650,6 +753,7 @@
       notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', handoff: '交给开发 AI 的统一 Handoff Prompt',
       noInvent: '不得虚构价格、套餐、服务、地址、实体、作者、统计来源或站点未公开的业务事实。不得自动发布。',
       severity: '严重度', status: '状态', check: '检查', recommendation: '修复任务', unknown: '未知', none: '无',
+      repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
     } : {
       title: 'GeoScore full repair report', audit: 'Audit identity', generated: 'Generated', version: 'Score version', mode: 'Audit mode', target: 'Target',
       profile: 'Site profile', archetype: 'Site archetype', entity: 'Entity', industry: 'Industry vertical', business: 'Business model', locale: 'Page locale', root: 'Root domain', classification: 'Classification evidence',
@@ -659,6 +763,7 @@
       notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', handoff: 'Unified handoff prompt for a developer AI',
       noInvent: 'Do not invent prices, plans, services, addresses, entities, authors, statistical sources, or business facts not published by the site. Do not publish automatically.',
       severity: 'Severity', status: 'Status', check: 'Check', recommendation: 'Repair task', unknown: 'Unknown', none: 'None',
+      repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
     };
     const oneLine = value => String(value ?? '').replace(/\s+/g, ' ').trim();
     const percent = value => value === null || value === undefined ? labels.unknown : `${Math.round(value)}%`;
@@ -709,6 +814,61 @@
     const optionalLines = skippedModules.length ? skippedModules.map(item =>
       `- \`${item.name}\`${item.reason ? ` - ${oneLine(item.reason)}` : ''}`,
     ) : [`- ${labels.none}`];
+    const repairGroupBlocks = repairGroups.map((group, index) => {
+      const tasks = Array.isArray(group?.tasks) ? group.tasks : [];
+      const evidenceItems = Array.isArray(group?.evidence_items) ? group.evidence_items : [];
+      const verificationSteps = Array.isArray(group?.verification_steps) ? group.verification_steps : [];
+      const taskLines = tasks.map(task => {
+        const taskCopy = task?.localized?.[selected] && typeof task.localized[selected] === 'object'
+          ? task.localized[selected]
+          : task;
+        return `  - **${oneLine(taskCopy?.title ?? task?.title ?? task?.check_id)}** — ${oneLine(taskCopy?.fix ?? task?.fix)} — ${labels.verify}: ${oneLine(taskCopy?.verify ?? task?.verify)}`;
+      });
+      const evidenceLines = evidenceItems.flatMap(item => (Array.isArray(item?.observed) ? item.observed : []).map(observed =>
+        `  - \`${item?.check_id ?? 'check'}\`${item?.page_url ? ` @ ${oneLine(item.page_url)}` : ''}: ${oneLine(observed)}`,
+      ));
+      return [
+        `### ${index + 1}. ${oneLine(group?.id ?? `${labels.repairGroups} ${index + 1}`)}`,
+        `- ${labels.stage}: ${oneLine(group?.stage ?? labels.unknown)}`,
+        `- ${labels.page}: ${oneLine(group?.page_url ?? labels.none)}`,
+        `- ${labels.severity}: ${oneLine(group?.severity ?? labels.unknown)}`,
+        `- ${labels.checks}: ${(Array.isArray(group?.check_ids) ? group.check_ids : []).map(id => `\`${oneLine(id)}\``).join(', ') || labels.none}`,
+        `- ${labels.evidence}:`,
+        ...(evidenceLines.length ? evidenceLines : [`  - ${labels.none}`]),
+        `- ${labels.recommendation}:`,
+        ...(taskLines.length ? taskLines : [`  - ${labels.none}`]),
+        `- ${labels.verify}:`,
+        ...(verificationSteps.length ? verificationSteps.map(item => `  - ${oneLine(item)}`) : [`  - ${labels.none}`]),
+      ].join('\n');
+    });
+    const evidenceMapLines = evidenceMap ? (() => {
+      const queries = Array.isArray(evidenceMap?.query_plan?.queries) ? evidenceMap.query_plan.queries : [];
+      const opportunities = Array.isArray(evidenceMap?.opportunities) ? evidenceMap.opportunities : [];
+      const diagnosis = Array.isArray(evidenceMap?.diagnosis) ? evidenceMap.diagnosis : [];
+      const sources = Array.isArray(evidenceMap?.sources) ? evidenceMap.sources : [];
+      const providerRuns = Array.isArray(evidenceMap?.search_snapshot?.provider_runs) ? evidenceMap.search_snapshot.provider_runs : [];
+      return [
+        `- ${labels.status}: ${oneLine(evidenceMap.status ?? labels.unknown)}`,
+        `- ${labels.observedAt}: ${oneLine(evidenceMap.observed_at ?? labels.unknown)}`,
+        `- ${labels.affectsScore}: ${evidenceMap.affects_score === false ? 'false' : oneLine(evidenceMap.affects_score ?? labels.unknown)}`,
+        `- ${labels.appearances}: ${oneLine(evidenceMap?.target?.appearances ?? 0)}`,
+        `### ${labels.queries}`,
+        ...(queries.length ? queries.map(item => `- ${oneLine(item?.query ?? item)}${item?.intent ? ` — ${oneLine(item.intent)}` : ''}`) : [`- ${labels.none}`]),
+        `### ${labels.opportunities}`,
+        ...(opportunities.length ? opportunities.map(item => `- ${oneLine(item?.query)} — ${oneLine(item?.intent ?? '')} — ${oneLine(item?.reason ?? '')}`) : [`- ${labels.none}`]),
+        `### ${labels.diagnosis}`,
+        ...(diagnosis.length ? diagnosis.map(item => `- ${oneLine(item?.stage)} — ${oneLine(item?.status)} — ${oneLine((Array.isArray(item?.evidence) ? item.evidence : []).join('; '))}`) : [`- ${labels.none}`]),
+        `### ${labels.provenance}`,
+        ...(sources.length ? sources.map(item => `- #${oneLine(item?.provider_rank ?? '?')} ${oneLine(item?.title ?? item?.canonical_url ?? item?.url)} — ${oneLine(item?.provider ?? 'API')} — ${oneLine(item?.canonical_url ?? item?.url)} — ${oneLine(item?.retrieved_at ?? '')}`) : [`- ${labels.none}`]),
+        ...(providerRuns.length ? providerRuns.map(item => `- API run: ${oneLine(item?.provider ?? 'API')} — ${oneLine(item?.status)} — ${oneLine(item?.result_count ?? 0)} results — ${oneLine(item?.latency_ms ?? 0)}ms`) : []),
+      ];
+    })() : [`- ${labels.noSnapshot}`];
+    const monitoringLines = monitoringHistory.length ? monitoringHistory.map(run =>
+      `- ${formatTimestamp(run?.created_at, selected)} — ${labels.runType}: ${oneLine(run?.run_type ?? labels.unknown)} — ${labels.status}: ${oneLine(run?.status ?? labels.unknown)} — ${labels.final}: ${run?.factual_score == null ? labels.insufficient : `${Math.round(Number(run.factual_score))}/100`} — ${labels.delta}: ${run?.score_delta == null ? labels.none : oneLine(run.score_delta)} — ${labels.baseline}: ${oneLine(run?.baseline_action ?? labels.unknown)}`,
+    ) : [`- ${labels.noHistory}`];
+    const limitationLines = [...new Set(limitations.map(oneLine))].length
+      ? [...new Set(limitations.map(oneLine))].map(item => `- ${item}`)
+      : [`- ${labels.none}`];
     const handoffTasks = failures.length ? failures.map((item, index) => {
       const action = actionById.get(item.id);
       return `${index + 1}. ${item.id} on ${action?.page || item.page || data?.domain}: ${oneLine(action?.fix || item.evidence.join('; '))}. Verify: ${oneLine(action?.verify || 're-run the audit and require pass')}`;
@@ -751,6 +911,10 @@ ${scoreLine('GEO', scores.geoDetail)}
 
 ${pageLines.join('\n')}
 
+## ${labels.repairGroups}
+
+${repairGroupBlocks.length ? repairGroupBlocks.join('\n\n') : `- ${labels.none}`}
+
 ## ${labels.failures}
 
 ${failureBlocks.length ? failureBlocks.join('\n\n') : labels.noFailures}
@@ -768,6 +932,18 @@ ${statusLines(secondaryChecks).join('\n')}
 ## ${labels.optional}
 
 ${optionalLines.join('\n')}
+
+## ${labels.evidenceMap}
+
+${evidenceMapLines.join('\n')}
+
+## ${labels.monitoring}
+
+${monitoringLines.join('\n')}
+
+## ${labels.limitations}
+
+${limitationLines.join('\n')}
 
 ## ${labels.handoff}
 
@@ -882,6 +1058,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
       const pageMarkup = actionPage
         ? `${t.page}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(actionPage)}</a>` : escapeHtml(actionPage)}`
         : '';
+      const severity = action.severity || action.priority || t.unknown;
       const lines = [
         action.observed ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.observed)}:</span> ${escapeHtml(compact(action.observed, 220))}</p>` : '',
         action.reason ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.reason)}:</span> ${escapeHtml(compact(action.reason, 200))}</p>` : '',
@@ -893,10 +1070,14 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
         <div class="min-w-0">
           <div class="flex items-start gap-2 flex-wrap">
             <h4 class="text-sm font-semibold text-slate-900">${escapeHtml(action.title || `${t.actions} ${index + 1}`)}</h4>
+            <span class="text-[10px] font-semibold uppercase border border-slate-200 bg-white text-slate-500 px-1.5 py-0.5 rounded">${escapeHtml(severity)}</span>
             ${action.predicted ? `<span class="text-[10px] font-semibold uppercase border border-purple-200 bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">${escapeHtml(t.predicted)}</span>` : ''}
           </div>
-          ${pageMarkup ? `<div class="text-[11px] text-slate-400 mt-0.5">${pageMarkup}</div>` : ''}
-          <div class="text-xs text-slate-500 leading-relaxed mt-1.5 space-y-1">${lines || `<p>${escapeHtml(t.notProvided)}</p>`}</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">${pageMarkup || `${escapeHtml(t.page)}: ${escapeHtml(t.notProvided)}`}</div>
+          <details class="group mt-2 rounded-lg border border-slate-200 bg-white/70 print:border-0" data-disclosure="top-action-details">
+            <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900">${escapeHtml(t.actionDetails)}</summary>
+            <div class="px-3 pb-3 text-xs text-slate-500 leading-relaxed space-y-1">${lines || `<p>${escapeHtml(t.notProvided)}</p>`}</div>
+          </details>
         </div>
       </li>`;
     }).join('');
@@ -911,7 +1092,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
             ${coverage ? `<span class="text-xs text-slate-500">${escapeHtml(t.coverage)} ${escapeHtml(coverage)}</span>` : ''}
           </div>
           ${scores.scoreVersion ? `<div class="text-[10px] text-slate-400 mt-1">${escapeHtml(t.scoreVersion)} ${escapeHtml(scores.scoreVersion)}</div>` : ''}
-          ${limitRows.length ? `<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"><div class="text-[10px] font-semibold uppercase text-amber-700 mb-1">${escapeHtml(t.scoreLimits)}</div><ul class="space-y-1">${limitRows.join('')}</ul></div>` : ''}
+          ${limitRows.length ? `<details class="mt-3 rounded-lg border border-amber-200 bg-amber-50" data-disclosure="score-limits"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-amber-800">${escapeHtml(t.scoreLimits)}</summary><ul class="space-y-1 px-3 pb-3">${limitRows.join('')}</ul></details>` : ''}
         </div>
         <div class="shrink-0 print:hidden" role="group" aria-label="${escapeHtml(ui.reportLanguage)}">
           <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
@@ -920,16 +1101,19 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
           </div>
         </div>
       </div>
-      <div class="grid md:grid-cols-2 gap-x-8 gap-y-5">
-        <section class="min-w-0">
-          <div class="space-y-1.5">${profileFacts || `<p class="text-xs text-slate-400">${escapeHtml(t.unknown)}</p>`}</div>
-          ${evidence.length ? `<div class="mt-3"><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1.5">${escapeHtml(t.evidence)}</div><ul class="space-y-1">${evidence.map(item => `<li class="text-xs text-slate-500 flex gap-2"><span class="text-blue-400">-</span><span>${escapeHtml(compact(item, 180))}</span></li>`).join('')}</ul></div>` : ''}
-        </section>
-        <section class="min-w-0">
-          <h3 class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.pages)}</h3>
-          ${pageRows ? `<ul>${pageRows}</ul>` : `<p class="text-xs text-slate-400">${escapeHtml(t.notProvided)}</p>`}
-        </section>
-      </div>
+      <details class="rounded-xl border border-slate-200 bg-white" data-disclosure="profile-pages">
+        <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900">${escapeHtml(t.profileDetails)}</summary>
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-5 px-4 pb-4">
+          <section class="min-w-0">
+            <div class="space-y-1.5">${profileFacts || `<p class="text-xs text-slate-400">${escapeHtml(t.unknown)}</p>`}</div>
+            ${evidence.length ? `<div class="mt-3"><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1.5">${escapeHtml(t.evidence)}</div><ul class="space-y-1">${evidence.map(item => `<li class="text-xs text-slate-500 flex gap-2"><span class="text-blue-400">-</span><span>${escapeHtml(compact(item, 180))}</span></li>`).join('')}</ul></div>` : ''}
+          </section>
+          <section class="min-w-0">
+            <h3 class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.pages)}</h3>
+            ${pageRows ? `<ul>${pageRows}</ul>` : `<p class="text-xs text-slate-400">${escapeHtml(t.notProvided)}</p>`}
+          </section>
+        </div>
+      </details>
       ${actions.length ? `<section class="mt-5 pt-4 border-t border-slate-200"><h3 class="text-sm font-bold text-slate-900 mb-1">${escapeHtml(t.actions)}</h3><ol>${actionRows}</ol></section>` : ''}
     </div>`;
   }
@@ -980,15 +1164,17 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     const factual = checks.filter(check => !check.predicted);
     const predicted = checks.filter(check => check.predicted);
     const summary = checkSummary(data, lang);
-    return `<section id="card-evidence-checks" class="bg-white rounded-xl border border-slate-200 p-4 fade-in" data-category="all">
-      <div class="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.factualChecks)}</h2>
-          <p class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(`${summary.pass} ${t.pass} · ${summary.fail} ${t.fail} · ${summary.unknown + summary.error} ${t.unknownStatus} · ${summary.not_applicable} ${t.notApplicable}`)}</p>
+    return `<section id="card-evidence-checks" class="bg-white rounded-xl border border-slate-200 fade-in" data-category="all">
+      <details data-disclosure="normalized-checks">
+        <summary class="cursor-pointer select-none px-4 py-3.5">
+          <span class="block font-bold text-sm text-slate-900">${escapeHtml(t.factualChecks)}</span>
+          <span class="block text-[11px] text-slate-400 mt-0.5">${escapeHtml(`${summary.pass} ${t.pass} · ${summary.fail} ${t.fail} · ${summary.unknown} ${t.unknownStatus} · ${summary.error} ${t.checkError} · ${summary.not_applicable} ${t.notApplicable}`)}</span>
+        </summary>
+        <div class="px-4 pb-4 border-t border-slate-100">
+          <ul>${renderCheckRows(factual, lang)}</ul>
+          ${predicted.length ? `<details class="mt-4 border-t border-purple-100" data-disclosure="predicted-checks"><summary class="cursor-pointer select-none pt-4 text-sm font-semibold text-purple-800">${escapeHtml(t.predictedChecks)}</summary><p class="text-xs text-purple-600 mt-1">${escapeHtml(t.predictedNote)}</p><ul class="mt-2">${renderCheckRows(predicted, lang)}</ul></details>` : ''}
         </div>
-      </div>
-      <ul>${renderCheckRows(factual, lang)}</ul>
-      ${predicted.length ? `<div class="mt-4 pt-4 border-t border-purple-100"><h3 class="font-semibold text-sm text-purple-800">${escapeHtml(t.predictedChecks)}</h3><p class="text-xs text-purple-600 mt-1">${escapeHtml(t.predictedNote)}</p><ul class="mt-2">${renderCheckRows(predicted, lang)}</ul></div>` : ''}
+      </details>
     </section>`;
   }
 
@@ -996,26 +1182,176 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     const actions = normalizeAllActions(data, lang).filter(action => !action.predicted);
     const t = copy(lang);
     if (!Array.isArray(data?.recommendations_v2)) return '';
-    return `<section id="recs-section" class="bg-white rounded-xl border border-blue-200 p-4 fade-in" data-category="all">
-      <div class="mb-3"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.allActions)}</h2><p class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(t.scoreEvidence)}</p></div>
-      ${actions.length ? `<ol class="space-y-3">${actions.map((action, index) => {
+    return `<section id="recs-section" class="bg-white rounded-xl border border-blue-200 fade-in" data-category="all">
+      <details data-disclosure="full-repair-plan">
+        <summary class="cursor-pointer select-none px-4 py-3.5"><span class="block font-bold text-sm text-slate-900">${escapeHtml(t.allActions)}</span><span class="block text-[11px] text-slate-400 mt-0.5">${escapeHtml(t.scoreEvidence)}</span></summary>
+        <div class="px-4 pb-4 border-t border-blue-100">
+      ${actions.length ? `<ol class="space-y-3 pt-3">${actions.map((action, index) => {
         const href = safeHttpUrl(action.page);
         const page = action.page ? compact(pageLabel(action.page), 84) : '';
         return `<li class="border border-slate-100 rounded-xl p-3.5" data-recommendation-id="${escapeHtml(action.id)}">
           <div class="flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">${index + 1}</span><div class="min-w-0 flex-1">
             <div class="flex items-start gap-2 flex-wrap"><h3 class="font-semibold text-sm text-slate-900">${escapeHtml(action.title || action.id)}</h3>${action.priority ? `<span class="text-[10px] uppercase border border-slate-200 rounded px-1.5 py-0.5 text-slate-500">${escapeHtml(action.priority)}</span>` : ''}</div>
-            ${page ? `<div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)}</div>` : ''}
-            <div class="text-xs text-slate-500 leading-relaxed mt-2 space-y-1">
-              ${action.observed ? `<p><strong class="text-slate-600">${escapeHtml(t.observed)}:</strong> ${escapeHtml(action.observed)}</p>` : ''}
-              ${action.reason ? `<p><strong class="text-slate-600">${escapeHtml(t.reason)}:</strong> ${escapeHtml(action.reason)}</p>` : ''}
-              ${action.fix ? `<p><strong class="text-slate-600">${escapeHtml(t.fix)}:</strong> ${escapeHtml(action.fix)}</p>` : ''}
-              ${action.verify ? `<p><strong class="text-slate-600">${escapeHtml(t.verify)}:</strong> ${escapeHtml(action.verify)}</p>` : ''}
-            </div>
-            <button type="button" data-action="toggle-fix" data-recommendation-id="${escapeHtml(action.id)}" class="mt-3 text-xs font-semibold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5 print:hidden">${escapeHtml(t.howToFix)} ▾</button>
-            <div class="hidden mt-3 what-to-do"></div>
+            <div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${page ? (href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)) : escapeHtml(t.notProvided)}</div>
+            <details class="mt-2 rounded-lg border border-slate-200 bg-slate-50/60" data-disclosure="repair-action-details">
+              <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-600">${escapeHtml(t.actionDetails)}</summary>
+              <div class="px-3 pb-3 text-xs text-slate-500 leading-relaxed space-y-1">
+                ${action.observed ? `<p><strong class="text-slate-600">${escapeHtml(t.observed)}:</strong> ${escapeHtml(action.observed)}</p>` : ''}
+                ${action.reason ? `<p><strong class="text-slate-600">${escapeHtml(t.reason)}:</strong> ${escapeHtml(action.reason)}</p>` : ''}
+                ${action.fix ? `<p><strong class="text-slate-600">${escapeHtml(t.fix)}:</strong> ${escapeHtml(action.fix)}</p>` : ''}
+                ${action.verify ? `<p><strong class="text-slate-600">${escapeHtml(t.verify)}:</strong> ${escapeHtml(action.verify)}</p>` : ''}
+                <button type="button" data-action="toggle-fix" data-recommendation-id="${escapeHtml(action.id)}" class="mt-2 text-xs font-semibold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5 print:hidden">${escapeHtml(t.howToFix)} ▾</button>
+                <div class="hidden mt-3 what-to-do"></div>
+              </div>
+            </details>
           </div></div>
         </li>`;
-      }).join('')}</ol>` : `<p class="text-xs text-slate-500">${escapeHtml(t.noActions)}</p>`}
+      }).join('')}</ol>` : `<p class="text-xs text-slate-500 pt-3">${escapeHtml(t.noActions)}</p>`}
+        </div>
+      </details>
+    </section>`;
+  }
+
+  function formatTimestamp(value, lang) {
+    const raw = finiteNumber(value);
+    const date = raw !== null
+      ? new Date(raw > 10_000_000_000 ? raw : raw * 1000)
+      : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value ?? '');
+    try {
+      return new Intl.DateTimeFormat(language(lang) === 'zh' ? 'zh-CN' : 'en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+    } catch {
+      return date.toISOString();
+    }
+  }
+
+  function evidenceStatusBadge(status, lang) {
+    const t = copy(lang);
+    const value = String(status || 'unknown').toLowerCase();
+    const views = {
+      complete: { label: t.complete, cls: 'border-green-200 bg-green-50 text-green-700' },
+      partial: { label: language(lang) === 'zh' ? '部分完成' : 'Partial', cls: 'border-amber-200 bg-amber-50 text-amber-700' },
+      unavailable: { label: t.unknownStatus, cls: 'border-slate-200 bg-slate-50 text-slate-500' },
+      error: { label: t.checkError, cls: 'border-orange-200 bg-orange-50 text-orange-700' },
+      running: { label: t.running, cls: 'border-blue-200 bg-blue-50 text-blue-700' },
+    };
+    const view = views[value] ?? { label: value || t.unknownStatus, cls: 'border-slate-200 bg-slate-50 text-slate-500' };
+    return `<span class="inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold ${view.cls}">${escapeHtml(view.label)}</span>`;
+  }
+
+  function renderEvidenceMap(data, lang, state) {
+    if (!data?.audit_id) return '';
+    const t = copy(lang);
+    const snapshot = state?.snapshot ?? data?.evidence_map ?? null;
+    const busy = state?.busy === true;
+    const error = state?.error ? localized(state.error.message ?? state.error, lang) : '';
+    const target = snapshot?.target ?? {};
+    const queryPlan = Array.isArray(snapshot?.query_plan?.queries) ? snapshot.query_plan.queries : [];
+    const opportunities = Array.isArray(snapshot?.opportunities) ? snapshot.opportunities : [];
+    const diagnosis = Array.isArray(snapshot?.diagnosis) ? snapshot.diagnosis : [];
+    const sources = Array.isArray(snapshot?.sources) ? snapshot.sources : [];
+    const runs = Array.isArray(snapshot?.search_snapshot?.provider_runs) ? snapshot.search_snapshot.provider_runs : [];
+    const limitations = Array.isArray(snapshot?.limitations) ? snapshot.limitations : [];
+    const observedQueries = Array.isArray(target?.observed_queries) ? target.observed_queries : [];
+    const runLabel = snapshot ? t.evidenceMapRefresh : t.evidenceMapRun;
+    const metrics = snapshot ? `<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(target.appearances ?? 0)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.appearances)}</div></div>
+      <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(observedQueries.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.observedQueries)}</div></div>
+      <div class="col-span-2 rounded-lg bg-slate-50 px-3 py-2 sm:col-span-1"><div class="text-lg font-bold text-slate-800">${escapeHtml(opportunities.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.contentOpportunities)}</div></div>
+    </div>` : '';
+    const opportunityRows = opportunities.slice(0, 3).map(item => `<li class="flex gap-2 text-xs text-slate-600"><span class="text-amber-500">•</span><span class="min-w-0 break-words"><strong>${escapeHtml(localized(item?.query, lang))}</strong>${item?.intent ? ` · ${escapeHtml(item.intent)}` : ''}</span></li>`).join('');
+    const sourceRows = sources.map(source => {
+      const href = safeHttpUrl(source?.canonical_url ?? source?.url);
+      const label = localized(source?.title, lang) || localized(source?.canonical_url ?? source?.url, lang);
+      return `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs">
+        <div class="flex items-start justify-between gap-3"><span class="min-w-0 break-words">${href ? `<a class="font-medium text-blue-700 hover:text-blue-800" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>` : escapeHtml(label)}</span><span class="shrink-0 text-slate-400">#${escapeHtml(source?.provider_rank ?? '?')}</span></div>
+        <div class="mt-1 text-[10px] text-slate-400 break-words">${escapeHtml([source?.source_type, source?.provider, source?.domain, source?.retrieved_at].filter(Boolean).join(' · '))}</div>
+      </li>`;
+    }).join('');
+    const runRows = runs.map(run => `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs text-slate-600"><span class="font-medium">${escapeHtml(run?.provider ?? 'API')}</span> · ${escapeHtml(run?.status ?? t.unknownStatus)} · ${escapeHtml(run?.result_count ?? 0)} · ${escapeHtml(run?.latency_ms ?? 0)}ms${run?.cache_hit ? ' · cache' : ''}</li>`).join('');
+    const diagnosisRows = diagnosis.map(item => `<li class="py-1.5 text-xs text-slate-600"><span class="font-semibold">${escapeHtml(item?.stage ?? t.unknownStatus)}</span> · ${escapeHtml(item?.status ?? t.unknownStatus)}${Array.isArray(item?.evidence) && item.evidence[0] ? ` · ${escapeHtml(compact(item.evidence[0], 240))}` : ''}</li>`).join('');
+    const queryRows = queryPlan.map(item => `<li class="text-xs text-slate-600">${escapeHtml(localized(item?.query ?? item, lang))}${item?.intent ? ` · ${escapeHtml(item.intent)}` : ''}</li>`).join('');
+
+    return `<section id="evidence-map-section" class="bg-white rounded-xl border border-cyan-200 p-4 fade-in" data-category="all">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.evidenceMap)}</h2>${snapshot ? evidenceStatusBadge(snapshot.status, lang) : ''}</div><p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(t.evidenceMapBody)}</p><p class="text-[11px] font-medium text-cyan-700 mt-1">${escapeHtml(t.evidenceMapZeroWeight)}</p></div>
+        <button type="button" data-action="run-evidence-map" ${busy ? 'disabled' : ''} class="shrink-0 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60 print:hidden">${escapeHtml(busy ? t.evidenceMapRunning : runLabel)}</button>
+      </div>
+      ${error ? `<div role="alert" class="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">${escapeHtml(error)}</div>` : ''}
+      ${snapshot ? `<div class="mt-4 space-y-3">${metrics}${opportunityRows ? `<div><h3 class="text-xs font-semibold text-slate-700 mb-1.5">${escapeHtml(t.contentOpportunities)}</h3><ul class="space-y-1.5">${opportunityRows}</ul></div>` : ''}
+        <details class="rounded-lg border border-slate-200" data-disclosure="evidence-provenance"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-700">${escapeHtml(t.provenance)}</summary><div class="px-3 pb-3 space-y-3">
+          ${queryRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.querySettings)}</div><ul class="space-y-1">${queryRows}</ul></div>` : ''}
+          ${diagnosisRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.diagnosis)}</div><ul>${diagnosisRows}</ul></div>` : ''}
+          ${sourceRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.source)}</div><ul>${sourceRows}</ul></div>` : ''}
+          ${runRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.providerRuns)}</div><ul>${runRows}</ul></div>` : ''}
+          ${limitations.length ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.limitations)}</div><ul class="list-disc pl-4 space-y-1 text-xs text-slate-500">${limitations.map(item => `<li>${escapeHtml(localized(item, lang))}</li>`).join('')}</ul></div>` : ''}
+        </div></details>
+      </div>` : `<p class="mt-3 text-xs text-slate-400">${escapeHtml(t.evidenceMapEmpty)}</p>`}
+    </section>`;
+  }
+
+  function monitorIntentOptions(selected, lang) {
+    const t = copy(lang);
+    const labels = {
+      branded: t.intentBranded,
+      informational: t.intentInformational,
+      task: t.intentTask,
+      comparison: t.intentComparison,
+      local: t.intentLocal,
+      navigational: t.intentNavigational,
+    };
+    return Object.entries(labels).map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
+  }
+
+  function renderMonitoring(data, lang, state) {
+    if (!data?.audit_id) return '';
+    const t = copy(lang);
+    const project = state?.project ?? null;
+    const runs = Array.isArray(state?.runs) ? state.runs : [];
+    const busy = state?.busy === true;
+    const error = state?.error ? localized(state.error.message ?? state.error, lang) : '';
+    const message = localized(state?.message, lang);
+    const token = state?.showToken ? state?.managementToken : '';
+    const queryRows = Array.isArray(project?.queries) ? project.queries.map((query, index) => `<div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
+      <label class="min-w-0"><span class="sr-only">${escapeHtml(`${t.querySettings} ${index + 1}`)}</span><input type="text" name="query" maxlength="240" required value="${escapeHtml(query?.query ?? '')}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"></label>
+      <label><span class="sr-only">${escapeHtml(t.queryIntent)}</span><select name="intent" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none">${monitorIntentOptions(query?.intent ?? 'informational', lang)}</select></label>
+    </div>`).join('') : '';
+    const historyRows = runs.map(run => {
+      const score = run?.factual_score == null ? t.insufficient : `${Math.round(Number(run.factual_score))}/100`;
+      const delta = run?.score_delta == null ? '—' : `${Number(run.score_delta) > 0 ? '+' : ''}${run.score_delta}`;
+      const evidenceRuns = Array.isArray(run?.evidence?.snapshot?.provider_runs) ? run.evidence.snapshot.provider_runs : [];
+      const answerRuns = Array.isArray(run?.answer?.snapshot?.provider_runs) ? run.answer.snapshot.provider_runs : [];
+      const provenanceRows = [...evidenceRuns, ...answerRuns].map(item => `<li>${escapeHtml([item?.provider ?? 'API', item?.status, item?.result_count == null ? '' : `${item.result_count} results`, item?.latency_ms == null ? '' : `${item.latency_ms}ms`].filter(Boolean).join(' · '))}</li>`).join('');
+      return `<li class="py-3 border-t border-slate-100 first:border-t-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-semibold text-slate-700">${escapeHtml(formatTimestamp(run?.created_at, lang))}</span>${evidenceStatusBadge(run?.status, lang)}</div>
+        <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(score)} · ${escapeHtml(t.scoreDelta)} ${escapeHtml(delta)} · ${escapeHtml(run?.run_type ?? '')} · ${escapeHtml(run?.baseline_action ?? t.baseline)}</div>
+        ${provenanceRows ? `<details class="mt-2" data-disclosure="monitor-run-provenance"><summary class="cursor-pointer text-[11px] font-medium text-slate-500">${escapeHtml(t.provenance)}</summary><ul class="mt-1 list-disc pl-4 text-[11px] text-slate-400 space-y-1">${provenanceRows}</ul></details>` : ''}
+      </li>`;
+    }).join('');
+
+    const create = `<form data-monitor-form="create" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+      <label class="min-w-0 flex-1"><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.optionalEmail)}</span><input type="email" name="email" autocomplete="email" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
+      <button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.saving : t.createMonitor)}</button>
+    </form>`;
+    const controls = project ? `<div class="mt-4 space-y-4">
+      ${token ? `<div role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-semibold text-amber-800">${escapeHtml(t.managementToken)}</div><p class="mt-1 text-[11px] text-amber-700">${escapeHtml(t.tokenWarning)}</p><code id="monitor-management-token" class="mt-2 block overflow-x-auto whitespace-nowrap rounded bg-white px-2 py-1.5 text-xs text-slate-700">${escapeHtml(token)}</code><div class="mt-2 flex flex-wrap gap-2"><button type="button" data-action="copy-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(SHARED_I18N?.t?.('common.copy', {}, language(lang)) ?? 'Copy')}</button><button type="button" data-action="dismiss-monitor-token" class="rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.tokenSaved)}</button></div></div>` : ''}
+      <div class="text-xs text-slate-500"><code>${escapeHtml(project.id ?? '')}</code> · ${escapeHtml(project.root_domain ?? data.domain ?? '')} · ${escapeHtml(project.schedule ?? 'weekly')}</div>
+      <form data-monitor-form="queries" class="rounded-xl border border-slate-200 p-3"><div class="text-xs font-semibold text-slate-700 mb-2">${escapeHtml(t.querySettings)}</div><div class="space-y-2">${queryRows}</div><button type="submit" ${busy ? 'disabled' : ''} class="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(busy ? t.saving : t.saveQueries)}</button></form>
+      <div class="grid gap-3 lg:grid-cols-2">
+        <button type="button" data-action="run-monitor-default" ${busy ? 'disabled' : ''} class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runDefault)}</button>
+        <form data-monitor-form="byok" class="rounded-xl border border-slate-200 p-3"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiKey)}</span><input type="password" name="api_key" autocomplete="off" minlength="12" maxlength="512" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><p class="mt-1 text-[10px] text-slate-400">${escapeHtml(t.apiKeyPrivacy)}</p><button type="submit" ${busy ? 'disabled' : ''} class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runByok)}</button></form>
+      </div>
+      <details class="rounded-xl border border-slate-200" data-disclosure="monitoring-history"><summary class="cursor-pointer select-none px-3 py-2.5 text-xs font-semibold text-slate-700">${escapeHtml(t.monitorHistory)} · ${escapeHtml(runs.length)}</summary><div class="px-3 pb-3"><p class="text-[10px] text-slate-400 mb-2">${escapeHtml(t.historyRetention)}</p>${historyRows ? `<ul>${historyRows}</ul>` : `<p class="text-xs text-slate-400">${escapeHtml(t.noHistory)}</p>`}</div></details>
+    </div>` : create;
+
+    return `<section id="monitoring-section" class="bg-white rounded-xl border border-indigo-200 p-4 fade-in" data-category="all">
+      <div><div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.monitoring)}</h2>${project ? `<span class="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">weekly</span>` : ''}</div><p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(t.monitoringBody)}</p></div>
+      ${error ? `<div role="alert" class="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">${escapeHtml(error)}</div>` : ''}
+      ${message ? `<div role="status" class="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">${escapeHtml(message)}</div>` : ''}
+      ${controls}
     </section>`;
   }
 
@@ -1157,6 +1493,8 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     isEvidenceAudit,
     parseAuditInput,
     renderEvidenceRecommendations,
+    renderEvidenceMap,
+    renderMonitoring,
     renderEvidenceSummary,
     renderNormalizedChecks,
     renderLighthouse,

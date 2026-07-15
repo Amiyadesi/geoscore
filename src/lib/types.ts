@@ -56,6 +56,7 @@ export interface Env {
   PAGESPEED_API_KEY?: string;
   OPENPAGERANK_KEY?: string;
   SEARCH_GATEWAY_API_KEY?: string;
+  MONITOR_TOKEN_PEPPER?: string;
   API_KEY?: string;
   API_BASE_URL?: string;
   API_MODEL?: string;
@@ -90,6 +91,13 @@ export interface FixPackEvidence {
   confidence: number;
 }
 
+export interface FixPackRepairGroup {
+  id: string;
+  stage: 'discovery' | 'fetch' | 'parse' | 'retrieval' | 'selection' | 'attribution';
+  page_url: string | null;
+  check_ids: string[];
+}
+
 export interface FixPack {
   version: '1';
   audit_id: string;
@@ -98,6 +106,8 @@ export interface FixPack {
   output: FixPackOutput;
   domain: string;
   evidence: FixPackEvidence;
+  evidence_items: FixPackEvidence[];
+  repair_group?: FixPackRepairGroup;
   drafts: FixPackDrafts;
   code_snippets: FixPackCodeSnippet[];
   fix_steps: string[];

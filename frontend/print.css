@@ -30,6 +30,7 @@
   /* Expand all collapsed details */
   details { display: block !important; }
   details > summary { display: none !important; }
+  details > :not(summary) { display: block !important; }
 
   /* Score header card */
   #score-header {

@@ -22,7 +22,7 @@ GeoScore 感谢 [LINUX DO 社区](https://linux.do/) 对开源讨论、实践反
 
 ## GeoScore 审计什么
 
-GeoScore 2.2 有两种模式：
+GeoScore 2.3 有两种模式：
 
 - `site` 模式建立站点画像，并确定性抽样最多五个 HTML 页面：首页、可发现的 About 页面，以及代表性页面类型。
 - `url` 模式审计指定 URL；目标不是首页时，必要时额外读取首页建立上下文。
@@ -47,6 +47,22 @@ GeoScore 2.2 有两种模式：
 `GEOSCORE-REPAIR-<domain>.md`，包含全部失败、unknown/error 证据、不适用与信息项、分数封顶原因、
 复验步骤和一个不虚构业务事实的开发 AI handoff prompt。它不要求 AI 调用；单项 AI FixPack 仅作为已存储失败项的可选高级详情。
 
+### Evidence Map 与免账号监控
+
+Evidence Map 会把一份已完成审计转换为最多 3 条有界查询。受保护的 Search Gateway
+可为每条查询采集最多 2 个搜索 provider 的带日期证据；另可调用 1 个 answer provider
+生成明确标注的 API answer snapshot。这些结果属于来源证据，不代表真实消费端产品已经引用该站点，
+也不会改变事实 SEO/GEO 主分。
+
+监控无需注册账号。创建项目时只返回一次高熵管理 token；D1 仅保存带版本、pepper 的 HMAC
+和短提示。每个项目按周运行，最多保留 12 个真实 snapshot。BYOK 只会在本次请求中转发给
+一次 answer 请求，不写入 D1、KV、URL、报告或前端持久化状态。
+
+邮件提醒要求先验证邮箱。首次 baseline、评分版本变化、coverage/confidence 不足时不会比较。
+当可比较的事实分发生非零变化时，系统会先保存 run、dated snapshot 与 baseline，再调用 Resend，
+最后独立回写邮件结果，因此邮件服务失败不会丢失一次已经完成的监控运行。项目持有者可通过
+run 级提醒接口重试失败邮件，后端会继续使用同一 run ID 作为 provider 幂等键。
+
 ### 评分原则
 
 分数只使用“已知且适用”的 `pass` / `fail` 检查。`unknown`、provider error 和
@@ -59,7 +75,7 @@ Overview 的真实引用结果，也不影响 SEO、GEO 或 overall 主分。
 ### 保留但不进入匿名热路径的模块
 
 仓库仍保留关键词生成、AI 内容洞察、站外 SEO/反链、完整站点情报、重定向链、安全审计、SSL/域名情报和坏链扫描等上游或旧模块。
-GeoScore 2.2 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
+GeoScore 2.3 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
 
 ## 架构
 
@@ -149,6 +165,21 @@ npx wrangler secret put SEARCH_GATEWAY_API_KEY --config wrangler.generated.jsonc
 
 也支持直接配置 `SEARXNG_URL`。两个地址或 secret 为空时，审计仍可运行，只跳过搜索增强。
 
+### 免账号证据监控与邮件提醒
+
+监控会基于最近一份兼容的已完成审计，按周采集带日期的 Evidence Map snapshot；它不会宣称
+重新执行了全部审计模块，也不会把 API answer snapshot 描述成消费端 AI 产品的真实引用。
+先生成至少 32 个字符的私有 pepper，再按需配置 Resend：
+
+```bash
+npx wrangler secret put MONITOR_TOKEN_PEPPER --config wrangler.generated.jsonc
+npx wrangler secret put RESEND_API_KEY --config wrangler.generated.jsonc
+```
+
+GitHub Actions 会把 `GEOSCORE_MONITOR_TOKEN_PEPPER` 映射为 Worker secret
+`MONITOR_TOKEN_PEPPER`。一次性管理 token 丢失后无法从数据库恢复；应在旧 token 仍可用时轮换，
+否则重新创建监控项目。
+
 ### 外部 LLM fallback
 
 确定性检查和建议模板始终是权威结果。外部模型只用于可选的修复说明扩展；一次请求最多访问一个外部入口，失败不会级联消耗多个额度。
@@ -177,6 +208,7 @@ npx wrangler secret put OPENROUTER_API_KEY --config wrangler.generated.jsonc
 | `OPENPAGERANK_KEY` | 否 | OpenPageRank authority 数据 |
 | `RESEND_API_KEY` | 否 | 每周监控邮件 |
 | `SEARCH_GATEWAY_API_KEY` | 否 | 发给 Search Gateway 的 `X-API-Key` |
+| `MONITOR_TOKEN_PEPPER` | 使用监控时必填 | 至少 32 个字符；在管理 token 与邮箱验证 token 写入 D1 前用于 HMAC |
 | `API_KEY` | 否 | 通用外部 LLM fallback，仅 Worker 使用 |
 | `API_BASE_URL` | 配合 `API_KEY` | OpenAI-compatible base URL |
 | `API_MODEL` | 配合 `API_KEY` | 通用模型 ID |

@@ -6,6 +6,7 @@ import type {
   FixPackLanguage,
   FixPackOutput,
 } from './types';
+import type { RepairGroup } from './repair-groups';
 
 export interface StoredFixAudit {
   audit_id: string;
@@ -13,12 +14,20 @@ export interface StoredFixAudit {
   audit_context?: { locale?: string };
   checks: NormalizedCheck[];
   recommendations_v2: AuditRecommendation[];
+  repair_groups?: RepairGroup[];
+}
+
+export interface FixPackSourceItem {
+  check: NormalizedCheck & { status: 'fail' };
+  recommendation: AuditRecommendation;
 }
 
 export interface FixPackSource {
   audit: StoredFixAudit;
   check: NormalizedCheck & { status: 'fail' };
   recommendation: AuditRecommendation;
+  items: FixPackSourceItem[];
+  group?: RepairGroup;
 }
 
 export interface FixPackExpansion {
@@ -113,18 +122,54 @@ export function resolveFixPackSource(
   recommendationId: string,
 ): { source?: FixPackSource; error: 'not_found' | 'not_fixable' | null } {
   const recommendationCandidate = audit.recommendations_v2.find(item => item?.id === recommendationId);
-  if (!recommendationCandidate) return { error: 'not_found' };
-  if (!isRecommendation(recommendationCandidate)) return { error: 'not_fixable' };
-  const checkCandidate = audit.checks.find(item => item?.id === recommendationCandidate.id);
-  if (!isNormalizedCheck(checkCandidate)) return { error: 'not_fixable' };
-  if (checkCandidate.status !== 'fail' || checkCandidate.predicted === true) {
+  if (recommendationCandidate) {
+    if (!isRecommendation(recommendationCandidate)) return { error: 'not_fixable' };
+    const checkCandidate = audit.checks.find(item => item?.id === recommendationCandidate.id);
+    if (!isNormalizedCheck(checkCandidate)) return { error: 'not_fixable' };
+    if (checkCandidate.status !== 'fail' || checkCandidate.predicted === true || checkCandidate.weight <= 0) {
+      return { error: 'not_fixable' };
+    }
+    const item = {
+      check: checkCandidate as NormalizedCheck & { status: 'fail' },
+      recommendation: recommendationCandidate,
+    };
+    return {
+      source: {
+        audit,
+        check: item.check,
+        recommendation: item.recommendation,
+        items: [item],
+      },
+      error: null,
+    };
+  }
+
+  const group = audit.repair_groups?.find(item => item?.id === recommendationId);
+  if (!group) return { error: 'not_found' };
+  if (!Array.isArray(group.check_ids) || !group.check_ids.length ||
+      !['discovery', 'fetch', 'parse', 'retrieval', 'selection', 'attribution'].includes(group.stage)) {
     return { error: 'not_fixable' };
+  }
+  const items: FixPackSourceItem[] = [];
+  for (const checkId of group.check_ids) {
+    const checkCandidate = audit.checks.find(item => item?.id === checkId);
+    const recommendation = audit.recommendations_v2.find(item => item?.id === checkId);
+    if (!isNormalizedCheck(checkCandidate) || !isRecommendation(recommendation) ||
+        checkCandidate.status !== 'fail' || checkCandidate.predicted === true || checkCandidate.weight <= 0) {
+      return { error: 'not_fixable' };
+    }
+    items.push({
+      check: checkCandidate as NormalizedCheck & { status: 'fail' },
+      recommendation,
+    });
   }
   return {
     source: {
       audit,
-      check: checkCandidate as NormalizedCheck & { status: 'fail' },
-      recommendation: recommendationCandidate,
+      check: items[0].check,
+      recommendation: items[0].recommendation,
+      items,
+      group,
     },
     error: null,
   };
@@ -271,21 +316,25 @@ function localizedLabels(language: FixPackLanguage) {
 
 export function buildHandoffPrompt(source: FixPackSource, language: FixPackLanguage): string {
   const labels = localizedLabels(language);
-  const recommendation = recommendationForLanguage(source.recommendation, language);
-  const pageUrl = source.check.page_url ?? source.recommendation.page_url ?? `https://${source.audit.domain}/`;
-  const observed = source.check.evidence.length
-    ? source.check.evidence.map(item => `- ${item}`).join('\n')
-    : `- ${labels.noEvidence}`;
-  return `${labels.task}: ${recommendation.title}\n` +
-    `${labels.target}: ${pageUrl}\n` +
-    `${labels.checkId}: ${source.check.id}\n\n` +
-    `${labels.source}:\n${observed}\n\n` +
-    `${labels.why}: ${recommendation.why}\n` +
-    `${labels.requiredChange}: ${recommendation.fix}\n\n` +
+  const items = source.items?.length ? source.items : [{ check: source.check, recommendation: source.recommendation }];
+  const pageUrl = source.group?.page_url ?? source.check.page_url ?? source.recommendation.page_url ?? `https://${source.audit.domain}/`;
+  const heading = source.group
+    ? `${language === 'zh' ? '根因修复组' : 'Root-cause repair group'}: ${source.group.stage}`
+    : `${labels.task}: ${recommendationForLanguage(source.recommendation, language).title}`;
+  const itemSections = items.map(item => {
+    const recommendation = recommendationForLanguage(item.recommendation, language);
+    const observed = item.check.evidence.length
+      ? item.check.evidence.map(evidence => `- ${evidence}`).join('\n')
+      : `- ${labels.noEvidence}`;
+    return `${labels.checkId}: ${item.check.id}\n` +
+      `${labels.source}:\n${observed}\n` +
+      `${labels.why}: ${recommendation.why}\n` +
+      `${labels.requiredChange}: ${recommendation.fix}\n` +
+      `${labels.acceptance}:\n- ${recommendation.verify}\n- ${labels.rerun(item.check.id)}`;
+  }).join('\n\n');
+  return `${heading}\n${labels.target}: ${pageUrl}\n\n${itemSections}\n\n` +
     `${labels.constraints}:\n- ${labels.noInvent}\n- ${labels.noPublish}\n` +
-    `- ${labels.keepConsistent}\n\n` +
-    `${labels.acceptance}:\n- ${recommendation.verify}\n` +
-    `- ${labels.rerun(source.check.id)}`;
+    `- ${labels.keepConsistent}`;
 }
 
 export function buildFixPack(
@@ -293,32 +342,51 @@ export function buildFixPack(
   language: FixPackLanguage,
   output: FixPackOutput,
 ): FixPack {
-  const pageUrl = source.check.page_url ?? source.recommendation.page_url ?? null;
-  const recommendation = recommendationForLanguage(source.recommendation, language);
+  const items = source.items?.length ? source.items : [{ check: source.check, recommendation: source.recommendation }];
+  const pageUrl = source.group?.page_url ?? source.check.page_url ?? source.recommendation.page_url ?? null;
+  const evidenceItems = items.map(item => {
+    const copy = recommendationForLanguage(item.recommendation, language);
+    return {
+      check_id: item.check.id,
+      page_url: item.check.page_url ?? item.recommendation.page_url ?? null,
+      status: 'fail' as const,
+      observed: item.check.evidence.slice(0, 20).map(evidence => String(evidence).slice(0, 1000)),
+      why: copy.why,
+      source: item.check.source,
+      confidence: item.check.confidence,
+    };
+  });
+  const snippets = items.flatMap(item => deterministicSnippets({
+    ...source,
+    check: item.check,
+    recommendation: item.recommendation,
+    items: [item],
+    group: undefined,
+  }, language));
   return {
     version: '1',
     audit_id: source.audit.audit_id,
-    recommendation_id: source.recommendation.id,
+    recommendation_id: source.group?.id ?? source.recommendation.id,
     language,
     output,
     domain: source.audit.domain,
-    evidence: {
-      check_id: source.check.id,
-      page_url: pageUrl,
-      status: 'fail',
-      observed: source.check.evidence.slice(0, 20).map(item => String(item).slice(0, 1000)),
-      why: recommendation.why,
-      source: source.check.source,
-      confidence: source.check.confidence,
-    },
+    evidence: evidenceItems[0],
+    evidence_items: evidenceItems,
+    ...(source.group ? { repair_group: {
+      id: source.group.id,
+      stage: source.group.stage,
+      page_url: source.group.page_url,
+      check_ids: [...source.group.check_ids],
+    } } : {}),
     drafts: {
       title: null,
       meta_description: null,
       body_outline: [],
     },
-    code_snippets: deterministicSnippets(source, language),
-    fix_steps: [recommendation.fix],
-    verify: [recommendation.verify],
+    code_snippets: snippets.filter((snippet, index) =>
+      snippets.findIndex(candidate => candidate.language === snippet.language && candidate.code === snippet.code) === index),
+    fix_steps: unique(items.map(item => recommendationForLanguage(item.recommendation, language).fix)),
+    verify: unique(items.map(item => recommendationForLanguage(item.recommendation, language).verify)),
     handoff_prompt: buildHandoffPrompt(source, language),
     expansion: { status: 'deterministic' },
   };
@@ -342,7 +410,7 @@ export function mergeFixPackExpansion(pack: FixPack, expansion: FixPackExpansion
 }
 
 export function buildFixExpansionPrompt(source: FixPackSource, output: FixPackOutput, language: FixPackLanguage): string {
-  const recommendation = recommendationForLanguage(source.recommendation, language);
+  const items = source.items?.length ? source.items : [{ check: source.check, recommendation: source.recommendation }];
   const prompt = language === 'zh'
     ? {
         task: '将一个已经验证失败的审计建议扩展为结构化实施修复包。',
@@ -370,18 +438,28 @@ export function buildFixExpansionPrompt(source: FixPackSource, output: FixPackOu
     requested_output: output,
     verified_input: {
       domain: source.audit.domain,
-      page_url: source.check.page_url ?? source.recommendation.page_url ?? null,
-      check_id: source.check.id,
-      status: source.check.status,
-      source: source.check.source,
-      confidence: source.check.confidence,
-      observed_evidence: source.check.evidence,
-      recommendation: {
-        title: recommendation.title,
-        why: recommendation.why,
-        fix: recommendation.fix,
-        verify: recommendation.verify,
-      },
+      page_url: source.group?.page_url ?? source.check.page_url ?? source.recommendation.page_url ?? null,
+      repair_group: source.group ? {
+        id: source.group.id,
+        stage: source.group.stage,
+        check_ids: source.group.check_ids,
+      } : null,
+      failures: items.map(item => {
+        const recommendation = recommendationForLanguage(item.recommendation, language);
+        return {
+          check_id: item.check.id,
+          status: item.check.status,
+          source: item.check.source,
+          confidence: item.check.confidence,
+          observed_evidence: item.check.evidence,
+          recommendation: {
+            title: recommendation.title,
+            why: recommendation.why,
+            fix: recommendation.fix,
+            verify: recommendation.verify,
+          },
+        };
+      }),
     },
     rules: prompt.rules,
   });

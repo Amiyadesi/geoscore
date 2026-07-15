@@ -14,6 +14,20 @@ let currentLighthouseState = null;
 let currentAuditRequest = null;
 let reportLanguage = STORED_REPORT_LANGUAGE || UI_LANGUAGE;
 let reportLanguageManuallySet = Boolean(STORED_REPORT_LANGUAGE);
+let currentEvidenceMapState = { snapshot: null, busy: false, error: null };
+const CUSTOM_API_MODEL_LIMIT = 50;
+let customApiModelsBusy = false;
+let customApiRunSequence = 0;
+let pendingCustomApiConfig = null;
+let currentMonitoringState = {
+  project: null,
+  managementToken: '',
+  showToken: false,
+  runs: [],
+  busy: false,
+  error: null,
+  message: '',
+};
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
 function applyUiLanguage() {
@@ -625,6 +639,481 @@ function quickSearch(domain) {
   startAudit(domain);
 }
 
+function redactAuxiliaryMessage(value, secret = '') {
+  let message = String(value || uiText('status.failed'));
+  if (secret) message = message.split(secret).join('[redacted]');
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
+    .replace(/\b(?:sk|gsk|cfut|gmt)[-_][A-Za-z0-9_-]{8,}\b/gi, '[redacted]')
+    .replace(/\bAIza[\w-]+\b/g, '[redacted]')
+    .replace(/([?&](?:key|api_key|apikey)=)[^&\s]+/gi, '$1[redacted]')
+    .slice(0, 360);
+}
+
+function auxiliaryError(error, secret = '') {
+  if (error?.payload?.error) {
+    const detail = error.payload.error;
+    return {
+      code: String(detail.code || 'REQUEST_FAILED'),
+      message: redactAuxiliaryMessage(`${detail.code ? `${detail.code}: ` : ''}${detail.message || uiText('status.failed')}`, secret),
+    };
+  }
+  return { code: 'REQUEST_FAILED', message: redactAuxiliaryMessage(error?.message, secret) };
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload) {
+    const error = new Error(payload?.error?.message || `HTTP ${response.status}`);
+    error.payload = payload;
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+
+function customApiElements() {
+  return {
+    panel: document.getElementById('custom-api-panel'),
+    apiKey: document.getElementById('custom-api-key'),
+    baseUrl: document.getElementById('custom-api-base-url'),
+    model: document.getElementById('custom-api-model'),
+    modelList: document.getElementById('custom-api-model-list'),
+    fetchModels: document.getElementById('custom-api-fetch-models'),
+    status: document.getElementById('custom-api-status'),
+  };
+}
+
+function setCustomApiStatus(message = '', failed = false) {
+  const { status } = customApiElements();
+  if (!status) return;
+  status.textContent = String(message || '');
+  status.classList.toggle('hidden', !message);
+  status.classList.toggle('text-orange-700', failed);
+  status.classList.toggle('text-green-700', !failed && Boolean(message));
+  status.setAttribute('role', failed ? 'alert' : 'status');
+  status.setAttribute('aria-live', failed ? 'assertive' : 'polite');
+}
+
+function focusCustomApiField(field) {
+  const { panel } = customApiElements();
+  if (panel) panel.open = true;
+  field?.focus();
+}
+
+function normalizeCustomApiBaseUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
+    const normalizedPath = url.pathname.replace(/\/+$/, '');
+    url.pathname = normalizedPath || '/';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function overwriteCustomApiConfig(config) {
+  if (!config || typeof config !== 'object') return;
+  config.apiKey = '';
+  config.apiBaseUrl = '';
+  config.apiModel = '';
+  config.runId = null;
+}
+
+function discardPendingCustomApiConfig(runId = null) {
+  if (!pendingCustomApiConfig) return false;
+  if (runId !== null && pendingCustomApiConfig.runId !== runId) return false;
+  const config = pendingCustomApiConfig;
+  pendingCustomApiConfig = null;
+  overwriteCustomApiConfig(config);
+  return true;
+}
+
+function clearCustomApiInputs() {
+  const { apiKey, baseUrl, model, modelList } = customApiElements();
+  if (apiKey) apiKey.value = '';
+  if (baseUrl) baseUrl.value = '';
+  if (model) model.value = '';
+  modelList?.replaceChildren();
+}
+
+function stageCustomApiForAudit(runId) {
+  const { apiKey, baseUrl, model } = customApiElements();
+  const values = {
+    apiKey: String(apiKey?.value || '').trim(),
+    apiBaseUrl: String(baseUrl?.value || '').trim(),
+    apiModel: String(model?.value || '').trim(),
+  };
+  const hasAnyValue = Boolean(values.apiKey || values.apiBaseUrl || values.apiModel);
+  discardPendingCustomApiConfig();
+  if (!hasAnyValue) {
+    setCustomApiStatus('');
+    return { ok: true, configured: false };
+  }
+  if (!values.apiKey || !values.apiBaseUrl || !values.apiModel) {
+    setCustomApiStatus(uiText('customApi.error.required'), true);
+    focusCustomApiField(!values.apiKey ? apiKey : !values.apiBaseUrl ? baseUrl : model);
+    return { ok: false, configured: false };
+  }
+  const normalizedBaseUrl = normalizeCustomApiBaseUrl(values.apiBaseUrl);
+  if (!normalizedBaseUrl) {
+    setCustomApiStatus(uiText('customApi.error.https'), true);
+    focusCustomApiField(baseUrl);
+    return { ok: false, configured: false };
+  }
+  pendingCustomApiConfig = {
+    runId,
+    apiKey: values.apiKey,
+    apiBaseUrl: normalizedBaseUrl,
+    apiModel: values.apiModel.slice(0, 160),
+  };
+  clearCustomApiInputs();
+  setCustomApiStatus(uiText('customApi.queued'));
+  return { ok: true, configured: true };
+}
+
+function claimPendingCustomApiConfig(runId) {
+  if (!pendingCustomApiConfig || pendingCustomApiConfig.runId !== runId) return null;
+  const config = pendingCustomApiConfig;
+  pendingCustomApiConfig = null;
+  return config;
+}
+
+function customApiModelIds(payload) {
+  const candidates = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.models)
+      ? payload.models
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.data?.models)
+          ? payload.data.models
+          : [];
+  const seen = new Set();
+  const models = [];
+  for (const item of candidates) {
+    const value = String(typeof item === 'string' ? item : item?.id ?? item?.model ?? item?.name ?? '').trim();
+    if (!value || value.length > 160 || seen.has(value)) continue;
+    seen.add(value);
+    models.push(value);
+    if (models.length >= CUSTOM_API_MODEL_LIMIT) break;
+  }
+  return models;
+}
+
+function renderCustomApiModels(models) {
+  const { modelList } = customApiElements();
+  if (!modelList) return;
+  modelList.replaceChildren();
+  for (const value of models) {
+    const option = document.createElement('option');
+    option.value = value;
+    modelList.appendChild(option);
+  }
+}
+
+async function fetchCustomApiModels() {
+  if (customApiModelsBusy) return;
+  const { apiKey, baseUrl, fetchModels } = customApiElements();
+  let key = String(apiKey?.value || '').trim();
+  const normalizedBaseUrl = normalizeCustomApiBaseUrl(baseUrl?.value);
+  if (!key) {
+    setCustomApiStatus(uiText('customApi.error.required'), true);
+    focusCustomApiField(apiKey);
+    return;
+  }
+  if (!normalizedBaseUrl) {
+    setCustomApiStatus(uiText('customApi.error.https'), true);
+    focusCustomApiField(baseUrl);
+    return;
+  }
+  customApiModelsBusy = true;
+  if (fetchModels) {
+    fetchModels.disabled = true;
+    fetchModels.textContent = uiText('customApi.fetchingModels');
+  }
+  setCustomApiStatus(uiText('customApi.fetchingModels'));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`${API}/api/answer-models`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-Key': key,
+      },
+      body: JSON.stringify({ api_base_url: normalizedBaseUrl }),
+      signal: controller.signal,
+      referrerPolicy: 'no-referrer',
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload) throw new Error(`HTTP ${response.status}`);
+    const models = customApiModelIds(payload);
+    renderCustomApiModels(models);
+    setCustomApiStatus(models.length
+      ? uiText('customApi.modelsLoaded', { count: models.length })
+      : uiText('customApi.error.emptyModels'), models.length === 0);
+  } catch {
+    renderCustomApiModels([]);
+    setCustomApiStatus(uiText('customApi.error.fetch'), true);
+  } finally {
+    clearTimeout(timeout);
+    key = '';
+    customApiModelsBusy = false;
+    if (fetchModels) {
+      fetchModels.disabled = false;
+      fetchModels.textContent = uiText('customApi.fetchModels');
+    }
+  }
+}
+
+document.getElementById('custom-api-fetch-models')?.addEventListener('click', fetchCustomApiModels);
+
+function sanitizeCustomEvidenceSnapshot(value) {
+  if (Array.isArray(value)) return value.map(sanitizeCustomEvidenceSnapshot);
+  if (!value || typeof value !== 'object') return value;
+  const blocked = new Set(['api_key', 'apikey', 'authorization', 'api_base_url', 'base_url', 'endpoint', 'api_model', 'model']);
+  const clean = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (blocked.has(key.toLowerCase())) continue;
+    clean[key] = sanitizeCustomEvidenceSnapshot(item);
+  }
+  return clean;
+}
+
+function showMonitoringVerificationNotice(message, failed = false) {
+  const notice = document.createElement('div');
+  notice.id = 'monitor-verification-notice';
+  notice.setAttribute('role', failed ? 'alert' : 'status');
+  notice.className = `fixed left-4 right-4 top-4 z-[100] mx-auto max-w-xl rounded-xl border px-4 py-3 text-sm shadow-lg ${failed ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-green-200 bg-green-50 text-green-800'}`;
+  notice.textContent = message;
+  document.getElementById(notice.id)?.remove();
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 8000);
+}
+
+async function verifyMonitoringEmailFromUrl() {
+  const url = new URL(window.location.href);
+  const projectId = url.searchParams.get('monitor_project') || '';
+  const verificationToken = url.searchParams.get('verify') || '';
+  if (!projectId || !verificationToken) return;
+  url.searchParams.delete('monitor_project');
+  url.searchParams.delete('verify');
+  history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  try {
+    await fetchJson(`${API}/api/monitor-projects/${encodeURIComponent(projectId)}/email/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ token: verificationToken }),
+    });
+    showMonitoringVerificationNotice(uiText('audit.monitor.emailVerified'));
+  } catch (error) {
+    showMonitoringVerificationNotice(auxiliaryError(error, verificationToken).message, true);
+  }
+}
+
+verifyMonitoringEmailFromUrl();
+
+function rerenderEvidencePanels() {
+  if (!currentAuditData) return;
+  renderEvidenceReportSections(currentAuditData);
+  if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
+}
+
+async function runEvidenceMap(options = {}) {
+  const requestedAuditId = options.auditId || currentAuditId;
+  let customApiConfig = options.customApiConfig || null;
+  const usesCustomApi = Boolean(customApiConfig);
+  if (!requestedAuditId || currentEvidenceMapState.busy) {
+    overwriteCustomApiConfig(customApiConfig);
+    return;
+  }
+  currentEvidenceMapState = { ...currentEvidenceMapState, busy: true, error: null };
+  rerenderEvidencePanels();
+  try {
+    const endpoint = `${API}/api/audits/${encodeURIComponent(requestedAuditId)}/evidence-map`;
+    let requestPromise;
+    if (customApiConfig) {
+      let request = new Request(endpoint, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': customApiConfig.apiKey,
+        },
+        body: JSON.stringify({
+          api_base_url: customApiConfig.apiBaseUrl,
+          api_model: customApiConfig.apiModel,
+        }),
+        referrerPolicy: 'no-referrer',
+      });
+      requestPromise = fetchJson(request);
+      request = null;
+      overwriteCustomApiConfig(customApiConfig);
+      customApiConfig = null;
+      setCustomApiStatus(uiText('customApi.sent'));
+    } else {
+      requestPromise = fetchJson(endpoint, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+    }
+    const payload = await requestPromise;
+    if (currentAuditId !== requestedAuditId) return;
+    const snapshot = sanitizeCustomEvidenceSnapshot(payload.data ?? null);
+    currentEvidenceMapState = { snapshot, busy: false, error: null };
+    currentAuditData = { ...currentAuditData, evidence_map: snapshot };
+    if (usesCustomApi) setCustomApiStatus(uiText('customApi.complete'));
+  } catch (error) {
+    if (currentAuditId === requestedAuditId) {
+      currentEvidenceMapState = {
+        ...currentEvidenceMapState,
+        busy: false,
+        error: usesCustomApi
+          ? { code: 'CUSTOM_API_EVIDENCE_FAILED', message: uiText('customApi.error.evidence') }
+          : auxiliaryError(error),
+      };
+      if (usesCustomApi) setCustomApiStatus(uiText('customApi.error.evidence'), true);
+    }
+  } finally {
+    overwriteCustomApiConfig(customApiConfig);
+  }
+  if (currentAuditId === requestedAuditId) rerenderEvidencePanels();
+}
+
+function runPendingCustomApiEvidence(data, runId) {
+  const config = claimPendingCustomApiConfig(runId);
+  if (!config) return;
+  const auditId = data?.audit_id || currentAuditId;
+  if (!auditId) {
+    overwriteCustomApiConfig(config);
+    return;
+  }
+  runEvidenceMap({ auditId, customApiConfig: config });
+}
+
+function monitorProjectUrl(action = '') {
+  const id = currentMonitoringState.project?.id;
+  if (!id) return null;
+  return `${API}/api/monitor-projects/${encodeURIComponent(id)}${action ? `/${action}` : ''}`;
+}
+
+function monitorHeaders(extra = {}) {
+  return {
+    Accept: 'application/json',
+    'X-Project-Token': currentMonitoringState.managementToken,
+    ...extra,
+  };
+}
+
+async function loadMonitoringHistory() {
+  const url = monitorProjectUrl('runs');
+  if (!url || !currentMonitoringState.managementToken) return;
+  const payload = await fetchJson(url, { headers: monitorHeaders() });
+  currentMonitoringState = { ...currentMonitoringState, runs: Array.isArray(payload.runs) ? payload.runs : [] };
+  if (currentAuditData) currentAuditData = { ...currentAuditData, monitoring_history: currentMonitoringState.runs };
+}
+
+async function createMonitoringProject(form) {
+  if (!currentAuditId || currentMonitoringState.busy) return;
+  const email = String(new FormData(form).get('email') || '').trim();
+  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
+  rerenderEvidencePanels();
+  try {
+    const payload = await fetchJson(`${API}/api/monitor-projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ audit_id: currentAuditId, ...(email ? { email } : {}) }),
+    });
+    currentMonitoringState = {
+      project: payload.project,
+      managementToken: payload.management_token || '',
+      showToken: payload.token_shown_once === true,
+      runs: [],
+      busy: false,
+      error: null,
+      message: reportLanguage === 'zh' ? '监控项目已创建。请立即保存管理 Token。' : 'Monitoring project created. Save the management token now.',
+    };
+    if (currentAuditData) currentAuditData = { ...currentAuditData, monitoring_project: payload.project };
+  } catch (error) {
+    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error) };
+  }
+  rerenderEvidencePanels();
+}
+
+async function updateMonitoringQueries(form) {
+  const url = monitorProjectUrl('queries');
+  if (!url || currentMonitoringState.busy) return;
+  const formData = new FormData(form);
+  const queryValues = formData.getAll('query').map(value => String(value).trim());
+  const intentValues = formData.getAll('intent').map(String);
+  const queries = queryValues.map((query, index) => ({ query, intent: intentValues[index] || 'informational' }));
+  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
+  rerenderEvidencePanels();
+  try {
+    const payload = await fetchJson(url, {
+      method: 'PATCH',
+      headers: monitorHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ queries }),
+    });
+    currentMonitoringState = {
+      ...currentMonitoringState,
+      project: { ...currentMonitoringState.project, queries: payload.queries ?? queries },
+      busy: false,
+      message: reportLanguage === 'zh' ? '查询已保存，监控基线将在下次运行时重建。' : 'Queries saved. The monitoring baseline will be rebuilt on the next run.',
+    };
+  } catch (error) {
+    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error) };
+  }
+  rerenderEvidencePanels();
+}
+
+async function runMonitoring({ apiKey = '' } = {}) {
+  const action = apiKey ? 'byok-runs' : 'runs';
+  const url = monitorProjectUrl(action);
+  if (!url || currentMonitoringState.busy) return;
+  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
+  rerenderEvidencePanels();
+  try {
+    await fetchJson(url, {
+      method: 'POST',
+      headers: monitorHeaders({
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+      }),
+      body: '{}',
+    });
+    currentMonitoringState = { ...currentMonitoringState, busy: false, message: reportLanguage === 'zh' ? '监控快照已完成。' : 'Monitoring snapshot completed.' };
+    await loadMonitoringHistory();
+  } catch (error) {
+    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error, apiKey) };
+  }
+  rerenderEvidencePanels();
+}
+
+document.addEventListener('submit', (event) => {
+  const form = event.target.closest('[data-monitor-form]');
+  if (!form) return;
+  event.preventDefault();
+  if (form.dataset.monitorForm === 'create') {
+    createMonitoringProject(form);
+    return;
+  }
+  if (form.dataset.monitorForm === 'queries') {
+    updateMonitoringQueries(form);
+    return;
+  }
+  if (form.dataset.monitorForm === 'byok') {
+    const input = form.querySelector('input[name="api_key"]');
+    const apiKey = String(input?.value || '').trim();
+    if (input) input.value = '';
+    runMonitoring({ apiKey });
+  }
+});
+
 document.addEventListener('click', (e) => {
   const languageButton = e.target.closest('[data-report-lang]');
   if (languageButton) {
@@ -645,6 +1134,28 @@ document.addEventListener('click', (e) => {
   if (lighthouseRetry) {
     const domain = lighthouseRetry.dataset.domain || currentDomain;
     if (domain) fetchLighthouse(domain);
+    return;
+  }
+
+  if (e.target.closest('[data-action="run-evidence-map"]')) {
+    runEvidenceMap();
+    return;
+  }
+
+  if (e.target.closest('[data-action="run-monitor-default"]')) {
+    runMonitoring();
+    return;
+  }
+
+  if (e.target.closest('[data-action="copy-monitor-token"]')) {
+    const token = currentMonitoringState.managementToken;
+    if (token) navigator.clipboard.writeText(token);
+    return;
+  }
+
+  if (e.target.closest('[data-action="dismiss-monitor-token"]')) {
+    currentMonitoringState = { ...currentMonitoringState, showToken: false };
+    rerenderEvidencePanels();
     return;
   }
 
@@ -1856,6 +2367,7 @@ function buildDomainGuesses(input) {
 }
 
 async function startAudit(rawInput, options = {}) {
+  discardPendingCustomApiConfig();
   const parsed = parsePublicDomainInput(rawInput);
   let domain = parsed.domain;
   if (!parsed.ok) {
@@ -1910,12 +2422,17 @@ async function startAudit(rawInput, options = {}) {
     return;
   }
 
+  const customApiRunId = ++customApiRunSequence;
+  const customApiStage = stageCustomApiForAudit(customApiRunId);
+  if (!customApiStage.ok) return;
+
   currentDomain = domain;
   currentAuditRequest = {
     domain,
     mode: parsed.mode === 'url' ? 'url' : 'site',
     targetUrl: parsed.mode === 'url' ? parsed.targetUrl : null,
     archetypeHint: options.archetypeHint || null,
+    customApiRunId,
   };
   const pageQuery = REPORT_UI?.buildAuditPageQuery(currentAuditRequest) || `?d=${encodeURIComponent(domain)}`;
   history.pushState({}, '', pageQuery);
@@ -1928,6 +2445,16 @@ function showAuditShell(domain) {
   stopAuditTimer();
   currentAuditData = null;
   currentLighthouseState = null;
+  currentEvidenceMapState = { snapshot: null, busy: false, error: null };
+  currentMonitoringState = {
+    project: null,
+    managementToken: '',
+    showToken: false,
+    runs: [],
+    busy: false,
+    error: null,
+    message: '',
+  };
   const savedReportLanguage = I18N?.getReportLanguage?.() ?? null;
   reportLanguageManuallySet = Boolean(savedReportLanguage);
   reportLanguage = savedReportLanguage || UI_LANGUAGE;
@@ -2139,7 +2666,9 @@ function renderEvidenceReportSections(data) {
   });
   const checks = REPORT_UI.renderNormalizedChecks(data, reportLanguage);
   const recommendations = REPORT_UI.renderEvidenceRecommendations(data, reportLanguage);
-  modules.innerHTML = [checks, recommendations].filter(Boolean).join('');
+  const evidenceMap = REPORT_UI.renderEvidenceMap?.(data, reportLanguage, currentEvidenceMapState) ?? '';
+  const monitoring = REPORT_UI.renderMonitoring?.(data, reportLanguage, currentMonitoringState) ?? '';
+  modules.innerHTML = [evidenceMap, monitoring, recommendations, checks].filter(Boolean).join('');
   document.getElementById('cat-tabs')?.classList.add('hidden');
   return true;
 }
@@ -2365,7 +2894,7 @@ function updateCwvPillsFromLighthouse(lh) {
 // fresh=true adds ?fresh=1 so the server atomically busts its cache before re-auditing
 function openAuditStream(request, attempt, fresh = false) {
   const auditRequest = typeof request === 'string'
-    ? { domain: request, mode: 'site', targetUrl: null, archetypeHint: null }
+    ? { domain: request, mode: 'site', targetUrl: null, archetypeHint: null, customApiRunId: null }
     : request;
   const endpoint = REPORT_UI?.buildAuditEndpoint(API, auditRequest, { fresh: fresh && attempt === 0 });
   if (!endpoint) {
@@ -2386,6 +2915,7 @@ function openAuditStream(request, attempt, fresh = false) {
       if (PROGRESS_MODULES.has(d.module)) { tickProgress(); clearTimeout(window._catCountTimer); window._catCountTimer = setTimeout(updateCatTabCounts, 120); }
     } else {
       renderFullAudit(d.data);
+      runPendingCustomApiEvidence(d.data, auditRequest.customApiRunId);
       // Instantly complete progress bar for cached results
       modulesComplete = TOTAL_MODULES;
       const fill = document.getElementById('progress-fill');
@@ -2404,6 +2934,7 @@ function openAuditStream(request, attempt, fresh = false) {
     currentAuditId = d.audit_id;
     stopAuditTimer();
     renderFullAudit(d);
+    runPendingCustomApiEvidence(d, auditRequest.customApiRunId);
     enableChat();
     es.close();
     // Kick off Lighthouse in a separate request (own Worker invocation = own subrequest budget)
@@ -2417,6 +2948,9 @@ function openAuditStream(request, attempt, fresh = false) {
       appendError(`Connection interrupted — retrying (${attempt + 1}/2)...`, true);
     } else {
       stopAuditTimer();
+      if (discardPendingCustomApiConfig(auditRequest.customApiRunId)) {
+        setCustomApiStatus(uiText('customApi.error.audit'), true);
+      }
       appendError('Audit failed or timed out. Please try again.');
       // Clear any modules stuck on spinner
       document.querySelectorAll('[id^="module-"] .spinner').forEach(spinner => {
@@ -2608,6 +3142,10 @@ function renderFullAudit(data) {
   if (!data?.domain) return;
   currentAuditData = data;
   currentAuditId = data.audit_id ?? currentAuditId;
+  currentEvidenceMapState = {
+    ...currentEvidenceMapState,
+    snapshot: data.evidence_map ?? currentEvidenceMapState.snapshot,
+  };
   if (!reportLanguageManuallySet) {
     reportLanguage = REPORT_UI?.inferReportLanguage(data, UI_LANGUAGE) ?? UI_LANGUAGE;
   }
@@ -2918,12 +3456,19 @@ function wireActionButtons(data) {
     if (!navFreshBtn.dataset.wired) {
       navFreshBtn.dataset.wired = '1';
       navFreshBtn.addEventListener('click', () => {
+        const customApiRunId = ++customApiRunSequence;
+        const customApiStage = stageCustomApiForAudit(customApiRunId);
+        if (!customApiStage.ok) return;
+        currentAuditRequest = {
+          ...(currentAuditRequest ?? { domain: currentDomain, mode: 'site', targetUrl: null, archetypeHint: null }),
+          customApiRunId,
+        };
         computedSectionsRendered = false;
         document.getElementById('modules').innerHTML = '';
         document.getElementById('scores').classList.add('hidden');
         navFreshBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> ${UI_LANGUAGE === 'zh' ? '重新审查' : 'Start Fresh'}`;
         navFreshBtn.dataset.wired = '';
-        openAuditStream(currentAuditRequest ?? { domain: currentDomain, mode: 'site', targetUrl: null, archetypeHint: null }, 0, true);
+        openAuditStream(currentAuditRequest, 0, true);
       });
     }
   }
@@ -2953,7 +3498,7 @@ function wireActionButtons(data) {
       const orig = agentBtn.innerHTML;
       agentBtn.textContent = uiText('status.building');
       setTimeout(() => {
-        downloadAgentMarkdown(data);
+        downloadAgentMarkdown(currentAuditData || data);
         agentBtn.textContent = uiText('status.downloaded');
         setTimeout(() => { agentBtn.innerHTML = orig; }, 2000);
       }, 50);

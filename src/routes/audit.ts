@@ -26,7 +26,6 @@ import { upsertBusiness } from '../modules/resolver';
 import { runTechnicalSeo } from '../modules/technical_seo';
 import { runSchemaAudit } from '../modules/schema_audit';
 import { runAuthority } from '../modules/authority';
-import { runGeoPredicted, detectVertical, detectLocation } from '../modules/geo_predicted';
 import { runContentQuality } from '../modules/content_quality';
 import { runOnPageSeo } from '../modules/on_page_seo';
 import { runAccessibility } from '../modules/accessibility';
@@ -35,6 +34,7 @@ import { runRobotsSitemap } from '../modules/robots_sitemap';
 import { runMobileAudit } from '../modules/mobile_audit';
 import { runHtmlValidation } from '../modules/html_validator';
 import { runCommonCrawlPresence } from '../modules/common_crawl';
+import { buildRepairGroups } from '../lib/repair-groups';
 
 import { monotonicFactory } from 'ulid';
 
@@ -164,7 +164,6 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     const externalBudget = new SubrequestBudget(36, 'audit.external');
     const pageBudget = externalBudget.child('pages', 14);
     const coreBudget = externalBudget.child('core', 15);
-    const aiBudget = externalBudget.child('ai', 4);
     const optionalBudget = externalBudget.child('optional', 3);
     const pageFetcher = budgetedFetcher(pageBudget, undefined, 'page');
 
@@ -227,9 +226,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     //   • security_audit is the only module that still receives sharedHtml because
     //     its checks are header-based; the raw HTML is only used for `html.length > 0`
     //     (HTTPS-available check) which remains valid even for challenge pages.
-    //   • geo_predicted and keywords also receive sharedHtml — they run their own
-    //     bot-challenge fallback internally (domain-only inference), which is the
-    //     correct behaviour (we still want keyword/GEO output, just domain-derived).
+    //   • Legacy predicted and keyword modules are not executed for new audits.
     const botChallenge = detectBotChallenge(sharedHtml, sharedFinalUrl, sharedStatusCode);
     const sharedHtmlIsBotChallenge = botChallenge.isChallenge || /bot challenge|captcha|waf/i.test(primaryPage.error ?? '');
 
@@ -262,36 +259,6 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       }
     } catch { /* non-critical */ }
 
-    // ── Layer 3: regex detection first (zero subrequests) ────────────────────
-    // Run before Vectorize so we can skip the 2-subrequest embed+query for the
-    // majority of sites where the regex already returns a specific vertical.
-    // Location is only propagated for local-service verticals — global SaaS/tech sites
-    // mention cities in blog posts and testimonials, producing false-positive locations.
-    // Skip entirely if sharedHtml is a bot-challenge page — content is useless.
-    const LOCAL_SERVICE_VERTICALS = new Set(['dental','legal','fitness','real_estate','hotel','restaurant','food_delivery','medical']);
-    if (!verticalOverride && sharedHtml && !sharedHtmlIsBotChallenge) {
-      try {
-        const titleText = (sharedHtml.match(/<title[^>]*>([^<]{0,200})<\/title>/i) ?? [])[1] ?? '';
-        const descText  = (sharedHtml.match(/name=["']description["'][^>]*content=["']([^"']{0,300})["']/i) ?? [])[1] ?? '';
-        const bodySnip  = sharedHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 3000);
-        const fingerprint = `${titleText} ${descText} ${bodySnip}`.trim();
-        const detected = detectVertical(fingerprint);
-        // Only set if not generic — keeps Vectorize + AI fallback for ambiguous pages
-        if (detected !== 'general') verticalOverride = detected;
-        // Only detect location for local-service verticals — not for tech/ecommerce/finance/etc.
-        // which mention cities in content but have no meaningful single location.
-        if (!locationOverride && LOCAL_SERVICE_VERTICALS.has(detected)) {
-          const detectedLoc = detectLocation(fingerprint);
-          if (detectedLoc !== 'your area') locationOverride = detectedLoc;
-        }
-      } catch { /* non-critical */ }
-    }
-
-    // Vectorize similarity was intentionally removed from the anonymous v2 hot
-    // path. Structured data, navigation, sampled page types and deterministic
-    // text signals provide auditable evidence without spending two opaque
-    // service subrequests on an industry guess.
-
     const auditContext = buildAuditContext({
       domain: cleanDomain,
       pages: auditPages,
@@ -302,28 +269,9 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     emit('section', { module: 'audit_context', status: 'ok', data: auditContext });
     emit('section', { module: 'pages_audited', status: 'ok', data: auditPages.map(summarizeAuditPage) });
 
-    // ── Predicted GEO simulation ──────────────────────────────────────────────
-    // One generated query set plus at most one model-scored query is enough for
-    // the explicitly Predicted panel. Remaining queries use local heuristics.
-    emit('progress', { module: 'geo_predicted', status: 'running' });
-    modules.geo_predicted = await runModule(
-      'geo_predicted',
-      () => runGeoPredicted(cleanDomain, env, sharedHtml, verticalOverride, locationOverride, {
-        budget: aiBudget,
-        allowAiClassification: false,
-        maxModelPredictions: 1,
-      }),
-      30000,
-    );
-    const geoData = modules.geo_predicted.data as { is_reliable?: boolean } | null;
-    if (modules.geo_predicted.status === 'ok' && geoData?.is_reliable === false) {
-      modules.geo_predicted.status = 'skipped';
-      emit('section', { module: 'geo_predicted', status: 'skipped', data: modules.geo_predicted.data });
-    } else {
-      emit('section', { module: 'geo_predicted', ...modules.geo_predicted });
-    }
-
-    const deterministicReason = 'Skipped in evidence-first mode: deterministic checks and recommendations are authoritative';
+    const deterministicReason = 'Deprecated for new audits: dated Evidence Map snapshots are separate from factual scoring';
+    modules.geo_predicted = { status: 'skipped', data: { reason: deterministicReason, deprecated: true } };
+    emit('section', { module: 'geo_predicted', ...modules.geo_predicted });
     modules.keywords = { status: 'skipped', data: { reason: deterministicReason } };
     emit('section', { module: 'keywords', ...modules.keywords });
     modules.ai_content_insights = { status: 'skipped', data: { reason: deterministicReason } };
@@ -445,11 +393,12 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     const checks = buildNormalizedChecks(auditContext, auditPages, modules);
     const scoreSummary = scoreChecks(checks);
     const scores = projectLegacyScores(scoreSummary, modules);
-    const predictedVisibility = buildPredictedVisibility(modules.geo_predicted, auditContext.locale);
+    const predictedVisibility = buildPredictedVisibility(undefined, auditContext.locale);
     emit('section', { module: 'score_summary', status: 'ok', data: scoreSummary });
 
     emit('progress', { module: 'recommendations', status: 'running' });
     const recommendationsV2 = buildRecommendations(auditContext, checks);
+    const repairGroups = buildRepairGroups(checks, recommendationsV2);
     modules.recommendations = { status: 'ok', data: recommendationsV2 };
     emit('section', { module: 'recommendations', ...modules.recommendations });
 
@@ -467,6 +416,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       score_summary: scoreSummary,
       predicted_visibility: predictedVisibility,
       recommendations_v2: recommendationsV2,
+      repair_groups: repairGroups,
       external_request_budget: externalBudget.snapshot(),
       ...scores,
       modules,
@@ -478,11 +428,9 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
        summary_json=?, full_json=?, completed_at=unixepoch() WHERE id=?`
     ).bind(scores.seo_score, scores.geo_score, '', JSON.stringify(fullAudit), auditId).run();
 
-    // 6-hour TTL lets users fix issues and re-audit the same day without seeing stale results.
-    // Fall back to 2 hours when AI was unavailable so quota-refresh is caught sooner.
-    const finalGeoData = modules.geo_predicted?.data as { is_reliable?: boolean } | null | undefined;
-    const cacheTtl = finalGeoData?.is_reliable === false ? 60 * 60 * 2 : 60 * 60 * 6;
-    await setCachedAudit(env, cleanDomain, auditId, cacheTtl, cacheScope);
+    // Six hours keeps deterministic page evidence fresh without tying cache
+    // lifetime to an optional model or external snapshot provider.
+    await setCachedAudit(env, cleanDomain, auditId, 60 * 60 * 6, cacheScope);
     emit('complete', fullAudit);
   });
 }

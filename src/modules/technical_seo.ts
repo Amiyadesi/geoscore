@@ -12,6 +12,7 @@ export interface TechnicalSeoResult {
   score: number;
   issues: string[];
   blocked_ai_bots: string[];
+  crawler_policy_v2: CrawlerPolicyV2;
   llms_txt_present: boolean;
   llms_txt_status: 'complete' | 'missing' | 'error';
   sitemap_url_count: number;
@@ -42,6 +43,23 @@ export interface TechnicalSeoResult {
     name: string | null;
   } | null;
   ai_training_optout: boolean;
+}
+
+export interface CrawlerPolicyGroup {
+  bots: string[];
+  blocked: string[];
+  allowed: string[];
+  status: 'known' | 'unknown';
+}
+
+export interface CrawlerPolicyV2 {
+  version: '2';
+  source: 'robots.txt';
+  robots_status: 'complete' | 'missing' | 'error';
+  search_index: CrawlerPolicyGroup;
+  training: CrawlerPolicyGroup;
+  user_fetch: CrawlerPolicyGroup;
+  training_opt_out: boolean;
 }
 
 export interface PageMeta {
@@ -149,7 +167,65 @@ export interface ImageAudit {
   modern_count: number;
 }
 
-const AI_BOTS = ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended', 'CCBot', 'anthropic-ai'];
+export const CRAWLER_POLICY_BOTS = {
+  search_index: ['OAI-SearchBot', 'Claude-SearchBot', 'PerplexityBot', 'Googlebot'],
+  training: ['GPTBot', 'ClaudeBot', 'Google-Extended', 'CCBot', 'anthropic-ai'],
+  user_fetch: ['ChatGPT-User', 'Claude-User', 'Perplexity-User'],
+} as const;
+
+function blockedBots(content: string, bots: readonly string[]): string[] {
+  const botLower = (bot: string) => bot.toLowerCase();
+  const blocks = content.split(/\n[ \t]*\n/);
+  const agentBlocks = new Map<string, string[]>();
+  for (const block of blocks) {
+    const lines = block.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+    const agents = lines
+      .filter(line => /^user-agent:/i.test(line))
+      .map(line => line.replace(/^user-agent:\s*/i, '').trim().toLowerCase());
+    for (const agent of agents) {
+      if (!agentBlocks.has(agent)) agentBlocks.set(agent, lines);
+    }
+  }
+  const isBlockedByLines = (lines: string[]) => {
+    const disallowsRoot = lines.some(line => /^disallow:\s*\/$/i.test(line));
+    const allowsRoot = lines.some(line => /^allow:\s*\/\s*$/i.test(line));
+    return disallowsRoot && !allowsRoot;
+  };
+  return bots.filter(bot => {
+    const specific = agentBlocks.get(botLower(bot));
+    if (specific) return isBlockedByLines(specific);
+    const wildcard = agentBlocks.get('*');
+    return wildcard ? isBlockedByLines(wildcard) : false;
+  });
+}
+
+export function buildCrawlerPolicyV2(
+  content: string,
+  robotsStatus: CrawlerPolicyV2['robots_status'] = content ? 'complete' : 'missing',
+): CrawlerPolicyV2 {
+  const known = robotsStatus !== 'error';
+  const group = (bots: readonly string[]): CrawlerPolicyGroup => {
+    const blocked = known ? blockedBots(content, bots) : [];
+    return {
+      bots: [...bots],
+      blocked,
+      allowed: known ? bots.filter(bot => !blocked.includes(bot)) : [],
+      status: known ? 'known' : 'unknown',
+    };
+  };
+  const searchIndex = group(CRAWLER_POLICY_BOTS.search_index);
+  const training = group(CRAWLER_POLICY_BOTS.training);
+  const userFetch = group(CRAWLER_POLICY_BOTS.user_fetch);
+  return {
+    version: '2',
+    source: 'robots.txt',
+    robots_status: robotsStatus,
+    search_index: searchIndex,
+    training,
+    user_fetch: userFetch,
+    training_opt_out: training.blocked.length > 0,
+  };
+}
 
 
 function parseRobotsSummary(content: string): RobotsSummary {
@@ -679,6 +755,7 @@ export async function runTechnicalSeo(
   const checks: Check[] = [];
   const issues: string[] = [];
   let blocked_ai_bots: string[] = [];
+  let crawler_policy_v2 = buildCrawlerPolicyV2('', 'error');
   let llms_txt_present = false;
   let llms_txt_status: TechnicalSeoResult['llms_txt_status'] = 'error';
   let sitemap_url_count = 0;
@@ -712,48 +789,23 @@ export async function runTechnicalSeo(
 
   // Robots.txt
   const robotsContent = robotsProbe.text;
-  // Parse robots.txt block-by-block (blocks are separated by blank lines).
-  // The old single regex `User-agent: X [\s\S]*? Disallow: /` was crossing block
-  // boundaries and producing false positives when a bot had `Allow: /` but a
-  // later block (e.g. Amazonbot) had `Disallow: /`.
-  blocked_ai_bots = (() => {
-    const botLower = (b: string) => b.toLowerCase();
-    const blocks = robotsContent.split(/\n[ \t]*\n/);
-
-    // Build a map: agent_name_lower → lines_in_block[]
-    const agentBlocks = new Map<string, string[]>();
-    for (const block of blocks) {
-      const lines = block.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-      const agents = lines
-        .filter(l => /^user-agent:/i.test(l))
-        .map(l => l.replace(/^user-agent:\s*/i, '').trim().toLowerCase());
-      for (const agent of agents) {
-        // First specific rule wins (earlier blocks take priority)
-        if (!agentBlocks.has(agent)) agentBlocks.set(agent, lines);
-      }
-    }
-
-    const isBlockedByLines = (lines: string[]) => {
-      const disallowsRoot = lines.some(l => /^disallow:\s*\/?$/i.test(l));
-      const allowsRoot    = lines.some(l => /^allow:\s*\/\s*$/i.test(l));
-      return disallowsRoot && !allowsRoot;
-    };
-
-    return AI_BOTS.filter((bot) => {
-      const specific = agentBlocks.get(botLower(bot));
-      if (specific) return isBlockedByLines(specific);   // explicit rule for this bot
-      const wildcard = agentBlocks.get('*');
-      if (wildcard) return isBlockedByLines(wildcard);   // fall back to wildcard
-      return false;
-    });
-  })();
+  crawler_policy_v2 = buildCrawlerPolicyV2(robotsContent, robotsProbe.status);
+  blocked_ai_bots = [
+    ...crawler_policy_v2.search_index.blocked,
+    ...crawler_policy_v2.training.blocked,
+    ...crawler_policy_v2.user_fetch.blocked,
+  ];
   checks.push({ name: 'Robots.txt present', passed: robotsContent.length > 0 });
   checks.push({
-    name: 'AI crawlers not blocked',
-    passed: blocked_ai_bots.length === 0,
-    detail: blocked_ai_bots.length > 0 ? `Blocking: ${blocked_ai_bots.join(', ')}` : undefined,
+    name: 'Search and index crawlers not blocked',
+    passed: crawler_policy_v2.search_index.blocked.length === 0,
+    detail: crawler_policy_v2.search_index.blocked.length > 0
+      ? `Blocking: ${crawler_policy_v2.search_index.blocked.join(', ')}`
+      : undefined,
   });
-  if (blocked_ai_bots.length > 0) issues.push(`Blocking AI crawlers: ${blocked_ai_bots.join(', ')}`);
+  if (crawler_policy_v2.search_index.blocked.length > 0) {
+    issues.push(`Blocking search/index crawlers: ${crawler_policy_v2.search_index.blocked.join(', ')}`);
+  }
 
   // llms.txt
   llms_txt_status = llmsProbe.status;
@@ -994,7 +1046,7 @@ export async function runTechnicalSeo(
     const hasCCBot = /<meta[^>]+name=["']CCBot["']/i.test(html);
     const hasGPTBot = /<meta[^>]+name=["']GPTBot["']/i.test(html);
     const hasAnthropicAi = /<meta[^>]+name=["']anthropic-ai["']/i.test(html);
-    ai_training_optout = hasNoai || hasCCBot || hasGPTBot || hasAnthropicAi;
+    ai_training_optout = hasNoai || hasCCBot || hasGPTBot || hasAnthropicAi || crawler_policy_v2.training_opt_out;
 
     // RSS: use HTML-declared feed link only — probe fetches removed to save subrequests.
     rss_feed_url = htmlFeedHref;
@@ -1013,7 +1065,7 @@ export async function runTechnicalSeo(
 
   return {
     checks, score, issues,
-    blocked_ai_bots, llms_txt_present, llms_txt_status, sitemap_url_count,
+    blocked_ai_bots, crawler_policy_v2, llms_txt_present, llms_txt_status, sitemap_url_count,
     response_time_ms, tech_stack, security_headers, page_meta,
     robots_summary, page_weight_kb, render_blocking_scripts,
     h1_tags, h2_tags, dom_element_count, compression,

@@ -1183,11 +1183,43 @@ export function buildNormalizedChecks(
     source: 'technical_seo', pageUrl, evidence: !feedApplicable ? [`${context.site_archetype} does not require a feed`] : rssFeed ? [rssFeed.detail ?? 'RSS/Atom feed checked'] : [],
   }));
   const blockedAiBots = Array.isArray(technical?.blocked_ai_bots) ? technical.blocked_ai_bots.filter((item: unknown): item is string => typeof item === 'string') : [];
+  const crawlerPolicy = technical?.crawler_policy_v2 && typeof technical.crawler_policy_v2 === 'object'
+    ? technical.crawler_policy_v2 as Record<string, any>
+    : null;
+  const searchBlocked = Array.isArray(crawlerPolicy?.search_index?.blocked)
+    ? crawlerPolicy.search_index.blocked.filter((item: unknown): item is string => typeof item === 'string')
+    : [];
+  const trainingBlocked = Array.isArray(crawlerPolicy?.training?.blocked)
+    ? crawlerPolicy.training.blocked.filter((item: unknown): item is string => typeof item === 'string')
+    : [];
+  const userFetchBlocked = Array.isArray(crawlerPolicy?.user_fetch?.blocked)
+    ? crawlerPolicy.user_fetch.blocked.filter((item: unknown): item is string => typeof item === 'string')
+    : [];
+  const crawlerPolicyKnown = crawlerPolicy?.version === '2' && crawlerPolicy?.robots_status !== 'error';
+  const crawlerEvidence = crawlerPolicyKnown
+    ? [
+        searchBlocked.length
+          ? `Search/index crawlers blocked: ${searchBlocked.join(', ')}`
+          : 'No supported search/index crawler block was detected',
+        trainingBlocked.length
+          ? `Training crawlers blocked by publisher choice: ${trainingBlocked.join(', ')}`
+          : 'No supported training crawler block was detected',
+        userFetchBlocked.length
+          ? `User-triggered fetchers blocked: ${userFetchBlocked.join(', ')}`
+          : 'No supported user-triggered fetcher block was detected',
+      ]
+    : technical
+      ? [blockedAiBots.length ? `Legacy crawler blocks detected: ${blockedAiBots.join(', ')}` : 'Crawler policy evidence is unavailable']
+      : [];
   output.push(check({
     id: 'geo.ai_crawler_policy', category: 'geo', weight: 0,
-    status: techError ?? (technical ? (blockedAiBots.length > 0 ? 'fail' : 'pass') : 'unknown'),
+    status: techError ?? (technical
+      ? crawlerPolicy
+        ? !crawlerPolicyKnown ? 'unknown' : searchBlocked.length > 0 ? 'fail' : 'pass'
+        : blockedAiBots.length > 0 ? 'fail' : 'pass'
+      : 'unknown'),
     source: 'technical_seo', pageUrl,
-    evidence: technical ? [blockedAiBots.length ? `Explicitly blocked crawlers: ${blockedAiBots.join(', ')}` : 'No supported AI crawler block was detected'] : [],
+    evidence: crawlerEvidence,
   }));
 
   const identityApplicable = context.site_archetype !== 'unknown';

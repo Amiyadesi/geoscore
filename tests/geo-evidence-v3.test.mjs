@@ -89,7 +89,7 @@ function baselineModules() {
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
     assert.equal(core.SCORE_VERSION, '2.2.0');
-    assert.match(cache.cacheKey('example.com'), /^recent:v13:/);
+    assert.match(cache.cacheKey('example.com'), /^recent:v14:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -148,7 +148,9 @@ describe('GEO Evidence v3 contract', () => {
 
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
-    assert.equal(meta.version, '2.2.0');
+    assert.equal(meta.version, '2.3.0');
+    assert.equal(meta.score_version, '2.2.0');
+    assert.equal(meta.snapshot_version, '1.0.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
     assert.equal(meta.rate_limit.fresh_audits, 11);
@@ -163,7 +165,16 @@ describe('GEO Evidence v3 contract', () => {
     assert.ok(meta.capabilities.optional_modules_not_run.includes('broken_links'));
     assert.equal(meta.capabilities.full_markdown_repair_report, true);
     assert.equal(meta.capabilities.lighthouse_score_merge, true);
-    assert.equal(meta.capabilities.ai_citation_monitoring, 'predicted_only');
+    assert.equal(meta.limits.evidence_queries_per_project, 3);
+    assert.equal(meta.limits.search_providers_per_query, 2);
+    assert.equal(meta.limits.answer_providers_per_run, 1);
+    assert.equal(meta.limits.monitoring_schedule, 'weekly');
+    assert.equal(meta.limits.retained_snapshots, 12);
+    assert.equal(meta.capabilities.query_evidence_map, true);
+    assert.equal(meta.capabilities.accountless_monitoring, true);
+    assert.equal(meta.capabilities.request_scoped_api_key, true);
+    assert.equal(meta.capabilities.api_key_persistence, 'none');
+    assert.equal(meta.capabilities.consumer_ai_citation_monitoring, false);
     assert.doesNotMatch(JSON.stringify(meta), /chatgpt|perplexity|google_ai/i);
 
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
@@ -191,6 +202,12 @@ describe('GEO Evidence v3 contract', () => {
       targetUrl: 'https://blog.example.com/posts/one',
       archetypeHint: 'personal_blog',
     })]);
+
+    const retiredMonitor = await worker.default.fetch(new Request(
+      'https://geo-api.example/api/monitor',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+    ), {}, {});
+    assert.equal(retiredMonitor.status, 404);
   });
 
   it('does not turn zero-weight informational failures into repair tasks', () => {

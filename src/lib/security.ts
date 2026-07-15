@@ -30,8 +30,8 @@ export function corsHeaders(req: Request, env: Env): HeadersInit {
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token, X-Project-Token, X-API-Key',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };

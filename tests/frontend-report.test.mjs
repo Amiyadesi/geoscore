@@ -9,6 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'frontend', 'report-ui.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(here, '..', 'frontend', 'app.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(here, '..', 'frontend', 'index.html'), 'utf8');
+const printCss = fs.readFileSync(path.join(here, '..', 'frontend', 'print.css'), 'utf8');
 const context = { URL, URLSearchParams };
 context.globalThis = context;
 vm.runInNewContext(source, context, { filename: 'report-ui.js' });
@@ -144,6 +145,7 @@ test('report language refreshes status totals and performance provenance', () =>
       { id: 'seo.title', status: 'pass', weight: 2 },
       { id: 'seo.canonical', status: 'fail', weight: 2 },
       { id: 'seo.cwv_inp', status: 'unknown', weight: 2 },
+      { id: 'seo.pagespeed', status: 'error', weight: 2 },
       { id: 'geo.direct_answer', status: 'not_applicable', weight: 1 },
     ],
     modules: { lighthouse: { data: { mobile_score: 82 } } },
@@ -152,6 +154,7 @@ test('report language refreshes status totals and performance provenance', () =>
   assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 通过/);
   assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 失败/);
   assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 未知/);
+  assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 错误/);
   assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 不适用/);
   assert.equal(report.performanceSourceLabel(data, 'en'), 'Lighthouse mobile');
   assert.equal(report.performanceSourceLabel(data, 'zh'), 'Lighthouse 移动端');
@@ -442,4 +445,140 @@ test('CJK readability is not exposed as a zero-valued English Flesch score', () 
   assert.equal(english.applicable, true);
   assert.equal(english.score, 68);
   assert.match(appSource, /REPORT_UI\?\.readabilityView/);
+});
+
+test('evidence report uses native progressive disclosure while keeping the top three action identity visible', () => {
+  const data = {
+    domain: 'example.com',
+    audit_context: {
+      site_archetype: 'personal_blog',
+      confidence: 0.9,
+      locale: 'en',
+      evidence: [{ source: 'JSON-LD', value: 'Blog + Person' }],
+    },
+    pages_audited: [{ url: 'https://example.com/', page_type: 'home', status: 'complete' }],
+    score_summary: {
+      score_version: '2.2.0',
+      overall: { score: 79, raw_score: 95, coverage: 0.9, confidence: 0.9, cap: 79, cap_reasons: [{ code: 'MAJOR_FAILURE', cap: 79, check_ids: ['seo.title'] }] },
+      seo: { score: 79, raw_score: 95, coverage: 0.9, confidence: 0.9, cap: 79, cap_reasons: [{ code: 'MAJOR_FAILURE', cap: 79, check_ids: ['seo.title'] }] },
+      geo: { score: 100, raw_score: 100, coverage: 1, confidence: 1, cap: 100, cap_reasons: [] },
+    },
+    recommendations_v2: [{
+      id: 'seo.title',
+      title: 'Add a page title',
+      severity: 'major',
+      page_url: 'https://example.com/post',
+      evidence: 'title missing',
+      why: 'A title is required.',
+      fix: 'Add title.',
+      verify: 'Re-audit.',
+    }],
+    checks: [{ id: 'seo.title', title: 'Page title', status: 'fail', weight: 2, evidence: ['title missing'] }],
+  };
+  const summary = report.renderEvidenceSummary(data, 'en', 'en');
+  assert.match(summary, /<details[^>]+data-disclosure="score-limits"/);
+  assert.match(summary, /<details[^>]+data-disclosure="profile-pages"/);
+  assert.match(summary, /<details[^>]+data-disclosure="top-action-details"/);
+  assert.doesNotMatch(summary, /<details[^>]+open/);
+  assert.ok(summary.indexOf('Add a page title') < summary.indexOf('Evidence and verification'));
+  assert.ok(summary.indexOf('major') < summary.indexOf('title missing'));
+
+  const checks = report.renderNormalizedChecks(data, 'en');
+  const repairs = report.renderEvidenceRecommendations(data, 'en');
+  assert.match(checks, /data-disclosure="normalized-checks"/);
+  assert.match(repairs, /data-disclosure="full-repair-plan"/);
+  assert.match(repairs, /data-disclosure="repair-action-details"/);
+  assert.match(printCss, /details\s*>\s*:not\(summary\)\s*\{\s*display:\s*block\s*!important/);
+});
+
+test('Evidence Map keeps source provenance and provider runs in a closed native details region', () => {
+  const data = { audit_id: '01JGEOSCORE23EVIDENCEMAP', domain: 'example.com' };
+  const snapshot = {
+    status: 'complete',
+    observed_at: '2026-07-15T00:00:00Z',
+    affects_score: false,
+    target: { appearances: 1, observed_queries: ['Example docs'] },
+    query_plan: { queries: [{ query: 'Example docs', intent: 'branded' }] },
+    opportunities: [{ query: 'Example tutorial', intent: 'informational', reason: 'target_not_observed' }],
+    diagnosis: [{ stage: 'discovery', status: 'pass', evidence: ['Target observed.'] }],
+    sources: [{ title: 'Example docs', canonical_url: 'https://example.com/docs', provider: 'search-api-a', provider_rank: 2, source_type: 'audited_site', domain: 'example.com', retrieved_at: '2026-07-15T00:00:00Z' }],
+    search_snapshot: { provider_runs: [{ provider: 'search-api-a', status: 'complete', result_count: 1, latency_ms: 120, cache_hit: false }] },
+    limitations: ['Search results do not prove consumer answer citations.'],
+  };
+  const html = report.renderEvidenceMap(data, 'en', { snapshot, busy: false });
+  assert.match(html, /Query Evidence Map/);
+  assert.match(html, /Search snapshots never change the factual score/);
+  assert.match(html, /data-action="run-evidence-map"/);
+  assert.match(html, /data-disclosure="evidence-provenance"/);
+  assert.doesNotMatch(html, /<details[^>]+open/);
+  assert.ok(html.indexOf('data-disclosure="evidence-provenance"') < html.indexOf('search-api-a'));
+});
+
+test('monitoring UI shows the management token once, folds history and never re-renders a BYOK value', () => {
+  const html = report.renderMonitoring({ audit_id: '01JGEOSCORE23MONITOR', domain: 'example.com' }, 'en', {
+    project: {
+      id: 'mon_01JGEOSCORE23MONITORING',
+      root_domain: 'example.com',
+      schedule: 'weekly',
+      queries: [{ query: 'Example docs', intent: 'branded' }],
+    },
+    managementToken: 'gmt_one_time_management_token',
+    showToken: true,
+    runs: [{ id: 'mrun_1', status: 'complete', run_type: 'default', factual_score: 78, score_delta: null, baseline_action: 'established', created_at: 1784073600 }],
+  });
+  assert.match(html, /gmt_one_time_management_token/);
+  assert.match(html, /Shown once/);
+  assert.match(html, /data-disclosure="monitoring-history"/);
+  assert.match(html, /type="password" name="api_key"/);
+  assert.doesNotMatch(html, /name="api_key"[^>]+value=/);
+  assert.doesNotMatch(html, /<details[^>]+open/);
+
+  const byokHandler = appSource.slice(
+    appSource.indexOf("if (form.dataset.monitorForm === 'byok')"),
+    appSource.indexOf("document.addEventListener('click'", appSource.indexOf("if (form.dataset.monitorForm === 'byok')")),
+  );
+  assert.match(byokHandler, /input\.value = ''/);
+  assert.ok(byokHandler.indexOf("input.value = ''") < byokHandler.indexOf('runMonitoring({ apiKey })'));
+  assert.match(appSource, /X-API-Key/);
+  assert.doesNotMatch(appSource, /localStorage\.(?:setItem|getItem)\([^\n]*api[_-]?key/i);
+});
+
+test('monitoring email verification consumes and removes the URL token before reporting status', () => {
+  const handler = appSource.slice(
+    appSource.indexOf('async function verifyMonitoringEmailFromUrl'),
+    appSource.indexOf('function rerenderEvidencePanels'),
+  );
+  assert.match(handler, /searchParams\.delete\('monitor_project'\)/);
+  assert.match(handler, /searchParams\.delete\('verify'\)/);
+  assert.ok(handler.indexOf('history.replaceState') < handler.indexOf('await fetchJson'));
+  assert.match(handler, /\/email\/verify/);
+  assert.match(handler, /auxiliaryError\(error, verificationToken\)/);
+});
+
+test('full Markdown download includes Evidence Map, limitations, monitoring history and grouped repairs without per-item generation', () => {
+  const data = {
+    audit_id: '01JGEOSCORE23REPORT',
+    domain: 'example.com',
+    audit_context: { site_archetype: 'documentation', root_domain: 'example.com', locale: 'en', evidence: [] },
+    score_summary: {
+      score_version: '2.2.0',
+      overall: { score: 70, raw_score: 70, coverage: 1, confidence: 1, cap: 100, cap_reasons: [] },
+      seo: { score: 70, raw_score: 70, coverage: 1, confidence: 1, cap: 100, cap_reasons: [] },
+      geo: { score: 70, raw_score: 70, coverage: 1, confidence: 1, cap: 100, cap_reasons: [] },
+    },
+    checks: [{ id: 'seo.title', title: 'Title', status: 'fail', severity: 'major', weight: 2, source: 'html', evidence: ['missing title'] }],
+    recommendations_v2: [{ id: 'seo.title', title: 'Add title', severity: 'major', evidence: 'missing title', why: 'missing', fix: 'add title', verify: 're-audit' }],
+    repair_groups: [{ id: 'repair-parse-a', stage: 'parse', severity: 'major', check_ids: ['seo.title'], evidence_items: [{ check_id: 'seo.title', observed: ['missing title'] }], tasks: [{ check_id: 'seo.title', title: 'Add title', fix: 'add title', verify: 're-audit' }], verification_steps: ['re-audit'] }],
+    evidence_map: { status: 'complete', observed_at: '2026-07-15T00:00:00Z', affects_score: false, target: { appearances: 1 }, query_plan: { queries: [{ query: 'Example docs', intent: 'branded' }] }, opportunities: [], diagnosis: [], sources: [{ title: 'Example', canonical_url: 'https://example.com/', provider: 'search-api-a', provider_rank: 1 }], search_snapshot: { provider_runs: [{ provider: 'search-api-a', status: 'complete', result_count: 1, latency_ms: 10 }] }, limitations: ['Search is a dated snapshot.'] },
+    monitoring_history: [{ created_at: 1784073600, run_type: 'default', status: 'complete', factual_score: 70, score_delta: null, baseline_action: 'established' }],
+  };
+  const markdown = report.generateFullRepairMarkdown(data, 'en');
+  assert.match(markdown, /Repair groups by page and root cause/);
+  assert.match(markdown, /repair-parse-a/);
+  assert.match(markdown, /Query Evidence Map/);
+  assert.match(markdown, /search-api-a/);
+  assert.match(markdown, /Monitoring history/);
+  assert.match(markdown, /Search is a dated snapshot/);
+  assert.doesNotMatch(markdown, /\/api\/fix/);
+  assert.match(appSource, /downloadAgentMarkdown\(currentAuditData \|\| data\)/);
 });

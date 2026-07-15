@@ -48,6 +48,9 @@ test('shared catalog localizes product copy and interpolates values', () => {
   assert.equal(i18n.t('progress.modules', { done: 2, total: 8 }, 'zh'), '2 / 8 项');
   assert.equal(i18n.t('audit.fixTasks', {}, 'en'), 'Download full repair report (.md)');
   assert.equal(i18n.t('audit.fixTasks', {}, 'zh'), '下载完整修复报告.md');
+  assert.equal(i18n.t('audit.evidenceMap.title', {}, 'zh'), '查询证据地图');
+  assert.equal(i18n.t('audit.monitor.keyPrivacy', {}, 'en'), 'Used only for this request. It is cleared immediately and is never stored.');
+  assert.equal(i18n.t('audit.monitor.emailVerified', {}, 'zh'), '监控邮箱已验证，每周变化提醒已启用。');
   assert.equal(i18n.t('missing.key', {}, 'zh'), 'missing.key');
 });
 
