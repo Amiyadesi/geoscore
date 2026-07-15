@@ -215,6 +215,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       assert.equal(captured.body.budget.max_extract_pages, 5);
       assert.equal(captured.body.max_results, 8);
       assert.equal(captured.body.queries.length, 3);
+      assert.equal('extract' in captured.body, false);
       assert.doesNotMatch(JSON.stringify(captured.body), /server-secret-value/);
       assert.doesNotMatch(JSON.stringify(result), /server-secret-value/);
     } finally {
@@ -331,6 +332,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       assert.equal(answerCall.headers.get('X-Answer-API-Key'), apiKey);
       assert.equal(answerCall.body.api_base_url, apiBaseUrl);
       assert.equal(answerCall.body.api_model, apiModel);
+      assert.equal('budget' in answerCall.body, false);
       assert.equal(body.data.affects_score, false);
       assert.equal(body.data.answer_snapshot.observations[0].model, apiModel);
       assert.deepEqual(body.score_summary, SCORE_SUMMARY);

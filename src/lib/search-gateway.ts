@@ -67,7 +67,6 @@ export interface EvidenceSearchRequestOptions {
   maxProviderCalls?: number;
   maxExtractPages?: number;
   timeoutMs?: number;
-  extract?: boolean;
 }
 
 export interface AnswerGatewayResult {
@@ -595,11 +594,6 @@ export async function requestEvidenceSearch(
     locale: plan.locale,
     providers: ['auto'],
     max_results: Math.min(8, Math.max(1, options.maxResults ?? 8)),
-    extract: {
-      enabled: options.extract !== false,
-      max_pages: maxExtractPages,
-      max_chars_per_page: 12_000,
-    },
     filters: {
       include_domains: [],
       exclude_domains: [],
@@ -711,7 +705,6 @@ export async function requestAnswerSnapshots(
       body: JSON.stringify({
         queries,
         locale: plan.locale,
-        budget: { max_provider_calls: 1, timeout_ms: boundedTimeout },
         ...(requestConfig ? {
           api_base_url: requestConfig.apiBaseUrl,
           api_model: requestConfig.apiModel,
