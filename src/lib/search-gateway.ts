@@ -587,8 +587,8 @@ export async function requestEvidenceSearch(
   }
 
   const timeoutMs = Math.min(15_000, Math.max(1_000, options.timeoutMs ?? 12_000));
-  const maxProviderCalls = Math.min(2, Math.max(1, options.maxProviderCalls ?? 2));
-  const maxExtractPages = Math.min(5, Math.max(0, options.maxExtractPages ?? 5));
+  const maxProviderCalls = Math.min(2, Math.max(1, options.maxProviderCalls ?? 1));
+  const maxExtractPages = Math.min(5, Math.max(0, options.maxExtractPages ?? 0));
   const body = {
     queries,
     locale: plan.locale,
@@ -604,6 +604,7 @@ export async function requestEvidenceSearch(
       max_extract_pages: maxExtractPages,
       timeout_ms: timeoutMs,
     },
+    rerank: false,
   };
 
   let response: Response;

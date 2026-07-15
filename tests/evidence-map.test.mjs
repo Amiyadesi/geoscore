@@ -216,8 +216,15 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       assert.equal(captured.body.max_results, 8);
       assert.equal(captured.body.queries.length, 3);
       assert.equal('extract' in captured.body, false);
+      assert.equal(captured.body.rerank, false);
       assert.doesNotMatch(JSON.stringify(captured.body), /server-secret-value/);
       assert.doesNotMatch(JSON.stringify(result), /server-secret-value/);
+
+      const defaultResult = await requestEvidenceSearch(env(), plan);
+      assert.equal(defaultResult.status, 'complete');
+      assert.equal(captured.body.budget.max_provider_calls, 1);
+      assert.equal(captured.body.budget.max_extract_pages, 0);
+      assert.equal(captured.body.rerank, false);
     } finally {
       globalThis.fetch = originalFetch;
     }
