@@ -14,6 +14,13 @@ failed checks are worth fixing first.
 **Live demo → [geo.sayori.org](https://geo.sayori.org)**  
 **Example → [stripe.com audit](https://geo.sayori.org/?d=stripe.com)**
 
+## Community acknowledgement
+
+GeoScore recognizes the [LINUX DO community](https://linux.do/) for its open
+source discussion and feedback culture. Community promotion posts should link
+back here so readers can inspect the complete source, license, and audit
+limitations.
+
 GeoScore 2.2 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
@@ -87,6 +94,13 @@ Most audit modules run in parallel. The Workers AI modules run before the fetch-
 - [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier is enough)
 - [Node.js](https://nodejs.org/) 18+ (for Wrangler CLI)
 - [Git](https://git-scm.com/)
+
+For GitHub Actions deployment, create an account-scoped Cloudflare API token
+with access to the account that owns the Worker. The workflow verifies access
+to D1, Workers KV, Vectorize, Workers Scripts, and Cloudflare Pages before it
+makes changes. Add the token as `GEOSCORE_CF_API_TOKEN` and the account ID as
+`GEOSCORE_CF_ACCOUNT_ID`; add Workers Routes or DNS permissions only when your
+fork also manages those resources.
 
 ---
 
