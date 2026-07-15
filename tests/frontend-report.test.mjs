@@ -19,6 +19,12 @@ test('evidence summary and report adapter load before legacy score rendering', (
   assert.ok(indexHtml.indexOf('src="report-ui.js"') < indexHtml.indexOf('src="app.js"'));
 });
 
+test('audit header stacks and wraps actions on a 390px viewport', () => {
+  assert.match(indexHtml, /class="flex flex-col items-stretch gap-3 px-5 py-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between"/);
+  assert.match(indexHtml, /id="business-card" class="flex w-full min-w-0 items-center gap-3 sm:w-auto"/);
+  assert.match(indexHtml, /class="flex w-full flex-wrap items-center gap-2 print:hidden sm:w-auto sm:shrink-0"/);
+});
+
 test('frontend selects the local Worker only for file and local hosts', () => {
   assert.match(appSource, /const PRODUCTION_API = 'https:\/\/geo-api\.sayori\.org'/);
   assert.match(appSource, /const LOCAL_API = 'http:\/\/127\.0\.0\.1:8787'/);
@@ -132,6 +138,127 @@ test('manual report language selects localized check and recommendation template
   assert.match(report.renderEvidenceRecommendations(data, 'zh'), /页面缺少标题/);
 });
 
+test('report language refreshes status totals and performance provenance', () => {
+  const data = {
+    checks: [
+      { id: 'seo.title', status: 'pass', weight: 2 },
+      { id: 'seo.canonical', status: 'fail', weight: 2 },
+      { id: 'seo.cwv_inp', status: 'unknown', weight: 2 },
+      { id: 'geo.direct_answer', status: 'not_applicable', weight: 1 },
+    ],
+    modules: { lighthouse: { data: { mobile_score: 82 } } },
+  };
+  assert.match(report.renderCheckSummaryBar(data, 'en'), /1 Pass/);
+  assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 通过/);
+  assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 失败/);
+  assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 未知/);
+  assert.match(report.renderCheckSummaryBar(data, 'zh'), /1 不适用/);
+  assert.equal(report.performanceSourceLabel(data, 'en'), 'Lighthouse mobile');
+  assert.equal(report.performanceSourceLabel(data, 'zh'), 'Lighthouse 移动端');
+
+  const languageHandler = appSource.slice(
+    appSource.indexOf("const languageButton = e.target.closest('[data-report-lang]')"),
+    appSource.indexOf("const lighthouseRetry = e.target.closest('[data-action=\"retry-lighthouse\"]')"),
+  );
+  assert.match(languageHandler, /renderEvidenceCheckSummaryBar\(currentAuditData\)/);
+  assert.match(languageHandler, /updatePerformanceContext\(currentAuditData\)/);
+});
+
+test('full Markdown export includes every failure, score caps, unavailable checks and one handoff prompt', () => {
+  const checks = Array.from({ length: 5 }, (_, index) => ({
+    id: `seo.failure_${index + 1}`,
+    category: 'seo',
+    title: `Failure ${index + 1}`,
+    status: 'fail',
+    severity: index === 0 ? 'major' : 'minor',
+    weight: 1,
+    confidence: 0.9,
+    source: 'fixture',
+    page_url: `https://example.com/page-${index + 1}`,
+    evidence: [`evidence ${index + 1}`],
+  }));
+  checks.push(
+    { id: 'seo.provider_unknown', category: 'seo', title: 'Provider unknown', status: 'unknown', severity: 'major', weight: 1, source: 'provider', evidence: ['quota'] },
+    { id: 'geo.not_applicable', category: 'geo', title: 'Not applicable', status: 'not_applicable', severity: 'minor', weight: 1, source: 'fixture', evidence: [] },
+    { id: 'geo.info', category: 'geo', title: 'Information only', status: 'fail', severity: 'info', weight: 0, source: 'fixture', evidence: ['optional'] },
+  );
+  const recommendations = checks.filter(item => item.status === 'fail' && item.weight > 0).map(item => ({
+    id: item.id,
+    title: `Repair ${item.title}`,
+    severity: item.severity,
+    page_url: item.page_url,
+    evidence: item.evidence[0],
+    why: `Why ${item.id} failed`,
+    fix: `Fix ${item.id}`,
+    verify: `Verify ${item.id}`,
+  }));
+  const data = {
+    domain: 'example.com',
+    mode: 'site',
+    audit_context: {
+      site_archetype: 'saas',
+      industry_vertical: 'software',
+      business_model: 'software',
+      entity: { name: 'Example', type: 'Organization' },
+      locale: 'en',
+      root_domain: 'example.com',
+      evidence: [{ source: 'JSON-LD', page_url: 'https://example.com/', value: 'Organization: Example' }],
+    },
+    pages_audited: [{ url: 'https://example.com/', page_type: 'home', status: 'complete' }],
+    checks,
+    recommendations_v2: recommendations,
+    modules: { broken_links: { status: 'skipped', data: { reason: 'optional in anonymous audits' } } },
+    score_summary: {
+      score_version: '2.2.0',
+      status: 'complete',
+      overall: { score: 79, raw_score: 95, coverage: 0.86, confidence: 0.9, cap: 79, cap_reasons: [{ code: 'MAJOR_FAILURE', cap: 79, check_ids: ['seo.failure_1'] }] },
+      seo: { score: 79, raw_score: 95, coverage: 0.84, confidence: 0.9, cap: 79, cap_reasons: [{ code: 'MAJOR_FAILURE', cap: 79, check_ids: ['seo.failure_1'] }] },
+      geo: { score: 100, raw_score: 100, coverage: 1, confidence: 1, cap: 100, cap_reasons: [] },
+    },
+  };
+
+  const markdown = report.generateFullRepairMarkdown(data, 'en');
+  for (let index = 1; index <= 5; index += 1) assert.match(markdown, new RegExp(`seo\\.failure_${index}`));
+  assert.match(markdown, /Raw weighted score: 95\/100/);
+  assert.match(markdown, /major failure cap 79\/100/);
+  assert.match(markdown, /Unknown and error checks/);
+  assert.match(markdown, /seo\.provider_unknown/);
+  assert.match(markdown, /Not-applicable and informational checks/);
+  assert.match(markdown, /geo\.not_applicable/);
+  assert.match(markdown, /geo\.info/);
+  assert.match(markdown, /Optional capabilities not run/);
+  assert.match(markdown, /broken_links/);
+  assert.equal((markdown.match(/Unified handoff prompt/g) ?? []).length, 1);
+  assert.match(markdown, /Do not invent prices, plans, services/);
+  assert.doesNotMatch(markdown, /\/api\/fix/);
+
+  const chinese = report.generateFullRepairMarkdown(data, 'zh');
+  assert.match(chinese, /GeoScore 完整修复报告/);
+  assert.match(chinese, /全部失败项与修复方案/);
+});
+
+test('primary Markdown download is deterministic while per-item fix packs remain optional', () => {
+  const evidenceGenerator = appSource.slice(
+    appSource.indexOf('function generateEvidenceAgentMarkdown'),
+    appSource.indexOf('function generateAgentMarkdown'),
+  );
+  const downloader = appSource.slice(
+    appSource.indexOf('function downloadAgentMarkdown'),
+    appSource.indexOf('// ── Formatted PDF Report Window'),
+  );
+  assert.match(evidenceGenerator, /generateFullRepairMarkdown/);
+  assert.doesNotMatch(evidenceGenerator, /normalizeActions|\/api\/fix/);
+  assert.match(downloader, /GEOSCORE-REPAIR-\$\{domain\}\.md/);
+  assert.doesNotMatch(downloader, /\/api\/fix/);
+  assert.match(report.renderEvidenceRecommendations({ recommendations_v2: [{ id: 'seo.title', title: 'Title' }] }, 'en'), /Advanced fix details/);
+});
+
+test('frontend merges audit-bound Lighthouse evidence back into the active report', () => {
+  assert.match(appSource, /lighthouseParams\.set\('audit_id', currentAuditId\)/);
+  assert.match(appSource, /json\.audit_update/);
+  assert.match(appSource, /renderFullAudit\(currentAuditData\)/);
+});
+
 test('evidence recommendations use the stored-audit fix-pack contract', () => {
   const html = report.renderEvidenceRecommendations({
     recommendations_v2: [{
@@ -223,8 +350,8 @@ test('evidence-first summary renders site context, sampled pages, and top action
   assert.match(html, /修复文章 canonical/);
   assert.match(html, /canonical 指向首页/);
   assert.ok(html.indexOf('站点画像') < html.indexOf('证据充分的优先行动'));
-  assert.match(appSource, /page\.fetchSource === 'browser_run'/);
-  assert.match(appSource, /t\.browserRendered/);
+  assert.match(source, /page\.fetchSource === 'browser_run'/);
+  assert.match(source, /t\.browserRendered/);
 });
 
 test('Lighthouse null scores render as failure with retry and sanitized detail', () => {

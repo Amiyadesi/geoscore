@@ -42,10 +42,18 @@ async function loadProductMeta() {
     if (!response.ok) throw new Error(`meta ${response.status}`);
     const meta = await response.json();
     const rate = meta.rate_limit || {};
+    const checks = meta.checks || {};
+    const optionalModules = meta.capabilities?.optional_modules_not_run;
     const values = {
       version: meta.version || meta.score_version || uiText('common.unknown'),
       pages: meta.max_pages ? uiText('meta.pages.value', { count: meta.max_pages }) : uiText('common.unknown'),
       modes: Array.isArray(meta.audit_modes) ? meta.audit_modes.join(' / ') : uiText('common.unknown'),
+      checks: Number.isFinite(Number(checks.scoring))
+        ? uiText('meta.checks.value', { scoring: checks.scoring, informational: checks.informational ?? 0, predicted: checks.predicted ?? 0 })
+        : uiText('common.unknown'),
+      optional: Array.isArray(optionalModules)
+        ? uiText('meta.optional.value', { count: optionalModules.length })
+        : uiText('common.unknown'),
       rate: rate.fresh_audits && rate.window_hours ? uiText('meta.rate.value', { count: rate.fresh_audits, hours: rate.window_hours }) : uiText('common.unknown'),
       license: meta.license || 'MIT',
       source: meta.source_url || 'GitHub',
@@ -627,6 +635,8 @@ document.addEventListener('click', (e) => {
     renderEvidenceFirstSummary(currentAuditData);
     renderScoreSummaryNote(currentAuditData);
     renderEvidenceReportSections(currentAuditData);
+    renderEvidenceCheckSummaryBar(currentAuditData);
+    updatePerformanceContext(currentAuditData);
     if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
     return;
   }
@@ -941,65 +951,7 @@ function stackHeadersFile(stack) {
 }
 
 function generateEvidenceAgentMarkdown(data) {
-  const summary = REPORT_UI.normalizeScoreSummary(data);
-  const context = REPORT_UI.normalizeContext(data);
-  const pages = REPORT_UI.normalizePages(data);
-  const actions = REPORT_UI.normalizeActions(data, reportLanguage);
-  const t = REPORT_UI.copy(reportLanguage);
-  const score = value => value === null ? t.insufficient : `${Math.round(value)}/100`;
-  const coverage = REPORT_UI.formatPercent(summary.coverage) ?? t.unknown;
-  const confidence = REPORT_UI.formatPercent(summary.confidence) ?? t.unknown;
-  const archetype = context ? REPORT_UI.archetypeLabel(context.archetype, reportLanguage) : t.unknown;
-  const pageLines = pages.length
-    ? pages.map(page => {
-        const browserSource = page.fetchSource === 'browser_run' || page.provider === 'Cloudflare Browser Run';
-        const source = browserSource
-          ? `; ${t.browserRendered}${page.browserMsUsed === null ? '' : ` ${page.browserMsUsed} ms`}`
-          : '';
-        return `- [${page.type}] ${page.url} (${page.status ?? 'unknown'}${source})`;
-      }).join('\n')
-    : `- ${t.notProvided}`;
-  const actionLines = actions.length
-    ? actions.map((action, index) => [
-        `## ${index + 1}. ${action.title || `Action ${index + 1}`}`,
-        action.page ? `- ${t.page}: ${action.page}` : '',
-        action.observed ? `- ${t.observed}: ${action.observed}` : '',
-        action.reason ? `- ${t.reason}: ${action.reason}` : '',
-        action.fix ? `- ${t.fix}: ${action.fix}` : '',
-        action.verify ? `- ${t.verify}: ${action.verify}` : '',
-      ].filter(Boolean).join('\n')).join('\n\n')
-    : `## ${t.actions}\n\n${t.notProvided}`;
-
-  return `# GeoScore evidence-first fixes: ${data.domain}
-
-Audit date: ${new Date(data.created_at ?? Date.now()).toISOString()}
-Score version: ${summary.scoreVersion ?? 'legacy'}
-
-## Site context
-
-- ${t.profile}: ${archetype}
-- ${t.entity}: ${context?.entity || t.unknown}
-- ${t.rootDomain}: ${context?.rootDomain || data.domain}
-- ${t.auditedLocale}: ${context?.locale || t.unknown}
-- ${t.coverage}: ${coverage}
-- ${t.confidence}: ${confidence}
-
-## Scores
-
-- Overall: ${score(summary.overall)}
-- SEO: ${score(summary.seo)}
-- GEO: ${score(summary.geo)}
-
-Unknown, error, and not-applicable checks are not failures and must not be converted to zero. Do not invent prices, services, addresses, company claims, or schema types that are not supported by the evidence below.
-
-## Pages audited
-
-${pageLines}
-
-${actionLines}
-
-Apply only the listed evidence-backed fixes, then use each verification step to re-run the relevant check.
-`;
+  return REPORT_UI.generateFullRepairMarkdown(data, reportLanguage);
 }
 
 function generateAgentMarkdown(data) {
@@ -1419,7 +1371,7 @@ function downloadAgentMarkdown(data) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `SEO-FIXES-${domain}.md`;
+  a.download = `GEOSCORE-REPAIR-${domain}.md`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
@@ -2245,6 +2197,20 @@ function renderScoreSummaryNote(data) {
   document.getElementById('data-provenance-row')?.classList.remove('hidden');
 }
 
+function renderEvidenceCheckSummaryBar(data) {
+  const bar = document.getElementById('summary-bar');
+  if (!bar || !REPORT_UI?.isEvidenceAudit?.(data)) return;
+  bar.innerHTML = REPORT_UI.renderCheckSummaryBar(data, reportLanguage);
+  bar.classList.toggle('hidden', !bar.innerHTML);
+}
+
+function updatePerformanceContext(data) {
+  const context = document.getElementById('perf-context');
+  if (!context || !REPORT_UI?.performanceSourceLabel) return;
+  const label = REPORT_UI.performanceSourceLabel(data, reportLanguage);
+  if (label) context.textContent = label;
+}
+
 function renderLighthouseState(state) {
   if (!state || !REPORT_UI) return;
   const status = REPORT_UI.lighthouseStatus(state.data, state.error, state.strategies, state.status);
@@ -2279,7 +2245,9 @@ async function fetchLighthouse(domain) {
   applyActiveCatFilter(card);
 
   try {
-    const res = await fetch(`${API}/api/lighthouse?domain=${encodeURIComponent(domain)}`);
+    const lighthouseParams = new URLSearchParams({ domain });
+    if (currentAuditId) lighthouseParams.set('audit_id', currentAuditId);
+    const res = await fetch(`${API}/api/lighthouse?${lighthouseParams.toString()}`);
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) {
       currentLighthouseState = {
@@ -2310,19 +2278,27 @@ async function fetchLighthouse(domain) {
 
     window._auditModCache = window._auditModCache ?? {};
     window._auditModCache.lighthouse = data;
+    if (currentAuditData) {
+      const update = json.audit_update && typeof json.audit_update === 'object' ? json.audit_update : {};
+      currentAuditData = {
+        ...currentAuditData,
+        ...update,
+        modules: {
+          ...(currentAuditData.modules ?? {}),
+          lighthouse: { status: data.status === 'partial' ? 'partial' : 'ok', data },
+        },
+      };
+      if (json.audit_update) renderFullAudit(currentAuditData);
+    }
     currentLighthouseState = { status: sectionStatus, data, error: null, strategies: [], domain };
     renderLighthouseState(currentLighthouseState);
 
     const lhPerfScore = data.mobile_score ?? data.desktop_score ?? (typeof data.score === 'number' ? data.score : null);
-    const lhPerfLabel = data.mobile_score != null ? 'Lighthouse mobile'
-                      : data.desktop_score != null ? 'Lighthouse desktop'
-                      : null;
     if (lhPerfScore !== null && lhPerfScore !== undefined) {
       const perfWrap = document.getElementById('perf-circle-wrap');
       if (perfWrap) perfWrap.style.display = '';
       setScoreCircle('perf', lhPerfScore, '#16a34a');
-      const perfCtxEl = document.getElementById('perf-context');
-      if (perfCtxEl && lhPerfLabel) perfCtxEl.textContent = lhPerfLabel;
+      updatePerformanceContext({ modules: { lighthouse: { data } } });
       const perfSub = document.getElementById('perf-score-sub');
       if (perfSub) perfSub.textContent = '/100';
     }
@@ -2348,8 +2324,7 @@ function restorePerformanceFallback() {
   if (fallbackScore !== null && fallbackScore !== undefined) {
     if (perfWrap) perfWrap.style.display = '';
     setScoreCircle('perf', fallbackScore, '#16a34a');
-    const perfContext = document.getElementById('perf-context');
-    if (perfContext) perfContext.textContent = ps?.performance != null ? 'PageSpeed fallback' : 'CrUX real-user data';
+    updatePerformanceContext(currentAuditData);
   } else if (perfWrap) {
     perfWrap.style.display = 'none';
   }
@@ -2755,13 +2730,7 @@ function renderFullAudit(data) {
       ?? (cruxData?.has_data ? cruxData.performance_score : null);
     if (perfScore !== null && perfScore !== undefined) {
       setScoreCircle('perf', perfScore, '#16a34a');
-      const perfCtxEl = document.getElementById('perf-context');
-      if (perfCtxEl) {
-        if (lighthouseData?.mobile_score != null) perfCtxEl.textContent = 'Lighthouse mobile';
-        else if (lighthouseData?.desktop_score != null) perfCtxEl.textContent = 'Lighthouse desktop';
-        else if (ps?.performance != null) perfCtxEl.textContent = 'PageSpeed fallback';
-        else if (cruxData?.has_data) perfCtxEl.textContent = 'CrUX real-user data';
-      }
+      updatePerformanceContext(data);
     } else {
       // No performance data — hide the entire performance circle so there's no empty ring
       const perfWrap = document.getElementById('perf-circle-wrap');
@@ -2883,18 +2852,7 @@ function renderFullAudit(data) {
 
   // Pass/Fail summary bar
   if (evidenceAudit) {
-    const summary = REPORT_UI.checkSummary(data, reportLanguage);
-    const t = REPORT_UI.copy(reportLanguage);
-    const bar = document.getElementById('summary-bar');
-    if (bar) {
-      bar.innerHTML = [
-        summary.pass ? `<span class="text-green-700 font-medium">✓ ${summary.pass} ${esc(t.pass)}</span>` : '',
-        summary.fail ? `<span class="text-orange-700 font-medium">✕ ${summary.fail} ${esc(t.fail)}</span>` : '',
-        (summary.unknown + summary.error) ? `<span class="text-slate-500 font-medium">? ${summary.unknown + summary.error} ${esc(t.unknownStatus)}</span>` : '',
-        summary.not_applicable ? `<span class="text-slate-400 font-medium">– ${summary.not_applicable} ${esc(t.notApplicable)}</span>` : '',
-      ].filter(Boolean).join('<span class="text-slate-300">·</span>');
-      bar.classList.toggle('hidden', !bar.innerHTML);
-    }
+    renderEvidenceCheckSummaryBar(data);
   } else if (data.modules) {
     let passed = 0, warnings = 0, critical = 0;
     Object.values(data.modules).forEach((m) => {
@@ -2987,16 +2945,16 @@ function wireActionButtons(data) {
     });
   }
 
-  // AI Agent markdown export — downloads SEO-TASKS-domain.md
+  // Deterministic full repair report. This path never calls /api/fix.
   const agentBtn = document.getElementById('agent-btn');
   if (agentBtn && !agentBtn.dataset.wired) {
     agentBtn.dataset.wired = '1';
     agentBtn.addEventListener('click', () => {
       const orig = agentBtn.innerHTML;
-      agentBtn.textContent = '⏳ Building…';
+      agentBtn.textContent = uiText('status.building');
       setTimeout(() => {
         downloadAgentMarkdown(data);
-        agentBtn.textContent = '✓ Downloaded!';
+        agentBtn.textContent = uiText('status.downloaded');
         setTimeout(() => { agentBtn.innerHTML = orig; }, 2000);
       }, 50);
     });

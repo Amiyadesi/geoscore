@@ -1,27 +1,33 @@
-# GeoScore 2.1 — Evidence-first SEO and GEO Audit
+# GeoScore 2.2 — Evidence-first SEO and GEO Audit
 
 GeoScore audits public websites for verifiable SEO and generative-engine readiness signals. It supports a bounded site audit and a single-URL audit. Site mode samples at most five HTML pages, including the homepage and representative pages discovered from the site.
 
 ## Evidence model
 
-- The primary SEO and GEO Readiness scores use factual checks such as indexability, canonical metadata, semantic structure, schema suitability, entity consistency, authorship, source linkage, content extractability, freshness where applicable, and cross-page consistency.
-- Every normalized check reports a status, applicable pages, evidence source, observed evidence, and confidence.
-- Unknown, unavailable, error, and not-applicable evidence does not reduce the score. Low coverage can result in no overall score instead of a misleading zero.
+- The normalized registry currently contains 60 factual checks: 54 scoring checks and 6 informational checks. The public `/api/meta` endpoint is the runtime source of truth for these counts.
+- The primary SEO and GEO Readiness scores use factual checks such as indexability, canonical metadata, semantic structure, schema suitability, entity consistency, authorship, source linkage, content extractability, freshness where applicable, cross-page consistency, CrUX field data, and audit-bound PageSpeed evidence.
+- Every normalized check reports a status, severity, applicable page, evidence source, observed evidence, and confidence.
+- Unknown, unavailable, error, and not-applicable evidence does not reduce the raw weighted score. Coverage below 60% or confidence below 50% returns insufficient evidence, while lower-but-sufficient evidence can cap the final score.
+- Critical, major, and minor failures cap an affected score at 49, 79, and 94 respectively. Reports expose both raw and final scores and the exact cap reasons.
 - AI visibility simulations are labelled `Predicted`, have zero scoring weight, and are kept separate from the factual readiness score.
 - GeoScore does not monitor or verify real citations in ChatGPT, Perplexity, Google AI Overview, or other answer engines.
 
-## Fix packs
+## Repair reports and FixPacks
 
-AI-assisted fix packs can only be generated from a recorded, applicable failed check in a stored audit. A fix pack includes the observed evidence, a constrained draft or technical snippet, validation steps, and a provider-neutral handoff prompt. It does not automatically change or publish the audited website, and it must not invent business facts, prices, services, or authority claims.
+The primary report action downloads one complete deterministic Markdown repair report without an AI call. It contains every recorded failure, unknown/error evidence, not-applicable and informational summaries, optional modules that were not run, score caps, evidence, remediation, verification steps, and one provider-neutral handoff prompt.
+
+Per-item AI-assisted FixPacks are optional advanced details. They can only be generated from a recorded, applicable failed check in a stored audit. A FixPack includes the observed evidence, a constrained draft or technical snippet, validation steps, and a provider-neutral handoff prompt. It does not automatically change or publish the audited website, and it must not invent business facts, prices, services, or authority claims.
 
 ## Data sources
 
-GeoScore may use live page fetches, robots.txt, sitemap.xml, PageSpeed Insights, Chrome UX Report data, W3C Nu, Common Crawl, public DNS/RDAP data, and other optional public evidence sources. An optional source failure is reported as unavailable evidence and does not lower the factual score.
+GeoScore may use live page fetches, robots.txt, sitemap.xml, PageSpeed Insights, Chrome UX Report data, W3C Nu, Common Crawl, public DNS/RDAP data, and other optional public evidence sources. An optional source failure is reported as unavailable evidence and does not lower the factual score. Legacy off-page, Mozilla Observatory, redirect-chain, standalone SSL/domain-intelligence, and broken-link modules are retained in source but explicitly skipped in the anonymous audit.
 
 ## Product facts
 
 - Audit modes: site and URL
 - Maximum site sample: five HTML pages
+- Current score version: 2.2.0
+- Current registry: 60 factual / 54 scoring / 6 informational / 1 Predicted
 - Interface languages: English and Chinese
 - License: MIT
 - Source: https://github.com/Amiyadesi/geoscore

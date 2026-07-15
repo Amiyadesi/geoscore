@@ -136,11 +136,31 @@ describe('GeoScore 2 audit core', () => {
     assert.equal(scored.overall.score, null);
   });
 
-  it('establishes a monitor baseline instead of comparing versions or low coverage', () => {
-    const current = { score_version: '2.0.0', score: 72, coverage: 0.8, confidence: 0.9 };
+  it('prevents a major failure from receiving an A-range category score', () => {
+    const scored = core.scoreChecks([
+      ...Array.from({ length: 19 }, (_, index) => core.check({
+        id: `pass-${index}`,
+        category: 'seo',
+        status: 'pass',
+        weight: 1,
+        severity: 'minor',
+      })),
+      core.check({ id: 'major-fail', category: 'seo', status: 'fail', weight: 1, severity: 'major' }),
+    ]);
+
+    assert.equal(scored.seo.raw_score, 95);
+    assert.equal(scored.seo.score, 79);
+    assert.ok(scored.seo.cap_reasons.some(reason => reason.code === 'MAJOR_FAILURE'));
+  });
+
+  it('establishes a monitor baseline instead of comparing versions or incomplete evidence', () => {
+    const current = { score_version: core.SCORE_VERSION, score: 72, coverage: 0.8, confidence: 0.9 };
     assert.equal(core.canCompareMonitorBaseline(null, current), false);
     assert.equal(core.canCompareMonitorBaseline({ ...current, score_version: '1.0.0' }, current), false);
-    assert.equal(core.canCompareMonitorBaseline({ ...current, coverage: 0.3 }, current), false);
+    assert.equal(core.canCompareMonitorBaseline({ ...current, coverage: 0.59 }, current), false);
+    assert.equal(core.canCompareMonitorBaseline({ ...current, confidence: 0.49 }, current), false);
+    assert.equal(core.canCompareMonitorBaseline({ ...current, score: 65 }, { ...current, coverage: 0.59 }), false);
+    assert.equal(core.canCompareMonitorBaseline({ ...current, score: 65 }, { ...current, confidence: 0.49 }), false);
     assert.equal(core.canCompareMonitorBaseline({ ...current, score: 65 }, current), true);
   });
 
@@ -222,6 +242,71 @@ describe('GeoScore 2 audit core', () => {
     const output = JSON.stringify(schemaRecommendation).toLowerCase();
     assert.match(output, /breadcrumblist/);
     assert.doesNotMatch(output, /faqpage|service|pricing|price|package|localbusiness/);
+  });
+
+  it('projects retained technical, mobile, accessibility and CrUX facts into the normalized registry', () => {
+    const context = core.buildAuditContext({
+      domain: 'example.com',
+      pages: [page('https://example.com/', PERSONAL_BLOG_HTML)],
+    });
+    const checks = core.buildNormalizedChecks(context, [page('https://example.com/', PERSONAL_BLOG_HTML)], {
+      technical_seo: { status: 'ok', data: {
+        page_meta: {
+          title: 'Short',
+          description: 'Too short',
+          canonical_url: 'https://example.com/',
+          lang: 'en',
+        },
+        h1_tags: ['Example'],
+        checks: [
+          { name: 'HTTPS enabled', passed: true, detail: 'Domain resolves over HTTPS' },
+          { name: 'Open Graph tags complete', passed: false, detail: 'Missing: og:image' },
+          { name: 'HTML compression (GZIP/Brotli)', passed: true, detail: 'br' },
+        ],
+        response_time_ms: 2400,
+        render_blocking_scripts: 2,
+        page_weight_kb: 620,
+        dom_element_count: 1800,
+        image_audit: { total: 2, missing_alt: 1, missing_alt_srcs: ['/hero.png'], modern_count: 0 },
+        security_headers: { score: 50 },
+      } },
+      on_page_seo: { status: 'ok', data: {
+        headings: { skipped_level: true },
+        links: { internal: 1, external: 0, total: 1 },
+        images: { total: 2, missing_alt: 1, missing_dimensions: 2, responsive: 0 },
+      } },
+      mobile_audit: { status: 'ok', data: {
+        has_viewport_meta: false,
+        has_responsive_images: false,
+        tap_target_issues: 2,
+        font_size_ok: false,
+      } },
+      accessibility: { status: 'ok', data: {
+        wcag_checks: [
+          { rule: 'Form inputs have labels (WCAG 1.3.1)', passed: false, detail: '1 input missing label' },
+          { rule: 'ARIA landmarks present (main, nav)', passed: false, detail: 'Missing <main>' },
+          { rule: 'Links have descriptive text (WCAG 2.4.4)', passed: true },
+          { rule: 'Skip navigation link (WCAG 2.4.1)', passed: false },
+        ],
+      } },
+      crux: { status: 'ok', data: {
+        has_data: true,
+        lcp: { p75: 3200 },
+        cls: { p75: 0.08 },
+        inp: { p75: 180 },
+        fcp: { p75: 2200 },
+        ttfb: { p75: 700 },
+      } },
+    });
+    const byId = Object.fromEntries(checks.map(item => [item.id, item]));
+
+    assert.ok(core.FACTUAL_CHECK_IDS.length > 27);
+    assert.equal(byId['seo.title_length'].status, 'fail');
+    assert.equal(byId['seo.mobile_viewport'].severity, 'major');
+    assert.equal(byId['seo.image_alt'].status, 'fail');
+    assert.equal(byId['seo.cwv_lcp'].status, 'fail');
+    assert.equal(byId['seo.cwv_cls'].status, 'pass');
+    assert.equal(byId['seo.security_headers'].weight, 0);
   });
 
   it('preserves the concrete robots.txt blocking evidence in the normalized failure', () => {

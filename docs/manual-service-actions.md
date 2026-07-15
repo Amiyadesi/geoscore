@@ -11,12 +11,30 @@ offline. Provider absence, timeout, quota, or malformed data is reported as
 - Google PageSpeed Insights and Chrome UX Report
 - W3C Nu HTML Checker
 - Common Crawl index presence
-- Mozilla Observatory
 - RDAP, DNS-over-HTTPS, certificate transparency, Wikipedia, and Wikidata
 - OpenPageRank
 - Cloudflare Workers AI, Browser Run binding, D1, KV, and Vectorize
 - Protected Search Gateway for optional query research
 - Generic OpenAI-compatible API, Groq, and OpenRouter fallbacks
+
+## Retained but not run in the anonymous audit
+
+The public `/api/meta` response lists these under
+`capabilities.optional_modules_not_run`. Their source code is retained, but the
+anonymous Cloudflare hot path reports them as `skipped`; they do not become
+passes, failures, or score denominator weight:
+
+- Keyword generation and AI content-insight modules
+- Off-page SEO and backlink checks
+- Full site-intelligence and domain-intelligence modules
+- Redirect-chain crawling
+- Mozilla Observatory (`security_audit`)
+- Standalone SSL-certificate audit
+- Broken-link crawling
+
+Re-enabling any of these requires a separate budget, privacy, and evidence-quality
+review. In particular, a crawler or provider outage must remain `unknown/error`
+instead of being interpreted as a site defect.
 
 ## Manual account actions
 

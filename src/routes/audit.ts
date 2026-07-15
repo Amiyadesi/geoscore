@@ -463,6 +463,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       audit_context: auditContext,
       pages_audited: auditPages.map(summarizeAuditPage),
       checks,
+      normalized_checks: checks,
       score_summary: scoreSummary,
       predicted_visibility: predictedVisibility,
       recommendations_v2: recommendationsV2,

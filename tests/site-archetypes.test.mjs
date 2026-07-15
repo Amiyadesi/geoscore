@@ -125,4 +125,24 @@ describe('golden site archetype fixtures', () => {
     assert.equal(context.entity?.type, 'Person');
     assert.match(context.evidence[0]?.value ?? '', /Blog and Person JSON-LD/);
   });
+
+  it('keeps a product platform identity ahead of sampled article and author schema', () => {
+    const domain = 'stripe.com';
+    const context = core.buildAuditContext({
+      domain,
+      pages: [
+        page(domain, fixture('stripe-home')),
+        page(domain, fixture('stripe-blog'), '/blog/introducing-agentic-commerce', 'article'),
+        page(domain, fixture('stripe-docs'), '/docs/api', 'documentation'),
+      ],
+      industryVertical: 'finance',
+    });
+
+    assert.equal(context.site_archetype, 'saas');
+    assert.equal(context.entity?.name, 'Stripe');
+    assert.notEqual(context.entity?.name, 'Patrick Collison');
+    assert.equal(context.business_model, 'software');
+    assert.equal(context.industry_vertical, 'finance');
+    assert.match(context.evidence[0]?.value ?? '', /product|platform|pricing|application/i);
+  });
 });

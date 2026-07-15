@@ -14,41 +14,49 @@ failed checks are worth fixing first.
 **Live demo → [geo.sayori.org](https://geo.sayori.org)**  
 **Example → [stripe.com audit](https://geo.sayori.org/?d=stripe.com)**
 
-GeoScore 2.1 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.2 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
-unknown, provider errors, and not-applicable checks do not become zeroes.
+unknown, provider errors, and not-applicable checks do not become zeroes. Raw
+weighted scores are then limited by critical, major, and minor failures plus
+evidence coverage and confidence, so a serious known failure cannot still receive
+an A-range result.
 
 ---
 
-## What it audits
+## What the anonymous audit actually checks
 
-| Category | What's checked |
+GeoScore 2.2 exposes a normalized registry of **60 factual checks**: **54 scoring
+checks** and **6 informational checks**. A separate **Predicted** simulation has
+weight zero. `/api/meta` is the runtime source of truth for these counts.
+
+| Category | Evidence collected |
 |---|---|
-| **Technical SEO** | Crawlability, canonical, hreflang, sitemap, robots.txt, security headers, page weight, render-blocking scripts |
-| **On-Page SEO** | Title, meta description, headings, internal links, PageSpeed / Core Web Vitals (mobile + desktop) |
-| **Schema Markup** | JSON-LD detection, coverage gaps, e-commerce schema audit |
-| **Content Quality** | Word count, readability (Flesch), keyword density, FAQ detection |
-| **Off-Page SEO** | Backlink signals, social profile detection, SPF/DMARC/DKIM email security |
-| **Domain Authority** | Domain age, Wikipedia/Wikidata presence, backlink sample |
-| **GEO Readiness** | Entity clarity, authorship, extractability, source support, factual provenance, freshness, and cross-page consistency |
-| **Keywords** | Opportunity keywords by intent (informational, commercial, transactional) with geo-potential flags |
-| **Accessibility** | WCAG 2.1 A/AA checks — alt text, labels, skip links, landmarks, heading hierarchy |
-| **Security Audit** | CSP, HSTS, X-Frame-Options, referrer policy, SSL certificate validity |
-| **Site Intelligence** | IP, hosting org, CDN, DNS, MX, carbon footprint estimate |
-| **Redirect Chain** | Hop count, HTTPS redirect, www/non-www normalisation |
+| **Discovery and transport** | Public fetch status, HTTPS, indexability, robots.txt, sitemap, canonical, language, hreflang, response time, compression, HTML weight, DOM size, render-blocking scripts, and selected response headers |
+| **Page semantics** | Title and description presence/length, H1 and heading hierarchy, internal links, Open Graph, image alt text/dimensions/responsive candidates, and cross-page title consistency |
+| **Structured data and site profile** | Schema presence separately from archetype fit, site type, entity, business model, locale, root domain, page roles, confidence, and the evidence used for classification |
+| **Mobile and accessibility** | Viewport, basic mobile usability, labels, landmarks, descriptive links, skip navigation, and image accessibility |
+| **Performance** | CrUX field metrics plus PageSpeed/Lighthouse lab metrics. `/api/lighthouse?audit_id=...` merges successful evidence back into the stored audit and recalculates the same score |
+| **Factual GEO readiness** | Entity identity/consistency, author attribution, extractability, direct-answer structure where applicable, claim/source linkage, statistic provenance, freshness, source links, and cross-page consistency |
+| **Public discoverability evidence** | HTML conformance, RSS/Atom discovery, AI crawler policy, llms.txt presence, domain-matched knowledge-graph evidence, and Common Crawl capture presence |
 
-**Computed cards** (assembled from module data):
-- SERP snippet preview & character-count warnings
-- Social share card (OG/Twitter) with completeness audit
-- E-E-A-T scorecard
-- Technology stack (Wappalyzer-style)
-- Readability score
-- Font performance
-- DNS & network
-- Predicted AI content opportunities, clearly separated from factual scores
-- llms.txt generator
+The report shows three evidence-backed priority actions on screen. The primary
+download produces one deterministic `GEOSCORE-REPAIR-<domain>.md` containing all
+failed checks, unknown/error evidence, not-applicable and informational summaries,
+optional modules that were not run, score caps, verification steps, and one
+provider-neutral handoff prompt. It does not require an AI call. Per-item AI
+FixPacks remain available only as optional advanced details for stored failures.
+
+### Retained code that is not run in the anonymous hot path
+
+The repository still contains upstream/legacy modules for keyword generation,
+AI content insights, off-page SEO/backlink work, full site intelligence, redirect
+chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
+and broken-link crawling. GeoScore 2.2 reports these modules as `skipped` in the
+anonymous audit to keep the Cloudflare request budget bounded. They do not enter
+the scoring denominator and are not presented as passes. This preserves useful
+upstream work without claiming evidence that was never collected.
 
 ---
 

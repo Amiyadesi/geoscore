@@ -536,43 +536,34 @@
       },
       {
         "@type": "Question",
-        "name": "What is GEO (Generative Engine Optimization)?",
+        "name": "How are GeoScore scores calculated?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GEO stands for Generative Engine Optimization. GeoScore focuses on observable readiness signals such as crawlability, entity clarity, extractable answers, authorship, source support, statistic provenance, and content freshness."
+          "text": "Known, applicable pass/fail checks form a raw weighted score. Critical, major, and minor failures cap a category at 49, 79, and 94. Incomplete coverage or confidence can lower it further, while evidence below the minimum returns no overall score."
         }
       },
       {
         "@type": "Question",
-        "name": "What does the GeoScore audit actually check?",
+        "name": "Which language does the GeoScore report use?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GeoScore samples up to five public HTML pages and checks indexability, metadata, semantics, schema fit, cross-page consistency, factual GEO readiness, and optional performance and public evidence sources."
+          "text": "The product follows the saved interface language. The report defaults to the audited page language and has an independent saved English or Chinese switch."
         }
       },
       {
         "@type": "Question",
-        "@type": "Question",
-        "name": "Does GeoScore store my data or track me?",
+        "name": "What data does GeoScore store?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "GeoScore stores public audit results for the domain you requested, keyed by domain name and cached for a short period. Rate-limit counters are keyed by IP for abuse control only. We do not require an account, do not build user profiles, and do not sell data."
+          "text": "GeoScore stores public audit results plus operational rate-limit and cache data. It does not require an account or accept confidential or private URLs."
         }
       },
       {
         "@type": "Question",
-        "name": "Can GeoScore audit localhost, private networks, or IP addresses?",
+        "name": "Can GeoScore audit localhost or private networks?",
         "acceptedAnswer": {
           "@type": "Answer",
           "text": "No. GeoScore accepts public domain hostnames and public HTTP(S) URLs. Localhost, internal hostnames, private networks, IP literals, credentials, and custom ports are rejected."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Is GeoScore a legal, financial, or security audit?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No. GeoScore reports informational signals from public pages and optional public evidence providers. It is not legal, financial, compliance, penetration-testing, or professional security advice."
         }
       }
     ]
@@ -642,7 +633,7 @@
           <p data-i18n="modal.how.sources.body" class="leading-relaxed">HTML, HTTP, DNS and structured data are primary. Optional public providers add provenance-rich evidence and may fail without reducing the score.</p>
         </div>
         <div id="tab-scoring" class="hiw-panel">
-          <p data-i18n="modal.how.scoring.body" class="leading-relaxed">Pass weight is divided by known applicable pass + fail weight. Predicted output has zero weight. Insufficient coverage returns no overall score.</p>
+          <p data-i18n="modal.how.scoring.body" class="leading-relaxed">Pass weight is divided by known applicable pass + fail weight. Critical, major and minor failures cap high scores; incomplete coverage/confidence can add lower caps. Predicted output has zero weight.</p>
         </div>
         <div id="tab-privacy" class="hiw-panel">
           <p data-i18n="modal.how.privacy.body" class="leading-relaxed">No account is required. Only public targets should be submitted. Cached results reduce duplicate work and do not consume fresh-audit quota.</p>
@@ -801,10 +792,12 @@
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
       <h2 data-i18n="meta.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">GeoScore at a glance</h2>
       <p data-i18n="meta.subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">Live product facts come from the deployed API.</p>
-      <dl id="meta-facts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <dl id="meta-facts" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-center"><dt data-i18n="meta.version" class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Version</dt><dd data-meta-fact="version" class="text-sm font-bold text-blue-800">...</dd></div>
         <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.pages" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Site sample</dt><dd data-meta-fact="pages" class="text-sm font-bold text-slate-800">...</dd></div>
         <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.modes" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Audit modes</dt><dd data-meta-fact="modes" class="text-sm font-bold text-slate-800">...</dd></div>
+        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.checks" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Check registry</dt><dd data-meta-fact="checks" class="text-[11px] leading-relaxed font-bold text-slate-800">...</dd></div>
+        <div class="rounded-xl bg-amber-50 border border-amber-100 p-4 text-center"><dt data-i18n="meta.optional" class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Optional modules</dt><dd data-meta-fact="optional" class="text-[11px] leading-relaxed font-bold text-amber-800">...</dd></div>
         <div class="rounded-xl bg-green-50 border border-green-100 p-4 text-center"><dt data-i18n="meta.rate" class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Fresh-audit limit</dt><dd data-meta-fact="rate" class="text-sm font-bold text-green-800">...</dd></div>
         <div class="rounded-xl bg-purple-50 border border-purple-100 p-4 text-center"><dt data-i18n="meta.license" class="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">License</dt><dd data-meta-fact="license" class="text-sm font-bold text-purple-800">MIT</dd></div>
         <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.source" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Source</dt><dd><a data-meta-fact="source" href="https://github.com/Amiyadesi/geoscore" class="text-sm font-bold text-blue-700 underline hover:text-blue-600 transition-colors">GitHub</a></dd></div>
@@ -839,8 +832,8 @@
       <ul class="space-y-2.5 text-sm text-slate-700">
         <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.profile">Site profile and confidence before scores</span></li>
         <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.pages">The sampled pages and evidence source for each finding</span></li>
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.actions">Three priority actions with observation, reason, fix and verification</span></li>
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.fixpack">Optional AI fix packs grounded only in recorded failures</span></li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.actions">Three priority actions on screen, plus every failed check in one Markdown repair report</span></li>
+        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.fixpack">Per-item AI fix packs remain optional advanced details for recorded failures</span></li>
       </ul>
     </div>
     <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
@@ -849,7 +842,7 @@
       <div class="space-y-3">
         <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.free.q">Is GeoScore free?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.free.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Yes. The public service uses fair-use limits for fresh audits. Cached report views do not consume the fresh-audit quota.</div></details>
         <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.predicted.q">Does GeoScore monitor real AI citations?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.predicted.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. It audits factual SEO/GEO readiness and may show a separate Predicted simulation. It does not claim to observe live citations from third-party answer engines.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.score.q">How are scores calculated?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.score.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Only known, applicable pass/fail checks are scored. Unknown, error and not-applicable checks are excluded. Low coverage can produce an insufficient-evidence result instead of a misleading zero.</div></details>
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.score.q">How are scores calculated?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.score.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Known, applicable pass/fail checks form the raw weighted score. Critical, major and minor failures cap a category at 49, 79 and 94; incomplete coverage or confidence can lower it further. Evidence below the minimum returns no overall score.</div></details>
         <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.language.q">Which language does the report use?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.language.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">The product follows your saved UI language. The report defaults to the audited page language and has its own saved English/Chinese switch.</div></details>
         <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.data.q">What data is stored?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.data.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">GeoScore stores public audit results and operational rate-limit/cache data. Do not submit confidential or private URLs.</div></details>
         <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.local.q">Can it audit localhost or private networks?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.local.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. Only public domain hostnames and public HTTP(S) URLs are accepted.</div></details>
@@ -864,8 +857,8 @@
     <!-- Score Header Card ────────────────────────────────────────── -->
     <div id="score-header" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none">
       <!-- Top bar: domain + actions -->
-      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-        <div id="business-card" class="flex items-center gap-3 min-w-0">
+      <div class="flex flex-col items-stretch gap-3 px-5 py-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
+        <div id="business-card" class="flex w-full min-w-0 items-center gap-3 sm:w-auto">
           <div id="domain-favicon" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
           </div>
@@ -874,7 +867,7 @@
             <div class="text-xs text-slate-400" id="audit-date">Auditing…</div>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0 print:hidden">
+        <div class="flex w-full flex-wrap items-center gap-2 print:hidden sm:w-auto sm:shrink-0">
 
           <button id="share-btn" class="text-xs border border-slate-200 hover:border-green-300 hover:text-green-600 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 text-slate-600">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
@@ -884,9 +877,9 @@
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             <span data-i18n="audit.shareScore">Share score</span>
           </button>
-          <button id="agent-btn" class="text-xs border border-violet-200 hover:border-violet-400 text-violet-700 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5" data-i18n-title="audit.fixTasksTitle" title="Download evidence-linked repair tasks for a coding assistant">
+          <button id="agent-btn" class="text-xs border border-violet-200 hover:border-violet-400 text-violet-700 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5" data-i18n-title="audit.fixTasksTitle" title="Download one complete evidence-linked Markdown repair report">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            <span data-i18n="audit.fixTasks">Fix tasks</span>
+            <span data-i18n="audit.fixTasks">Download full repair report (.md)</span>
           </button>
           <button id="export-btn" class="text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>

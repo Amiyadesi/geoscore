@@ -2,14 +2,39 @@ import type { ModuleResult } from './types';
 import type { FetchedAuditPage } from './audit-pages';
 import { registrableRoot } from './audit-pages';
 
-export const SCORE_VERSION = '2.1.0';
+export const SCORE_VERSION = '2.2.0';
+
+export const SCORE_POLICY = {
+  minimum_overall_coverage: 0.6,
+  minimum_overall_confidence: 0.5,
+  severity_caps: { critical: 49, major: 79, minor: 94 },
+  coverage_caps: [
+    { below: 0.6, cap: 69 },
+    { below: 0.75, cap: 79 },
+    { below: 0.9, cap: 89 },
+  ],
+  confidence_caps: [
+    { below: 0.5, cap: 69 },
+    { below: 0.75, cap: 79 },
+    { below: 0.9, cap: 89 },
+  ],
+} as const;
 
 /** Public contract registry used by /api/meta; Predicted checks stay separate. */
 export const FACTUAL_CHECK_IDS = [
   'seo.page_fetch', 'seo.sample_coverage', 'seo.indexability', 'seo.robots',
   'seo.sitemap', 'seo.canonical', 'seo.title', 'seo.meta_description', 'seo.h1',
   'seo.language', 'seo.schema_presence', 'seo.schema_fit', 'seo.html_conformance',
-  'seo.cross_page_titles', 'geo.entity_identity', 'geo.entity_consistency',
+  'seo.cross_page_titles', 'seo.https_transport', 'seo.response_time',
+  'seo.title_length', 'seo.meta_description_length', 'seo.hreflang', 'seo.open_graph',
+  'seo.mobile_viewport', 'seo.mobile_usability', 'seo.heading_hierarchy',
+  'seo.internal_links', 'seo.image_alt', 'seo.image_dimensions', 'seo.responsive_images',
+  'seo.render_blocking', 'seo.html_compression', 'seo.page_weight', 'seo.dom_size',
+  'seo.form_labels', 'seo.aria_landmarks', 'seo.descriptive_links', 'seo.skip_navigation',
+  'seo.security_headers', 'seo.cwv_lcp', 'seo.cwv_cls', 'seo.cwv_inp', 'seo.cwv_fcp',
+  'seo.cwv_ttfb', 'seo.lab_performance', 'seo.lab_lcp', 'seo.lab_cls', 'seo.lab_tbt',
+  'seo.rss_feed', 'geo.ai_crawler_policy',
+  'geo.entity_identity', 'geo.entity_consistency',
   'geo.author_signal', 'geo.extractability', 'geo.direct_answer',
   'geo.claim_source_support', 'geo.statistic_provenance', 'geo.freshness',
   'geo.cross_page_consistency', 'geo.source_links', 'geo.llms_txt',
@@ -37,6 +62,39 @@ export const CHECK_TITLES: Record<string, LocalizedAuditText> = {
   'seo.schema_fit': { en: 'Structured data archetype fit', zh: '结构化数据类型适配' },
   'seo.html_conformance': { en: 'HTML conformance', zh: 'HTML 规范性' },
   'seo.cross_page_titles': { en: 'Cross-page title consistency', zh: '跨页面标题一致性' },
+  'seo.https_transport': { en: 'HTTPS transport', zh: 'HTTPS 传输' },
+  'seo.response_time': { en: 'Server response time', zh: '服务器响应时间' },
+  'seo.title_length': { en: 'Title length quality', zh: '标题长度质量' },
+  'seo.meta_description_length': { en: 'Meta description length', zh: 'Meta description 长度' },
+  'seo.hreflang': { en: 'Multilingual hreflang', zh: '多语言 hreflang' },
+  'seo.open_graph': { en: 'Open Graph completeness', zh: 'Open Graph 完整性' },
+  'seo.mobile_viewport': { en: 'Mobile viewport', zh: '移动端 viewport' },
+  'seo.mobile_usability': { en: 'Basic mobile usability', zh: '基础移动端可用性' },
+  'seo.heading_hierarchy': { en: 'Heading hierarchy', zh: '标题层级' },
+  'seo.internal_links': { en: 'Internal linking', zh: '内部链接' },
+  'seo.image_alt': { en: 'Image alternative text', zh: '图片替代文本' },
+  'seo.image_dimensions': { en: 'Image dimensions', zh: '图片尺寸属性' },
+  'seo.responsive_images': { en: 'Responsive images', zh: '响应式图片' },
+  'seo.render_blocking': { en: 'Render-blocking scripts', zh: '阻塞渲染脚本' },
+  'seo.html_compression': { en: 'HTML compression', zh: 'HTML 压缩' },
+  'seo.page_weight': { en: 'HTML document weight', zh: 'HTML 文档体积' },
+  'seo.dom_size': { en: 'DOM size', zh: 'DOM 规模' },
+  'seo.form_labels': { en: 'Form input labels', zh: '表单输入标签' },
+  'seo.aria_landmarks': { en: 'ARIA landmarks', zh: 'ARIA 地标' },
+  'seo.descriptive_links': { en: 'Descriptive link text', zh: '描述性链接文本' },
+  'seo.skip_navigation': { en: 'Skip navigation', zh: '跳过导航链接' },
+  'seo.security_headers': { en: 'Security header coverage', zh: '安全响应头覆盖' },
+  'seo.cwv_lcp': { en: 'Core Web Vitals: LCP', zh: 'Core Web Vitals：LCP' },
+  'seo.cwv_cls': { en: 'Core Web Vitals: CLS', zh: 'Core Web Vitals：CLS' },
+  'seo.cwv_inp': { en: 'Core Web Vitals: INP', zh: 'Core Web Vitals：INP' },
+  'seo.cwv_fcp': { en: 'Field performance: FCP', zh: '现场性能：FCP' },
+  'seo.cwv_ttfb': { en: 'Field performance: TTFB', zh: '现场性能：TTFB' },
+  'seo.lab_performance': { en: 'PageSpeed lab performance', zh: 'PageSpeed 实验室性能' },
+  'seo.lab_lcp': { en: 'Lab performance: LCP', zh: '实验室性能：LCP' },
+  'seo.lab_cls': { en: 'Lab performance: CLS', zh: '实验室性能：CLS' },
+  'seo.lab_tbt': { en: 'Lab performance: TBT', zh: '实验室性能：TBT' },
+  'seo.rss_feed': { en: 'RSS or Atom feed', zh: 'RSS 或 Atom 订阅源' },
+  'geo.ai_crawler_policy': { en: 'AI crawler policy', zh: 'AI 爬虫策略' },
   'geo.entity_identity': { en: 'Entity identity clarity', zh: '实体身份清晰度' },
   'geo.entity_consistency': { en: 'Cross-page entity consistency', zh: '跨页面实体一致性' },
   'geo.author_signal': { en: 'Author attribution', zh: '作者归属信号' },
@@ -53,6 +111,71 @@ export const CHECK_TITLES: Record<string, LocalizedAuditText> = {
   'geo.predicted_citation': { en: 'Predicted AI citation simulation', zh: 'Predicted AI 引用模拟' },
 };
 
+/** Severity is a stable scoring contract, not a provider confidence signal. */
+export const CHECK_SEVERITIES: Record<string, CheckSeverity> = {
+  'seo.page_fetch': 'critical',
+  'seo.sample_coverage': 'info',
+  'seo.indexability': 'critical',
+  'seo.robots': 'critical',
+  'seo.sitemap': 'major',
+  'seo.canonical': 'major',
+  'seo.title': 'major',
+  'seo.meta_description': 'major',
+  'seo.h1': 'major',
+  'seo.language': 'minor',
+  'seo.schema_presence': 'major',
+  'seo.schema_fit': 'major',
+  'seo.html_conformance': 'minor',
+  'seo.cross_page_titles': 'minor',
+  'seo.https_transport': 'critical',
+  'seo.response_time': 'major',
+  'seo.title_length': 'minor',
+  'seo.meta_description_length': 'minor',
+  'seo.hreflang': 'minor',
+  'seo.open_graph': 'minor',
+  'seo.mobile_viewport': 'major',
+  'seo.mobile_usability': 'major',
+  'seo.heading_hierarchy': 'minor',
+  'seo.internal_links': 'minor',
+  'seo.image_alt': 'minor',
+  'seo.image_dimensions': 'minor',
+  'seo.responsive_images': 'minor',
+  'seo.render_blocking': 'minor',
+  'seo.html_compression': 'minor',
+  'seo.page_weight': 'minor',
+  'seo.dom_size': 'minor',
+  'seo.form_labels': 'minor',
+  'seo.aria_landmarks': 'minor',
+  'seo.descriptive_links': 'minor',
+  'seo.skip_navigation': 'minor',
+  'seo.security_headers': 'info',
+  'seo.cwv_lcp': 'major',
+  'seo.cwv_cls': 'major',
+  'seo.cwv_inp': 'major',
+  'seo.cwv_fcp': 'minor',
+  'seo.cwv_ttfb': 'minor',
+  'seo.lab_performance': 'major',
+  'seo.lab_lcp': 'major',
+  'seo.lab_cls': 'major',
+  'seo.lab_tbt': 'minor',
+  'seo.rss_feed': 'minor',
+  'geo.ai_crawler_policy': 'info',
+  'geo.entity_identity': 'major',
+  'geo.entity_consistency': 'major',
+  'geo.author_signal': 'major',
+  'geo.extractability': 'critical',
+  'geo.direct_answer': 'minor',
+  'geo.claim_source_support': 'major',
+  'geo.statistic_provenance': 'major',
+  'geo.freshness': 'minor',
+  'geo.cross_page_consistency': 'major',
+  'geo.source_links': 'info',
+  'geo.llms_txt': 'info',
+  'geo.knowledge_graph': 'minor',
+  'geo.common_crawl_presence': 'info',
+  'geo.predicted_citation': 'info',
+};
+
 export const SITE_ARCHETYPES = [
   'personal_blog', 'editorial', 'news_media', 'documentation', 'saas', 'ecommerce',
   'local_business', 'professional_services', 'portfolio', 'community', 'nonprofit',
@@ -62,6 +185,7 @@ export const SITE_ARCHETYPES = [
 export type SiteArchetype = typeof SITE_ARCHETYPES[number];
 export type CheckStatus = 'pass' | 'fail' | 'not_applicable' | 'unknown' | 'error';
 export type CheckCategory = 'seo' | 'geo';
+export type CheckSeverity = 'critical' | 'major' | 'minor' | 'info';
 
 export interface AuditEvidence {
   source: string;
@@ -96,6 +220,7 @@ export interface NormalizedCheck {
   title: string;
   localized_title: LocalizedAuditText;
   status: CheckStatus;
+  severity: CheckSeverity;
   weight: number;
   confidence: number;
   source: string;
@@ -106,8 +231,17 @@ export interface NormalizedCheck {
 
 export interface CategoryScore {
   score: number | null;
+  raw_score: number | null;
   coverage: number;
   confidence: number;
+  cap: number;
+  cap_reasons: ScoreCapReason[];
+}
+
+export interface ScoreCapReason {
+  code: 'CRITICAL_FAILURE' | 'MAJOR_FAILURE' | 'MINOR_FAILURE' | 'LOW_COVERAGE' | 'LOW_CONFIDENCE';
+  cap: number;
+  check_ids: string[];
 }
 
 export interface ScoreSummary {
@@ -129,10 +263,13 @@ export interface AuditRecommendation {
   id: string;
   template_id: string;
   category: CheckCategory;
+  severity: CheckSeverity;
   priority: number;
   title: string;
   page_url?: string;
   evidence: string;
+  source: string;
+  confidence: number;
   why: string;
   fix: string;
   verify: string;
@@ -155,6 +292,12 @@ export interface BuildAuditContextInput {
 }
 
 type JsonObject = Record<string, unknown>;
+
+interface JsonLdNode {
+  node: JsonObject;
+  pageUrl: string;
+  pageType: string;
+}
 
 export function isSiteArchetype(value: string | null | undefined): value is SiteArchetype {
   return !!value && (SITE_ARCHETYPES as readonly string[]).includes(value);
@@ -180,15 +323,15 @@ function flattenJsonLd(value: unknown, output: JsonObject[]): void {
   }
 }
 
-function extractJsonLdNodes(pages: BuildAuditContextInput['pages']): Array<{ node: JsonObject; pageUrl: string }> {
-  const nodes: Array<{ node: JsonObject; pageUrl: string }> = [];
+function extractJsonLdNodes(pages: BuildAuditContextInput['pages']): JsonLdNode[] {
+  const nodes: JsonLdNode[] = [];
   for (const page of pages) {
     if (page.status !== 'complete' || !page.html) continue;
     for (const match of page.html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
       try {
         const extracted: JsonObject[] = [];
         flattenJsonLd(JSON.parse(match[1]), extracted);
-        nodes.push(...extracted.map(node => ({ node, pageUrl: page.url })));
+        nodes.push(...extracted.map(node => ({ node, pageUrl: page.url, pageType: page.page_type })));
       } catch { /* malformed schema is represented by a separate normalized check */ }
     }
   }
@@ -212,17 +355,28 @@ const LOCAL_TYPES = new Set([
 ]);
 
 function classifyArchetype(
-  types: Set<string>,
+  nodes: JsonLdNode[],
   pages: BuildAuditContextInput['pages'],
   hint?: string | null,
 ): { archetype: SiteArchetype; confidence: number; evidence: AuditEvidence[] } {
   const firstPage = pages.find(page => page.status === 'complete');
   const pageUrl = firstPage?.url;
+  const types = schemaTypes(nodes);
+  const homePages = pages.filter(page => page.status === 'complete' && page.page_type === 'home');
+  const homeHtml = homePages.map(page => page.html).join('\n') || firstPage?.html || '';
+  const homeUrls = new Set(homePages.map(page => page.url));
+  const homeNodes = nodes.filter(node => homeUrls.has(node.pageUrl) || (!homeUrls.size && node.pageUrl === pageUrl));
+  const homeTypes = schemaTypes(homeNodes);
+  const nonArticleNodes = nodes.filter(node => !['article', 'documentation', 'product'].includes(node.pageType));
+  const nonArticleTypes = schemaTypes(nonArticleNodes);
   const html = pages.map(page => page.html).join('\n');
   const lower = html.toLowerCase();
+  const homeLower = homeHtml.toLowerCase();
   const pageTypes = new Set(pages.map(page => page.page_type));
   const hasType = (...values: string[]) => values.some(value => types.has(value));
-  const hasLocal = [...types].some(type => LOCAL_TYPES.has(type) || type.endsWith('Store'));
+  const hasHomeType = (...values: string[]) => values.some(value => homeTypes.has(value));
+  const hasNonArticleType = (...values: string[]) => values.some(value => nonArticleTypes.has(value));
+  const hasLocal = [...nonArticleTypes].some(type => LOCAL_TYPES.has(type) || type.endsWith('Store'));
 
   if (isSiteArchetype(hint)) {
     return {
@@ -233,13 +387,29 @@ function classifyArchetype(
   }
   if (hasLocal) return strong('local_business', 'LocalBusiness-compatible JSON-LD', pageUrl);
   if (hasType('SoftwareApplication', 'WebApplication')) return strong('saas', 'Software application JSON-LD', pageUrl);
-  if (hasType('NewsMediaOrganization', 'NewsArticle', 'Newspaper')) return strong('news_media', 'News-specific JSON-LD', pageUrl);
+  if (hasNonArticleType('NewsMediaOrganization', 'Newspaper') || hasHomeType('NewsArticle')) return strong('news_media', 'News-specific site JSON-LD', pageUrl);
   if (hasType('Product') && !hasType('SoftwareApplication', 'WebApplication')) return strong('ecommerce', 'Product JSON-LD', pageUrl);
   if (hasType('DiscussionForumPosting')) return strong('community', 'Discussion forum JSON-LD', pageUrl);
   if (hasType('NGO', 'Nonprofit501c3')) return strong('nonprofit', 'Nonprofit JSON-LD', pageUrl);
-  if (hasType('Blog') && hasType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
-  if (hasType('ProfilePage') && hasType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
-  if (hasType('Blog', 'BlogPosting', 'Article', 'TechArticle')) return strong('editorial', 'Editorial JSON-LD', pageUrl, 0.9);
+  if (hasHomeType('Blog') && hasHomeType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
+  if (hasHomeType('ProfilePage') && hasHomeType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
+
+  const pricingNavigation = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(homeHtml);
+  const productAccountNavigation = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(homeHtml);
+  const developerNavigation = /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(homeHtml)
+    || pageTypes.has('documentation');
+  const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i.test(homeLower);
+  const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
+  const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
+    .filter(Boolean).length;
+  if (organizationBacked && productPlatformSignals >= 2) {
+    return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
+  }
+
+  if (hasHomeType('Blog', 'BlogPosting', 'Article', 'TechArticle')) return strong('editorial', 'Homepage editorial JSON-LD', pageUrl, 0.9);
+  if (hasType('Blog', 'BlogPosting', 'Article', 'TechArticle') && !organizationBacked) {
+    return strong('editorial', 'Editorial content without stronger site-level product identity', pageUrl, 0.76);
+  }
   // Text collected from representative articles and archive pages is only a
   // weak site-level signal. It must not override schema-backed homepage identity.
   if (hasType('OnlineBusiness') && /\b(forum|community)\b/i.test(lower)) {
@@ -249,14 +419,14 @@ function classifyArchetype(
   if (/\b(nonprofit|non-profit|charity|foundation)\b/i.test(lower)) {
     return strong('nonprofit', 'Nonprofit page copy', pageUrl, 0.66);
   }
-  if (pageTypes.has('documentation') || /\b(documentation|developer docs|api reference)\b/i.test(lower)) {
+  if (pageTypes.has('documentation') || /\b(documentation|developer docs|api reference)\b/i.test(homeLower)) {
     return strong('documentation', 'Documentation paths and navigation', pageUrl, 0.78);
   }
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
   if (hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
 
-  const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(html);
-  const productActions = /href=["'][^"']*\/(signup|sign-up|dashboard|app)(?:[\/?#"'])/i.test(html);
+  const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(homeHtml);
+  const productActions = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(homeHtml);
   if (sameSitePricing && productActions) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
   if (/href=["'][^"']*\/(cart|checkout|collections|products)(?:[\/?#"'])/i.test(html)) {
     return strong('ecommerce', 'Commerce navigation', pageUrl, 0.68);
@@ -277,7 +447,7 @@ function strong(archetype: SiteArchetype, value: string, pageUrl?: string, confi
 }
 
 function entityForArchetype(
-  nodes: Array<{ node: JsonObject; pageUrl: string }>,
+  nodes: JsonLdNode[],
   archetype: SiteArchetype,
 ): AuditEntity | null {
   const priorities: string[] = archetype === 'local_business'
@@ -291,15 +461,25 @@ function entityForArchetype(
           : ['personal_blog', 'portfolio', 'editorial'].includes(archetype)
             ? ['Person', 'ProfilePage', 'Organization', 'Corporation', 'Blog', 'WebSite']
             : ['Organization', 'Corporation', 'LocalBusiness', 'Person', 'WebSite', 'Blog'];
-  for (const type of priorities) {
-    const match = nodes.find(({ node }) => nodeTypes(node).includes(type) && typeof node.name === 'string' && node.name.trim());
-    if (!match) continue;
-    return {
-      name: String(match.node.name).trim().slice(0, 200),
-      type,
-      source: 'json_ld',
-      page_url: match.pageUrl,
-    };
+  const homepageNodes = nodes.filter(item => item.pageType === 'home');
+  const siteLevelNodes = nodes.filter(item => !['article', 'documentation', 'product'].includes(item.pageType));
+  const pools = [homepageNodes, siteLevelNodes, nodes];
+  for (const pool of pools) {
+    for (const type of priorities) {
+      const match = pool.find(({ node, pageType }) =>
+        nodeTypes(node).includes(type)
+        && typeof node.name === 'string'
+        && node.name.trim()
+        && !(type === 'Person' && ['article', 'documentation', 'product'].includes(pageType))
+      );
+      if (!match) continue;
+      return {
+        name: String(match.node.name).trim().slice(0, 200),
+        type,
+        source: 'json_ld',
+        page_url: match.pageUrl,
+      };
+    }
   }
   return null;
 }
@@ -466,8 +646,7 @@ function businessModel(archetype: SiteArchetype): string | null {
 
 export function buildAuditContext(input: BuildAuditContextInput): AuditContext {
   const nodes = extractJsonLdNodes(input.pages);
-  const types = schemaTypes(nodes);
-  const classification = classifyArchetype(types, input.pages, input.archetypeHint);
+  const classification = classifyArchetype(nodes, input.pages, input.archetypeHint);
   const entity = entityForArchetype(nodes, classification.archetype);
   const evidence = [...classification.evidence];
   if (entity) {
@@ -499,6 +678,7 @@ export function check(input: {
   category: CheckCategory;
   title?: string;
   status: CheckStatus;
+  severity?: CheckSeverity;
   weight?: number;
   confidence?: number;
   source?: string;
@@ -508,19 +688,44 @@ export function check(input: {
 }): NormalizedCheck {
   const fallbackTitle = input.title ?? input.id;
   const localizedTitle = CHECK_TITLES[input.id] ?? { en: fallbackTitle, zh: fallbackTitle };
+  const severity = input.predicted ? 'info' : input.severity ?? CHECK_SEVERITIES[input.id] ?? 'minor';
   return {
     id: input.id,
     category: input.category,
     title: fallbackTitle,
     localized_title: localizedTitle,
     status: input.status,
-    weight: input.predicted ? 0 : Math.max(0, input.weight ?? 1),
+    severity,
+    weight: input.predicted || severity === 'info' ? 0 : Math.max(0, input.weight ?? 1),
     confidence: clamp01(input.confidence ?? (input.status === 'unknown' || input.status === 'error' ? 0 : 1)),
     source: input.source ?? 'audit',
     page_url: input.pageUrl,
     evidence: input.evidence ?? [],
     predicted: input.predicted,
   };
+}
+
+function scoreCapReasons(
+  applicable: NormalizedCheck[],
+  coverage: number,
+  confidence: number,
+): ScoreCapReason[] {
+  const reasons: ScoreCapReason[] = [];
+  const failures = applicable.filter(item => item.status === 'fail');
+  const addFailureCap = (severity: CheckSeverity, code: ScoreCapReason['code'], cap: number) => {
+    const checkIds = failures.filter(item => item.severity === severity).map(item => item.id);
+    if (checkIds.length) reasons.push({ code, cap, check_ids: checkIds });
+  };
+  addFailureCap('critical', 'CRITICAL_FAILURE', SCORE_POLICY.severity_caps.critical);
+  addFailureCap('major', 'MAJOR_FAILURE', SCORE_POLICY.severity_caps.major);
+  addFailureCap('minor', 'MINOR_FAILURE', SCORE_POLICY.severity_caps.minor);
+
+  const coverageCap = SCORE_POLICY.coverage_caps.find(rule => coverage < rule.below);
+  if (coverageCap) reasons.push({ code: 'LOW_COVERAGE', cap: coverageCap.cap, check_ids: [] });
+
+  const confidenceCap = SCORE_POLICY.confidence_caps.find(rule => confidence < rule.below);
+  if (confidenceCap) reasons.push({ code: 'LOW_CONFIDENCE', cap: confidenceCap.cap, check_ids: [] });
+  return reasons;
 }
 
 function categoryScore(checks: NormalizedCheck[]): CategoryScore {
@@ -533,10 +738,18 @@ function categoryScore(checks: NormalizedCheck[]): CategoryScore {
   const confidence = knownWeight > 0
     ? known.reduce((sum, item) => sum + item.confidence * item.weight, 0) / knownWeight
     : 0;
+  const rawScore = knownWeight > 0 ? Math.round(passWeight / knownWeight * 100) : null;
+  const normalizedCoverage = clamp01(coverage);
+  const normalizedConfidence = clamp01(confidence);
+  const capReasons = scoreCapReasons(applicable, normalizedCoverage, normalizedConfidence);
+  const cap = capReasons.reduce((value, reason) => Math.min(value, reason.cap), 100);
   return {
-    score: knownWeight > 0 ? Math.round(passWeight / knownWeight * 100) : null,
-    coverage: clamp01(coverage),
-    confidence: clamp01(confidence),
+    score: rawScore === null ? null : Math.min(rawScore, cap),
+    raw_score: rawScore,
+    coverage: normalizedCoverage,
+    confidence: normalizedConfidence,
+    cap,
+    cap_reasons: capReasons,
   };
 }
 
@@ -544,15 +757,28 @@ export function scoreChecks(checks: NormalizedCheck[]): ScoreSummary {
   const seo = categoryScore(checks.filter(item => item.category === 'seo'));
   const geo = categoryScore(checks.filter(item => item.category === 'geo'));
   const all = categoryScore(checks);
-  const sufficient = all.score !== null && all.coverage >= 0.4 && all.confidence >= 0.35;
-  const availableCategories = [seo, geo].filter(item => item.score !== null);
+  const sufficient = all.score !== null &&
+    all.coverage >= SCORE_POLICY.minimum_overall_coverage &&
+    all.confidence >= SCORE_POLICY.minimum_overall_confidence;
+  const availableCategories = [
+    { score: seo.score, raw: seo.raw_score, weight: 0.55 },
+    { score: geo.score, raw: geo.raw_score, weight: 0.45 },
+  ].filter(item => item.score !== null);
+  const availableWeight = availableCategories.reduce((sum, item) => sum + item.weight, 0);
   const weightedScore = availableCategories.length
-    ? Math.round(availableCategories.reduce((sum, item) => sum + item.score!, 0) / availableCategories.length)
+    ? Math.round(availableCategories.reduce((sum, item) => sum + item.score! * item.weight, 0) / availableWeight)
+    : null;
+  const weightedRawScore = availableCategories.length
+    ? Math.round(availableCategories.reduce((sum, item) => sum + item.raw! * item.weight, 0) / availableWeight)
     : null;
   return {
     score_version: SCORE_VERSION,
     status: sufficient ? 'complete' : 'insufficient_evidence',
-    overall: { ...all, score: sufficient ? weightedScore : null },
+    overall: {
+      ...all,
+      raw_score: weightedRawScore,
+      score: sufficient && weightedScore !== null ? Math.min(weightedScore, all.cap) : null,
+    },
     seo,
     geo,
   };
@@ -573,7 +799,10 @@ export function canCompareMonitorBaseline(
 ): previous is MonitorScoreBaseline {
   return !!previous && previous.score_version === current.score_version &&
     typeof previous.score === 'number' && typeof current.score === 'number' &&
-    (previous.coverage ?? 0) >= 0.4 && current.coverage >= 0.4;
+    (previous.coverage ?? 0) >= SCORE_POLICY.minimum_overall_coverage &&
+    current.coverage >= SCORE_POLICY.minimum_overall_coverage &&
+    (previous.confidence ?? 0) >= SCORE_POLICY.minimum_overall_confidence &&
+    current.confidence >= SCORE_POLICY.minimum_overall_confidence;
 }
 
 function moduleData<T extends Record<string, unknown>>(modules: Record<string, ModuleResult>, name: string): T | null {
@@ -584,6 +813,58 @@ function moduleData<T extends Record<string, unknown>>(modules: Record<string, M
 function statusFromModule(modules: Record<string, ModuleResult>, name: string): CheckStatus | null {
   const status = modules[name]?.status;
   return status === 'failed' ? 'error' : status === 'skipped' ? 'unknown' : null;
+}
+
+export function buildLighthouseChecks(
+  lighthouse: Record<string, any> | null,
+  pageUrl?: string,
+  unavailableStatus: CheckStatus = 'unknown',
+): NormalizedCheck[] {
+  const definitions: Array<{
+    id: string;
+    value: number;
+    threshold: number;
+    unit: string;
+    weight: number;
+    higherIsBetter?: boolean;
+  }> = [
+    { id: 'seo.lab_performance', value: Number(lighthouse?.score), threshold: 90, unit: '/100', weight: 2, higherIsBetter: true },
+    { id: 'seo.lab_lcp', value: Number(lighthouse?.lcp_ms), threshold: 2500, unit: 'ms', weight: 2 },
+    { id: 'seo.lab_cls', value: Number(lighthouse?.cls), threshold: 0.1, unit: '', weight: 2 },
+    { id: 'seo.lab_tbt', value: Number(lighthouse?.tbt_ms), threshold: 200, unit: 'ms', weight: 1 },
+  ];
+  return definitions.map(definition => {
+    const hasValue = Number.isFinite(definition.value);
+    const passed = definition.higherIsBetter
+      ? definition.value >= definition.threshold
+      : definition.value <= definition.threshold;
+    return check({
+      id: definition.id,
+      category: 'seo',
+      weight: definition.weight,
+      status: !lighthouse ? unavailableStatus : hasValue ? (passed ? 'pass' : 'fail') : unavailableStatus,
+      confidence: hasValue ? 0.9 : 0,
+      source: 'Google PageSpeed Insights API',
+      pageUrl,
+      evidence: hasValue
+        ? [`${definition.value}${definition.unit}; ${definition.higherIsBetter ? '>=' : '<='} ${definition.threshold}${definition.unit}`]
+        : ['PageSpeed lab evidence has not completed'],
+    });
+  });
+}
+
+export function mergeLighthouseChecks(
+  checks: NormalizedCheck[],
+  lighthouse: Record<string, any>,
+  pageUrl?: string,
+): NormalizedCheck[] {
+  const replacements = new Map(buildLighthouseChecks(lighthouse, pageUrl).map(item => [item.id, item]));
+  const merged = checks.map(item => replacements.get(item.id) ?? item);
+  const present = new Set(merged.map(item => item.id));
+  for (const item of replacements.values()) {
+    if (!present.has(item.id)) merged.push(item);
+  }
+  return merged;
 }
 
 export function buildNormalizedChecks(
@@ -598,6 +879,10 @@ export function buildNormalizedChecks(
   const schema = moduleData<Record<string, any>>(modules, 'schema_audit');
   const robots = moduleData<Record<string, any>>(modules, 'robots_sitemap');
   const onPage = moduleData<Record<string, any>>(modules, 'on_page_seo');
+  const accessibility = moduleData<Record<string, any>>(modules, 'accessibility');
+  const mobile = moduleData<Record<string, any>>(modules, 'mobile_audit');
+  const crux = moduleData<Record<string, any>>(modules, 'crux');
+  const lighthouse = moduleData<Record<string, any>>(modules, 'lighthouse');
   const authority = moduleData<Record<string, any>>(modules, 'authority');
   const geo = moduleData<Record<string, any>>(modules, 'geo_predicted');
   const htmlValidation = moduleData<Record<string, any>>(modules, 'html_validator');
@@ -611,6 +896,19 @@ export function buildNormalizedChecks(
   const pageUrl = primary?.url;
   const geoSignals = completedPages.map(geoPageSignals);
   const contentSignals = contentPagesFor(context, geoSignals);
+  const namedTechnicalCheck = (name: string): { passed: boolean; detail?: string } | null => {
+    const candidate = Array.isArray(technical?.checks)
+      ? technical.checks.find((item: unknown) => !!item && typeof item === 'object' && (item as Record<string, unknown>).name === name)
+      : null;
+    return candidate && typeof candidate.passed === 'boolean' ? candidate : null;
+  };
+  const namedWcagCheck = (prefix: string): { passed: boolean; detail?: string } | null => {
+    const candidate = Array.isArray(accessibility?.wcag_checks)
+      ? accessibility.wcag_checks.find((item: unknown) =>
+          !!item && typeof item === 'object' && String((item as Record<string, unknown>).rule ?? '').startsWith(prefix))
+      : null;
+    return candidate && typeof candidate.passed === 'boolean' ? candidate : null;
+  };
 
   output.push(check({
     id: 'seo.page_fetch', category: 'seo', title: zh ? '页面可抓取性' : 'Page fetchability', weight: 3,
@@ -712,6 +1010,186 @@ export function buildNormalizedChecks(
         : 'fail',
     source: 'site_sampler', evidence: completedPages.map(page => `${page.url}: ${page.title ?? '(missing title)'}`).slice(0, 5) }));
 
+  const onPageError = statusFromModule(modules, 'on_page_seo');
+  const mobileError = statusFromModule(modules, 'mobile_audit');
+  const accessibilityError = statusFromModule(modules, 'accessibility');
+  const cruxError = statusFromModule(modules, 'crux');
+  const lighthouseError = statusFromModule(modules, 'lighthouse');
+  const titleLength = namedTechnicalCheck('Title tag length (30-70 chars)');
+  const descriptionLength = namedTechnicalCheck('Meta description (100-170 chars)');
+  const httpsEnabled = namedTechnicalCheck('HTTPS enabled');
+  const responseTime = namedTechnicalCheck('Response time < 2s');
+  const openGraph = namedTechnicalCheck('Open Graph tags complete');
+  const compression = namedTechnicalCheck('HTML compression (GZIP/Brotli)');
+  const imageAlt = namedTechnicalCheck('Image alt attributes');
+  const rssFeed = namedTechnicalCheck('RSS / Atom feed');
+  const pageLanguages = completedPages
+    .map(page => page.html.match(/<html[^>]+lang=["']([^"']+)["']/i)?.[1]?.toLowerCase().split(/[-_]/)[0] ?? '')
+    .filter(Boolean);
+  const multilingual = new Set(pageLanguages).size > 1;
+  const hreflang = namedTechnicalCheck('hreflang for multilingual');
+  const imageTotal = Number(onPage?.images?.total ?? technical?.image_audit?.total ?? 0);
+  const missingAlt = Number(onPage?.images?.missing_alt ?? technical?.image_audit?.missing_alt ?? 0);
+  const missingDimensions = Number(onPage?.images?.missing_dimensions ?? 0);
+  const responsiveImages = Number(onPage?.images?.responsive ?? 0);
+
+  output.push(check({
+    id: 'seo.https_transport', category: 'seo', weight: 3,
+    status: !primaryAvailable ? 'unknown' : techError ?? (httpsEnabled ? (httpsEnabled.passed ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl,
+    evidence: httpsEnabled ? [httpsEnabled.detail ?? (httpsEnabled.passed ? 'HTTPS is enabled' : 'HTTPS is not enabled')] : [],
+  }));
+  output.push(check({
+    id: 'seo.response_time', category: 'seo', weight: 2,
+    status: !primaryAvailable ? 'unknown' : techError ?? (responseTime
+      ? (responseTime.passed ? 'pass' : 'fail')
+      : Number.isFinite(Number(technical?.response_time_ms)) ? (Number(technical?.response_time_ms) < 2000 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl,
+    evidence: responseTime ? [responseTime.detail ?? `${Number(technical?.response_time_ms ?? 0)}ms`] : [],
+  }));
+  output.push(check({
+    id: 'seo.title_length', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : !pageMeta?.title ? 'not_applicable' : techError ?? (titleLength
+      ? (titleLength.passed ? 'pass' : 'fail')
+      : String(pageMeta.title).length >= 30 && String(pageMeta.title).length <= 70 ? 'pass' : 'fail'),
+    source: 'technical_seo', pageUrl,
+    evidence: titleLength ? [titleLength.detail ?? `${String(pageMeta?.title ?? '').length} characters`] : [],
+  }));
+  output.push(check({
+    id: 'seo.meta_description_length', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : !pageMeta?.description ? 'not_applicable' : techError ?? (descriptionLength
+      ? (descriptionLength.passed ? 'pass' : 'fail')
+      : String(pageMeta.description).length >= 100 && String(pageMeta.description).length <= 170 ? 'pass' : 'fail'),
+    source: 'technical_seo', pageUrl,
+    evidence: descriptionLength ? [descriptionLength.detail ?? `${String(pageMeta?.description ?? '').length} characters`] : [],
+  }));
+  output.push(check({
+    id: 'seo.hreflang', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : !multilingual ? 'not_applicable' : techError ?? (hreflang ? (hreflang.passed ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl,
+    evidence: !multilingual ? [`One sampled language detected: ${pageLanguages[0] ?? context.locale}`] : hreflang ? [hreflang.detail ?? `${new Set(pageLanguages).size} sampled languages`] : [],
+  }));
+  output.push(check({
+    id: 'seo.open_graph', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : techError ?? (openGraph ? (openGraph.passed ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: openGraph ? [openGraph.detail ?? 'Core Open Graph fields checked'] : [],
+  }));
+  output.push(check({
+    id: 'seo.mobile_viewport', category: 'seo', weight: 2,
+    status: !primaryAvailable ? 'unknown' : mobileError ?? (mobile ? (mobile.has_viewport_meta ? 'pass' : 'fail') : 'unknown'),
+    source: 'mobile_audit', pageUrl,
+    evidence: mobile ? [mobile.has_viewport_meta ? `viewport=${mobile.viewport_content ?? 'present'}` : 'No viewport meta tag found'] : [],
+  }));
+  const mobileUsable = !!mobile && mobile.has_viewport_meta === true
+    && Number(mobile.tap_target_issues ?? 0) === 0 && mobile.font_size_ok !== false;
+  output.push(check({
+    id: 'seo.mobile_usability', category: 'seo', weight: 2,
+    status: !primaryAvailable ? 'unknown' : mobileError ?? (mobile ? (mobileUsable ? 'pass' : 'fail') : 'unknown'),
+    source: 'mobile_audit', pageUrl,
+    evidence: mobile ? [`viewport=${mobile.has_viewport_meta ? 'present' : 'missing'}`, `${Number(mobile.tap_target_issues ?? 0)} tap-target issues`, `font sizes ${mobile.font_size_ok === false ? 'need review' : 'pass basic check'}`] : [],
+  }));
+  output.push(check({
+    id: 'seo.heading_hierarchy', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : onPageError ?? (onPage?.headings ? (onPage.headings.skipped_level ? 'fail' : 'pass') : 'unknown'),
+    source: 'on_page_seo', pageUrl,
+    evidence: onPage?.headings ? [onPage.headings.skipped_level ? 'A heading level is skipped' : 'No skipped heading levels detected'] : [],
+  }));
+  output.push(check({
+    id: 'seo.internal_links', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : onPageError ?? (onPage?.links ? (Number(onPage.links.internal ?? 0) > 0 ? 'pass' : 'fail') : 'unknown'),
+    source: 'on_page_seo', pageUrl, evidence: onPage?.links ? [`${Number(onPage.links.internal ?? 0)} internal links`] : [],
+  }));
+  output.push(check({
+    id: 'seo.image_alt', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : imageTotal === 0 ? 'not_applicable' : onPageError ?? techError ?? (imageAlt ? (imageAlt.passed ? 'pass' : 'fail') : missingAlt === 0 ? 'pass' : 'fail'),
+    source: onPage?.images ? 'on_page_seo' : 'technical_seo', pageUrl,
+    evidence: imageTotal === 0 ? ['No images found'] : [`${missingAlt}/${imageTotal} images missing alt text`, ...((technical?.image_audit?.missing_alt_srcs ?? []) as string[]).slice(0, 5)],
+  }));
+  output.push(check({
+    id: 'seo.image_dimensions', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : imageTotal === 0 ? 'not_applicable' : onPageError ?? (onPage?.images ? (missingDimensions === 0 ? 'pass' : 'fail') : 'unknown'),
+    source: 'on_page_seo', pageUrl, evidence: imageTotal === 0 ? ['No images found'] : [`${missingDimensions}/${imageTotal} images lack dimensions`],
+  }));
+  output.push(check({
+    id: 'seo.responsive_images', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : imageTotal === 0 ? 'not_applicable' : mobileError ?? onPageError ?? (mobile || onPage?.images ? (mobile?.has_responsive_images || responsiveImages > 0 ? 'pass' : 'fail') : 'unknown'),
+    source: 'mobile_audit', pageUrl,
+    evidence: imageTotal === 0 ? ['No images found'] : [`${responsiveImages}/${imageTotal} images expose srcset/sizes`, `mobile responsive image signal=${mobile?.has_responsive_images === true ? 'present' : 'not detected'}`],
+  }));
+  output.push(check({
+    id: 'seo.render_blocking', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : techError ?? (technical ? (Number(technical.render_blocking_scripts ?? 0) === 0 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: technical ? [`${Number(technical.render_blocking_scripts ?? 0)} render-blocking scripts`] : [],
+  }));
+  output.push(check({
+    id: 'seo.html_compression', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : techError ?? (compression ? (compression.passed ? 'pass' : 'fail') : technical?.compression ? (technical.compression.enabled ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl,
+    evidence: compression ? [compression.detail ?? 'Compression checked'] : technical?.compression ? [`encoding=${technical.compression.encoding ?? 'none'}`] : [],
+  }));
+  output.push(check({
+    id: 'seo.page_weight', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : techError ?? (technical && Number.isFinite(Number(technical.page_weight_kb)) ? (Number(technical.page_weight_kb) <= 500 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: technical ? [`HTML document ${Number(technical.page_weight_kb ?? 0)} KB`] : [],
+  }));
+  output.push(check({
+    id: 'seo.dom_size', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : techError ?? (technical && Number.isFinite(Number(technical.dom_element_count)) ? (Number(technical.dom_element_count) <= 1500 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: technical ? [`${Number(technical.dom_element_count ?? 0)} DOM elements`] : [],
+  }));
+
+  const wcagChecks: Array<[string, string]> = [
+    ['seo.form_labels', 'Form inputs have labels'],
+    ['seo.aria_landmarks', 'ARIA landmarks present'],
+    ['seo.descriptive_links', 'Links have descriptive text'],
+    ['seo.skip_navigation', 'Skip navigation link'],
+  ];
+  for (const [id, prefix] of wcagChecks) {
+    const result = namedWcagCheck(prefix);
+    output.push(check({
+      id, category: 'seo', weight: 1,
+      status: !primaryAvailable ? 'unknown' : accessibilityError ?? (result ? (result.passed ? 'pass' : 'fail') : 'unknown'),
+      source: 'accessibility', pageUrl, evidence: result ? [result.detail ?? (result.passed ? `${prefix} passed` : `${prefix} failed`)] : [],
+    }));
+  }
+  output.push(check({
+    id: 'seo.security_headers', category: 'seo', weight: 0,
+    status: !primaryAvailable ? 'unknown' : techError ?? (technical?.security_headers ? (Number(technical.security_headers.score ?? 0) >= 80 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: technical?.security_headers ? [`Header coverage score ${Number(technical.security_headers.score ?? 0)}/100`] : [],
+  }));
+
+  const pushCruxMetric = (id: string, metric: string, threshold: number, weight: number) => {
+    const value = Number(crux?.[metric]?.p75);
+    const hasMetric = crux?.has_data === true && Number.isFinite(value);
+    output.push(check({
+      id, category: 'seo', weight,
+      status: cruxError ?? (!crux || crux.has_data !== true ? 'unknown' : hasMetric ? (value <= threshold ? 'pass' : 'fail') : 'unknown'),
+      confidence: hasMetric ? 0.95 : 0, source: 'Chrome UX Report', pageUrl,
+      evidence: hasMetric ? [`p75=${value}${metric === 'cls' ? '' : 'ms'}; good threshold <= ${threshold}${metric === 'cls' ? '' : 'ms'}`] : [crux?.issues?.[0] ?? 'No CrUX field data available'],
+    }));
+  };
+  pushCruxMetric('seo.cwv_lcp', 'lcp', 2500, 2);
+  pushCruxMetric('seo.cwv_cls', 'cls', 0.1, 2);
+  pushCruxMetric('seo.cwv_inp', 'inp', 200, 2);
+  pushCruxMetric('seo.cwv_fcp', 'fcp', 1800, 1);
+  pushCruxMetric('seo.cwv_ttfb', 'ttfb', 800, 1);
+
+  output.push(...buildLighthouseChecks(lighthouse, pageUrl, lighthouseError ?? 'unknown'));
+
+  const feedApplicable = ['personal_blog', 'editorial', 'news_media'].includes(context.site_archetype);
+  output.push(check({
+    id: 'seo.rss_feed', category: 'seo', weight: 1,
+    status: !primaryAvailable ? 'unknown' : !feedApplicable ? 'not_applicable' : techError ?? (rssFeed ? (rssFeed.passed ? 'pass' : 'fail') : technical ? (technical.rss_feed_url ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: !feedApplicable ? [`${context.site_archetype} does not require a feed`] : rssFeed ? [rssFeed.detail ?? 'RSS/Atom feed checked'] : [],
+  }));
+  const blockedAiBots = Array.isArray(technical?.blocked_ai_bots) ? technical.blocked_ai_bots.filter((item: unknown): item is string => typeof item === 'string') : [];
+  output.push(check({
+    id: 'geo.ai_crawler_policy', category: 'geo', weight: 0,
+    status: techError ?? (technical ? (blockedAiBots.length > 0 ? 'fail' : 'pass') : 'unknown'),
+    source: 'technical_seo', pageUrl,
+    evidence: technical ? [blockedAiBots.length ? `Explicitly blocked crawlers: ${blockedAiBots.join(', ')}` : 'No supported AI crawler block was detected'] : [],
+  }));
+
   const identityApplicable = context.site_archetype !== 'unknown';
   output.push(check({ id: 'geo.entity_identity', category: 'geo', title: zh ? '实体身份清晰度' : 'Entity identity clarity', weight: 3,
     status: !siteEvidenceAvailable || !identityApplicable ? 'unknown' : context.entity ? 'pass' : 'fail', confidence: context.entity ? 0.98 : context.confidence,
@@ -796,7 +1274,7 @@ export function buildNormalizedChecks(
       ? ['No numeric or statistical claims were detected']
       : [`${sourcedStatistics.length}/${statistics.length} detected statistics have a source signal`, ...statistics.slice(0, 6).map(stat => `${stat.pageUrl}: ${stat.supported ? 'sourced' : 'no source'} — ${stat.text.slice(0, 160)}`)],
   }));
-  const freshnessPages = contentSignals.filter(page => ['personal_blog', 'editorial', 'news_media', 'documentation'].includes(context.site_archetype) || page.pageType === 'article' || page.pageType === 'documentation');
+  const freshnessPages = contentSignals.filter(page => page.pageType === 'article' || page.pageType === 'documentation');
   const datedPages = freshnessPages.filter(page => page.dates.length > 0);
   output.push(check({
     id: 'geo.freshness', category: 'geo', title: zh ? '内容时效信号' : 'Content freshness signals', weight: 1,
@@ -860,11 +1338,22 @@ export function buildNormalizedChecks(
 }
 
 const PRIORITIES: Record<string, number> = {
-  'seo.page_fetch': 100, 'seo.indexability': 95, 'seo.robots': 90, 'seo.sitemap': 82,
-  'seo.canonical': 78, 'seo.title': 75, 'seo.meta_description': 72, 'seo.h1': 70,
-  'geo.entity_identity': 88, 'geo.author_signal': 76, 'geo.extractability': 74,
-  'seo.schema_fit': 74, 'seo.schema_presence': 72, 'seo.html_conformance': 60,
-  'geo.source_links': 55, 'geo.llms_txt': 40,
+  'seo.page_fetch': 100, 'seo.indexability': 98, 'seo.robots': 96, 'seo.https_transport': 95,
+  'geo.extractability': 94, 'seo.sitemap': 88, 'seo.mobile_viewport': 87,
+  'seo.canonical': 86, 'seo.title': 85, 'seo.meta_description': 83, 'seo.h1': 82,
+  'geo.entity_identity': 90, 'geo.entity_consistency': 84, 'geo.author_signal': 82,
+  'geo.claim_source_support': 81, 'geo.statistic_provenance': 80,
+  'seo.schema_fit': 84, 'seo.schema_presence': 82, 'seo.response_time': 80,
+  'seo.cwv_lcp': 83, 'seo.cwv_cls': 83, 'seo.cwv_inp': 82,
+  'seo.lab_performance': 81, 'seo.lab_lcp': 81, 'seo.lab_cls': 81,
+  'seo.mobile_usability': 80, 'geo.cross_page_consistency': 78,
+  'seo.html_conformance': 62, 'seo.open_graph': 60, 'seo.heading_hierarchy': 60,
+  'seo.image_alt': 60, 'seo.title_length': 58, 'seo.meta_description_length': 57,
+  'seo.html_compression': 56, 'seo.render_blocking': 55, 'seo.page_weight': 54,
+  'seo.dom_size': 54, 'seo.form_labels': 54, 'seo.aria_landmarks': 53,
+  'seo.descriptive_links': 52, 'seo.skip_navigation': 50, 'seo.internal_links': 50,
+  'seo.image_dimensions': 49, 'seo.responsive_images': 49, 'seo.hreflang': 48,
+  'seo.rss_feed': 45, 'geo.direct_answer': 58, 'geo.freshness': 52,
 };
 
 function recommendationCopy(checkItem: NormalizedCheck, zh: boolean) {
@@ -913,7 +1402,93 @@ function recommendationCopy(checkItem: NormalizedCheck, zh: boolean) {
   const fallbackTitle = checkItem.localized_title?.[language]
     ?? CHECK_TITLES[checkItem.id]?.[language]
     ?? checkItem.title;
-  return copies[checkItem.id] ?? { title: fallbackTitle, ...generic };
+  if (copies[checkItem.id]) return copies[checkItem.id];
+
+  const metadataQuality = new Set([
+    'seo.title_length', 'seo.meta_description_length', 'seo.open_graph', 'seo.hreflang',
+  ]);
+  const mobileQuality = new Set(['seo.mobile_viewport', 'seo.mobile_usability']);
+  const structureQuality = new Set(['seo.heading_hierarchy', 'seo.internal_links']);
+  const imageQuality = new Set(['seo.image_alt', 'seo.image_dimensions', 'seo.responsive_images']);
+  const accessibilityQuality = new Set(['seo.form_labels', 'seo.aria_landmarks', 'seo.descriptive_links', 'seo.skip_navigation']);
+  const deliveryQuality = new Set(['seo.response_time', 'seo.render_blocking', 'seo.html_compression', 'seo.page_weight', 'seo.dom_size']);
+  const performanceQuality = new Set([
+    'seo.cwv_lcp', 'seo.cwv_cls', 'seo.cwv_inp', 'seo.cwv_fcp', 'seo.cwv_ttfb',
+    'seo.lab_performance', 'seo.lab_lcp', 'seo.lab_cls', 'seo.lab_tbt',
+  ]);
+  const sourceQuality = new Set(['geo.claim_source_support', 'geo.statistic_provenance']);
+
+  if (checkItem.id === 'seo.https_transport') {
+    return zh
+      ? { title: '为公开页面启用完整 HTTPS', why: '目标页没有通过 HTTPS 提供，属于抓取、信任与浏览器安全的基础故障。', fix: '配置有效证书，并将 HTTP 永久重定向到同一 HTTPS canonical URL；同时修复混合内容。', verify: '分别请求 HTTP 与 HTTPS URL，确认最终为 HTTPS 200 且无混合内容后重新审计。' }
+      : { title: 'Serve the public page entirely over HTTPS', why: 'The target page is not available over HTTPS, which is a foundational crawl, trust, and browser-security failure.', fix: 'Install a valid certificate, permanently redirect HTTP to the matching HTTPS canonical URL, and remove mixed content.', verify: 'Request both HTTP and HTTPS, confirm the final response is HTTPS 200 with no mixed content, then re-audit.' };
+  }
+  if (metadataQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `修复${fallbackTitle}`, why: '当前 metadata 的长度、完整性或语言映射没有满足已验证条件，可能导致搜索摘要截断或页面关系不清晰。', fix: '只修改证据指向的字段：标题保持唯一且简洁，description 与可见内容一致，Open Graph 补齐核心字段，多语言页添加互相对应的 hreflang。', verify: '检查最终 HTML head 中的对应标签和值，并重新审计目标页。' }
+      : { title: `Fix ${fallbackTitle}`, why: 'The verified metadata length, completeness, or language mapping does not meet the check, which can produce truncated snippets or ambiguous page relationships.', fix: 'Change only the evidenced field: keep titles unique and concise, align descriptions with visible copy, complete core Open Graph fields, and add reciprocal hreflang only for verified language variants.', verify: 'Inspect the final HTML head for the exact tags and values, then re-audit the target page.' };
+  }
+  if (mobileQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `修复${fallbackTitle}`, why: '页面的 viewport、字体或点击目标证据表明基础移动端体验不可靠。', fix: '添加正确的 width=device-width viewport，移除过小的正文文字，并让交互控件具备足够可点击尺寸和间距。', verify: '在窄屏真实浏览器中检查布局和交互，再运行移动端审查。' }
+      : { title: `Fix ${fallbackTitle}`, why: 'Viewport, font-size, or tap-target evidence shows that the basic mobile experience is unreliable.', fix: 'Add a correct width=device-width viewport, remove undersized body text, and give interactive controls adequate target size and spacing.', verify: 'Inspect the page in a narrow real browser viewport and re-run the mobile audit.' };
+  }
+  if (structureQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `改进${fallbackTitle}`, why: '当前页面结构让主题层级或站内关系难以被稳定解析。', fix: '按 H1→H2→H3 顺序组织标题，并从正文中加入指向真实相关页面的描述性内部链接。', verify: '检查渲染后的 heading outline 和内部链接目标，再重新审计。' }
+      : { title: `Improve ${fallbackTitle}`, why: 'The current document structure makes topic hierarchy or internal page relationships harder to parse reliably.', fix: 'Use an H1→H2→H3 heading order and add descriptive internal links to genuinely related pages from the visible content.', verify: 'Inspect the rendered heading outline and internal destinations, then re-audit.' };
+  }
+  if (imageQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `修复${fallbackTitle}`, why: '已发现图片缺少替代文本、稳定尺寸或响应式候选，影响可访问性与加载稳定性。', fix: '为信息型图片写与内容一致的 alt，为装饰图使用空 alt；声明 width/height，并为大图提供 srcset/sizes。', verify: '检查证据列出的 img 元素，确认属性已输出到最终 HTML 后重新审计。' }
+      : { title: `Fix ${fallbackTitle}`, why: 'Verified images lack alternative text, stable dimensions, or responsive candidates, affecting accessibility and loading stability.', fix: 'Write factual alt text for informative images and empty alt for decorative ones; declare width/height and provide srcset/sizes for large images.', verify: 'Inspect the evidenced img elements in final HTML and re-run the audit.' };
+  }
+  if (accessibilityQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `修复${fallbackTitle}`, why: 'WCAG 结构证据显示表单、地标、链接文本或键盘跳转信息不完整。', fix: '为输入控件关联 label/ARIA 标签，使用 main/nav 地标，替换“点击这里”等泛化链接文字，并添加可聚焦的跳过导航链接。', verify: '用键盘遍历页面并检查可访问性树，确认对应规则通过后重新审计。' }
+      : { title: `Fix ${fallbackTitle}`, why: 'WCAG structure evidence shows incomplete form labels, landmarks, link text, or keyboard navigation.', fix: 'Associate inputs with labels or ARIA names, use main/nav landmarks, replace generic link text, and add a focusable skip-navigation link.', verify: 'Keyboard-test the page and inspect the accessibility tree, then re-audit until the rule passes.' };
+  }
+  if (deliveryQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `优化${fallbackTitle}`, why: '服务器响应或 HTML 交付证据超过了本检查的明确阈值。', fix: '根据证据处理对应瓶颈：缓存或优化后端、为脚本添加 defer/async、启用 Brotli/Gzip、缩减初始 HTML 与不必要 DOM。', verify: '重新抓取最终响应并比较响应时间、编码、文档体积、DOM 数或阻塞脚本数量。' }
+      : { title: `Improve ${fallbackTitle}`, why: 'Server-response or HTML-delivery evidence exceeds the explicit threshold for this check.', fix: 'Address the evidenced bottleneck: cache or optimize backend work, defer non-critical scripts, enable Brotli/Gzip, and reduce initial HTML or unnecessary DOM.', verify: 'Fetch the final response again and compare latency, encoding, document size, DOM count, or blocking scripts.' };
+  }
+  if (performanceQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `改善${fallbackTitle}`, why: 'CrUX 现场数据或 PageSpeed 实验室数据超过了良好体验阈值。', fix: '以证据中的具体指标为目标：优化首屏关键资源与 LCP 元素，预留媒体尺寸减少 CLS，拆分长任务并降低主线程阻塞。', verify: '重新运行 PageSpeed，并在有足够真实流量后复查 CrUX p75；确认该指标进入良好阈值。' }
+      : { title: `Improve ${fallbackTitle}`, why: 'CrUX field data or PageSpeed lab evidence is outside the good-experience threshold.', fix: 'Target the evidenced metric: optimize critical resources and the LCP element, reserve media space to reduce CLS, and split long tasks to reduce main-thread blocking.', verify: 'Re-run PageSpeed and later review CrUX p75 after sufficient traffic; confirm the metric reaches the good threshold.' };
+  }
+  if (checkItem.id === 'seo.rss_feed') {
+    return zh
+      ? { title: '发布可发现的 RSS 或 Atom feed', why: '这是内容发布型站点，但首页没有声明可验证的订阅源。', fix: '生成包含真实 canonical 文章 URL 的 RSS/Atom feed，并在 head 中添加 alternate feed link。', verify: '访问 feed URL，验证 XML 并确认首页 head 能发现它后重新审计。' }
+      : { title: 'Publish a discoverable RSS or Atom feed', why: 'This is a publishing-oriented site, but the homepage does not declare a verifiable feed.', fix: 'Generate an RSS/Atom feed containing real canonical article URLs and link it from the homepage head.', verify: 'Open and validate the feed XML, confirm discovery from the homepage head, and re-audit.' };
+  }
+  if (checkItem.id === 'seo.schema_presence') {
+    return zh
+      ? { title: '添加与页面事实一致的基础结构化数据', why: '目标页没有发现可验证的 JSON-LD 实体或页面类型。', fix: '按已识别的站点类型添加最小的 Person、Organization、WebSite、Article 或其他适用 schema，只填写页面公开支持的字段。', verify: '用 Schema.org Validator 验证 JSON-LD，并重新审计确认 schema presence 通过。' }
+      : { title: 'Add baseline structured data grounded in page facts', why: 'No verifiable JSON-LD entity or page type was found on the target page.', fix: 'Add the minimum Person, Organization, WebSite, Article, or other schema appropriate to the detected archetype, using only publicly supported fields.', verify: 'Validate the JSON-LD with Schema.org Validator and re-audit until schema presence passes.' };
+  }
+  if (checkItem.id === 'geo.entity_consistency' || checkItem.id === 'geo.cross_page_consistency') {
+    return zh
+      ? { title: `统一${fallbackTitle}`, why: '抽样页面对站点或实体名称给出了互相冲突的可验证信号。', fix: '确定一个公开主名称，并在 title、站点名称、JSON-LD name/url 和作者/发布者关系中保持一致；不要把文章作者当作站点品牌。', verify: '检查所有证据页面的 metadata 与 JSON-LD，再进行整站重新审计。' }
+      : { title: `Align ${fallbackTitle}`, why: 'Sampled pages expose conflicting verifiable names for the site or entity.', fix: 'Choose one public primary name and keep title, site name, JSON-LD name/url, and author/publisher relationships consistent; do not treat an article author as the site brand.', verify: 'Inspect metadata and JSON-LD on every evidenced page, then re-run the site audit.' };
+  }
+  if (checkItem.id === 'geo.direct_answer') {
+    return zh
+      ? { title: '在适用页面增加直接回答段落', why: '该页面类型需要回答明确问题，但开头没有可独立提取的简洁答案。', fix: '在主标题后先用一段话直接回答核心问题，再展开背景、步骤和限制；不得为了分数制造 FAQ。', verify: '读取禁用 JavaScript 后的正文开头，确认答案完整可理解，再重新审计。' }
+      : { title: 'Add a direct answer paragraph where applicable', why: 'This page type addresses a clear question, but its opening lacks a concise answer that stands on its own.', fix: 'Answer the core question in one paragraph immediately after the main heading, then expand with context, steps, and limitations; do not manufacture an FAQ.', verify: 'Read the opening with JavaScript disabled, confirm it is independently understandable, and re-audit.' };
+  }
+  if (sourceQuality.has(checkItem.id)) {
+    return zh
+      ? { title: `补齐${fallbackTitle}`, why: '检测到的主张或统计数字没有与可验证来源建立足够关联。', fix: '在相应句子附近链接原始资料、数据集或可信一手来源，并写明日期、口径和适用范围。', verify: '逐条检查证据中的主张或数字，确认相邻来源可访问且支持原文后重新审计。' }
+      : { title: `Complete ${fallbackTitle}`, why: 'Detected claims or statistics are not sufficiently connected to verifiable sources.', fix: 'Link the relevant sentence to primary material, datasets, or reliable first-party sources and state the date, methodology, and scope.', verify: 'Review each evidenced claim or number, confirm the adjacent source is accessible and supports it, then re-audit.' };
+  }
+  if (checkItem.id === 'geo.freshness') {
+    return zh
+      ? { title: '为文章或文档补充发布日期与更新时间', why: '适用的内容页没有公开可验证的 published/modified 时间信号。', fix: '在可见页面和 Article/TechArticle metadata 中提供真实发布日期；只有内容实质更新时才修改 updated 时间。', verify: '检查最终 HTML 与 JSON-LD 的日期一致且可解析，再重新审计代表页。' }
+      : { title: 'Add publication and update dates to the content page', why: 'An applicable article or documentation page lacks a public, verifiable published/modified signal.', fix: 'Expose the real publication date in visible copy and Article/TechArticle metadata; change the updated date only after a substantive edit.', verify: 'Confirm final HTML and JSON-LD dates agree and parse correctly, then re-audit the representative page.' };
+  }
+  return { title: fallbackTitle, ...generic };
 }
 
 export function buildRecommendations(context: AuditContext, checks: NormalizedCheck[]): AuditRecommendation[] {
@@ -928,7 +1503,8 @@ export function buildRecommendations(context: AuditContext, checks: NormalizedCh
         zh: recommendationCopy(item, true),
       };
       const copy = localized[zh ? 'zh' : 'en'];
-      const priority = PRIORITIES[item.id] ?? Math.round(item.weight * item.confidence * 10);
+      const severityBase = { critical: 90, major: 72, minor: 45, info: 0 }[item.severity];
+      const priority = PRIORITIES[item.id] ?? severityBase + Math.round(item.weight * item.confidence * 3);
       const evidence = item.evidence.join('; ') || (zh ? '该页面未满足检查条件' : 'The page did not satisfy this check');
       const impact: AuditRecommendation['impact'] = priority >= 80 ? 'high' : priority >= 55 ? 'medium' : 'low';
       const effort: AuditRecommendation['effort'] = priority >= 90 ? 'medium' : 'low';
@@ -936,10 +1512,13 @@ export function buildRecommendations(context: AuditContext, checks: NormalizedCh
         id: item.id,
         template_id: item.id,
         category: item.category,
+        severity: item.severity,
         priority,
         title: copy.title,
         page_url: item.page_url,
         evidence,
+        source: item.source,
+        confidence: item.confidence,
         why: copy.why,
         fix: copy.fix,
         verify: copy.verify,
@@ -950,6 +1529,5 @@ export function buildRecommendations(context: AuditContext, checks: NormalizedCh
         localized,
       };
     })
-    .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
-    .slice(0, 8);
+    .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
 }

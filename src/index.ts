@@ -7,19 +7,25 @@ import { auditRateLimit, searchRateLimit, getClientIp } from './lib/rate-limit';
 import { getCachedAudit, cacheKey } from './lib/cache';
 import {
   buildAuditContext,
+  buildRecommendations,
   buildNormalizedChecks,
   canCompareMonitorBaseline,
+  CHECK_SEVERITIES,
   FACTUAL_CHECK_IDS,
   isSiteArchetype,
+  mergeLighthouseChecks,
   monitorBaselineFromSummary,
   scoreChecks,
+  SCORE_POLICY,
   SCORE_VERSION,
+  type AuditContext,
   type MonitorScoreBaseline,
+  type NormalizedCheck,
 } from './lib/audit-core';
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
 import { handleSearch } from './routes/search';
-import { handleAudit, normaliseDomain } from './routes/audit';
-import { LighthouseUpstreamError, runLighthouse } from './modules/lighthouse';
+import { handleAudit, normaliseDomain, projectLegacyScores } from './routes/audit';
+import { LighthouseUpstreamError, runLighthouse, type LighthouseResult } from './modules/lighthouse';
 import { handleChat } from './routes/chat';
 import { handleFix } from './routes/fix';
 import { handleBusinesses } from './routes/businesses';
@@ -73,10 +79,22 @@ export default {
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
 const MAX_AUDIT_PAGES = 5;
+const OPTIONAL_ANONYMOUS_MODULES = [
+  'keywords',
+  'ai_content_insights',
+  'off_page_seo',
+  'site_intel',
+  'redirect_chain',
+  'security_audit',
+  'ssl_cert',
+  'domain_intel',
+  'broken_links',
+] as const;
 
 export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
   const parsedLimit = Number.parseInt(env.AUDIT_RATE_LIMIT_PER_HOUR ?? '', 10);
   const freshAuditLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 8;
+  const informationalChecks = FACTUAL_CHECK_IDS.filter(id => CHECK_SEVERITIES[id] === 'info').length;
   return {
     version: SCORE_VERSION,
     score_version: SCORE_VERSION,
@@ -90,14 +108,107 @@ export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
     },
     checks: {
       factual: FACTUAL_CHECK_IDS.length,
+      scoring: FACTUAL_CHECK_IDS.length - informationalChecks,
+      informational: informationalChecks,
       predicted: 1,
       total: FACTUAL_CHECK_IDS.length + 1,
+    },
+    scoring: {
+      method: 'weighted_known_applicable_with_caps',
+      minimum_overall_coverage: SCORE_POLICY.minimum_overall_coverage,
+      minimum_overall_confidence: SCORE_POLICY.minimum_overall_confidence,
+      severity_caps: SCORE_POLICY.severity_caps,
+      unknown_error_penalty: false,
+      predicted_weight: 0,
     },
     license: 'MIT',
     source_url: PUBLIC_SOURCE_URL,
     capabilities: {
       ai_citation_monitoring: 'predicted_only',
+      full_markdown_repair_report: true,
+      lighthouse_score_merge: true,
+      optional_modules_not_run: OPTIONAL_ANONYMOUS_MODULES,
     },
+  };
+}
+
+class LighthouseAuditUpdateError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly httpStatus: number,
+  ) {
+    super(message);
+    this.name = 'LighthouseAuditUpdateError';
+  }
+}
+
+async function persistLighthouseAuditUpdate(
+  env: Env,
+  auditId: string,
+  domain: string,
+  lighthouse: LighthouseResult,
+): Promise<Record<string, unknown>> {
+  const row = await env.DB.prepare(
+    `SELECT full_json FROM audits WHERE id = ? AND status = 'complete' LIMIT 1`,
+  ).bind(auditId).first<{ full_json: string | null }>();
+  if (!row?.full_json) {
+    throw new LighthouseAuditUpdateError('AUDIT_NOT_FOUND', 'No completed audit was found for audit_id', 404);
+  }
+
+  let audit: Record<string, any>;
+  try {
+    audit = JSON.parse(row.full_json) as Record<string, any>;
+  } catch {
+    throw new LighthouseAuditUpdateError('AUDIT_DATA_INVALID', 'The stored audit cannot accept performance evidence', 409);
+  }
+  if (String(audit.domain ?? '').toLowerCase() !== domain) {
+    throw new LighthouseAuditUpdateError('AUDIT_DOMAIN_MISMATCH', 'audit_id does not belong to the requested domain', 409);
+  }
+  const context = audit.audit_context as AuditContext | undefined;
+  const storedChecks = Array.isArray(audit.normalized_checks)
+    ? audit.normalized_checks
+    : Array.isArray(audit.checks) ? audit.checks : null;
+  if (!context || !storedChecks) {
+    throw new LighthouseAuditUpdateError('AUDIT_VERSION_UNSUPPORTED', 'The stored audit predates evidence-first scoring', 409);
+  }
+
+  const pageUrl = typeof lighthouse.url === 'string'
+    ? lighthouse.url
+    : typeof audit.pages_audited?.[0]?.url === 'string' ? audit.pages_audited[0].url : `https://${domain}/`;
+  const checks = mergeLighthouseChecks(storedChecks as NormalizedCheck[], lighthouse as unknown as Record<string, any>, pageUrl);
+  const scoreSummary = scoreChecks(checks);
+  const legacyScores = projectLegacyScores(scoreSummary, audit.modules ?? {});
+  const modules = {
+    ...(audit.modules ?? {}),
+    lighthouse: {
+      status: lighthouse.status === 'partial' ? 'partial' : 'ok',
+      data: lighthouse,
+    },
+  };
+  const recommendations = buildRecommendations(context, checks);
+  const updatedAudit = {
+    ...audit,
+    score_version: scoreSummary.score_version,
+    checks,
+    normalized_checks: checks,
+    score_summary: scoreSummary,
+    recommendations_v2: recommendations,
+    modules,
+    ...legacyScores,
+  };
+
+  await env.DB.prepare(
+    `UPDATE audits SET foundation_score = ?, weakness_score = ?, full_json = ? WHERE id = ? AND status = 'complete'`,
+  ).bind(legacyScores.seo_score, legacyScores.geo_score, JSON.stringify(updatedAudit), auditId).run();
+
+  return {
+    audit_id: auditId,
+    score_version: scoreSummary.score_version,
+    score_summary: scoreSummary,
+    normalized_checks: checks,
+    recommendations_v2: recommendations,
+    ...legacyScores,
   };
 }
 
@@ -316,6 +427,20 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const raw = url.searchParams.get('domain') ?? '';
       const domain = parseStrictPublicDomain(raw);
       if (!domain) return jsonError(PUBLIC_DOMAIN_ERROR, 400);
+      const rawAuditId = url.searchParams.get('audit_id');
+      const auditId = rawAuditId?.trim() || null;
+      if (auditId && !/^[A-Za-z0-9_-]{10,64}$/.test(auditId)) {
+        return new Response(JSON.stringify({
+          ok: false,
+          status: 'error',
+          source: 'audit_store',
+          error: { code: 'INVALID_AUDIT_ID', message: 'audit_id is invalid', retryable: false },
+          strategies: [],
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
       if (!env.PAGESPEED_API_KEY) {
         return new Response(JSON.stringify({
           ok: false,
@@ -332,11 +457,9 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
+      let result: LighthouseResult;
       try {
-        const result = await runLighthouse(domain, env.PAGESPEED_API_KEY);
-        return new Response(JSON.stringify({ ok: true, data: result }), {
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, 'Cache-Control': 'public, max-age=300' },
-        });
+        result = await runLighthouse(domain, env.PAGESPEED_API_KEY);
       } catch (err: unknown) {
         const upstream = err instanceof LighthouseUpstreamError ? err : null;
         return new Response(JSON.stringify({
@@ -354,6 +477,37 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
+
+      let auditUpdate: Record<string, unknown> | null = null;
+      if (auditId) {
+        try {
+          auditUpdate = await persistLighthouseAuditUpdate(env, auditId, domain, result);
+        } catch (err: unknown) {
+          const updateError = err instanceof LighthouseAuditUpdateError ? err : null;
+          return new Response(JSON.stringify({
+            ok: false,
+            status: 'error',
+            source: 'audit_store',
+            error: {
+              code: updateError?.code ?? 'AUDIT_UPDATE_FAILED',
+              message: updateError?.message ?? 'Performance evidence could not be stored',
+              retryable: !updateError || updateError.httpStatus >= 500,
+            },
+            strategies: [result.mobile, result.desktop],
+          }), {
+            status: updateError?.httpStatus ?? 500,
+            headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, data: result, audit_update: auditUpdate }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+          'Cache-Control': auditId ? 'no-store' : 'public, max-age=300',
+        },
+      });
     }
 
     // Proxy OG / social-card images — avoids CORS block when downloading from the browser

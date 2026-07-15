@@ -217,7 +217,7 @@ export async function runHtmlValidation(
       headers: {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip',
-        'User-Agent': 'GeoScore/2.0 (+https://geo.sayori.org)',
+        'User-Agent': 'GeoScore/2.2 (+https://geo.sayori.org)',
       },
     });
   } catch {

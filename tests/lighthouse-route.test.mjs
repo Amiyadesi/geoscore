@@ -65,13 +65,38 @@ async function withFetchMock(mock, callback) {
   }
 }
 
-async function lighthouseResponse(overrides = {}) {
+async function lighthouseResponse(overrides = {}, search = '') {
   const response = await worker.fetch(
-    new Request('https://geo-api.sayori.org/api/lighthouse?domain=blog.sayori.org'),
+    new Request(`https://geo-api.sayori.org/api/lighthouse?domain=blog.sayori.org${search}`),
     env(overrides),
     { waitUntil() {}, passThroughOnException() {} },
   );
   return { response, body: await response.json() };
+}
+
+function auditDatabase(initialAudit) {
+  const state = { audit: structuredClone(initialAudit), updates: 0 };
+  return {
+    state,
+    prepare(sql) {
+      return {
+        bind(...values) {
+          return {
+            async first() {
+              assert.match(sql, /SELECT full_json FROM audits/);
+              return { full_json: JSON.stringify(state.audit) };
+            },
+            async run() {
+              assert.match(sql, /UPDATE audits SET foundation_score/);
+              state.audit = JSON.parse(values[2]);
+              state.updates += 1;
+              return { success: true };
+            },
+          };
+        },
+      };
+    },
+  };
 }
 
 describe('Lighthouse API route', () => {
@@ -111,6 +136,60 @@ describe('Lighthouse API route', () => {
       assert.equal(body.data.desktop.status, 'error');
       assert.equal(body.data.desktop.error.code, 'PAGESPEED_QUOTA_EXCEEDED');
       assert.equal(body.data.score, 84);
+    });
+  });
+
+  it('persists PageSpeed checks and recomputes an evidence audit when audit_id is provided', async () => {
+    const auditId = '01JGEOSCORE2LIGHTHOUSE01';
+    const database = auditDatabase({
+      audit_id: auditId,
+      domain: 'blog.sayori.org',
+      score_version: '2.2.0',
+      audit_context: {
+        site_archetype: 'personal_blog',
+        industry_vertical: 'technology',
+        business_model: 'content',
+        entity: { name: 'Amiya', type: 'Person', source: 'json_ld' },
+        locality: null,
+        locale: 'en',
+        root_domain: 'sayori.org',
+        page_types: ['home'],
+        confidence: 0.95,
+        evidence: [],
+      },
+      pages_audited: [{ url: 'https://blog.sayori.org/', page_type: 'home', status: 'complete' }],
+      checks: [
+        { id: 'seo.title', category: 'seo', title: 'Page title', localized_title: { en: 'Page title', zh: '页面标题' }, status: 'pass', severity: 'major', weight: 2, confidence: 1, source: 'technical_seo', evidence: ['title present'] },
+        { id: 'seo.lab_performance', category: 'seo', title: 'PageSpeed lab performance', localized_title: { en: 'PageSpeed lab performance', zh: 'PageSpeed 实验室性能' }, status: 'unknown', severity: 'major', weight: 2, confidence: 0, source: 'Google PageSpeed Insights API', evidence: [] },
+        { id: 'seo.lab_lcp', category: 'seo', title: 'Lab performance: LCP', localized_title: { en: 'Lab performance: LCP', zh: '实验室性能：LCP' }, status: 'unknown', severity: 'major', weight: 2, confidence: 0, source: 'Google PageSpeed Insights API', evidence: [] },
+        { id: 'seo.lab_cls', category: 'seo', title: 'Lab performance: CLS', localized_title: { en: 'Lab performance: CLS', zh: '实验室性能：CLS' }, status: 'unknown', severity: 'major', weight: 2, confidence: 0, source: 'Google PageSpeed Insights API', evidence: [] },
+        { id: 'seo.lab_tbt', category: 'seo', title: 'Lab performance: TBT', localized_title: { en: 'Lab performance: TBT', zh: '实验室性能：TBT' }, status: 'unknown', severity: 'minor', weight: 1, confidence: 0, source: 'Google PageSpeed Insights API', evidence: [] },
+        { id: 'geo.entity_identity', category: 'geo', title: 'Entity identity clarity', localized_title: { en: 'Entity identity clarity', zh: '实体身份清晰度' }, status: 'pass', severity: 'major', weight: 3, confidence: 1, source: 'json_ld', evidence: ['Person: Amiya'] },
+      ],
+      modules: {},
+      recommendations_v2: [],
+    });
+
+    await withFetchMock(async rawUrl => {
+      const strategy = new URL(String(rawUrl)).searchParams.get('strategy');
+      return new Response(JSON.stringify(psiBody(strategy === 'mobile' ? 0.72 : 0.93, strategy === 'mobile' ? 900 : 0)), { status: 200 });
+    }, async () => {
+      const { response, body } = await lighthouseResponse(
+        { DB: database },
+        `&audit_id=${auditId}`,
+      );
+      assert.equal(response.status, 200);
+      assert.equal(body.ok, true);
+      assert.equal(body.audit_update.audit_id, auditId);
+      assert.equal(database.state.updates, 1);
+      assert.equal(database.state.audit.modules.lighthouse.status, 'ok');
+      const checks = Object.fromEntries(database.state.audit.normalized_checks.map(item => [item.id, item]));
+      assert.equal(checks['seo.lab_performance'].status, 'fail');
+      assert.equal(checks['seo.lab_lcp'].status, 'fail');
+      assert.equal(checks['seo.lab_cls'].status, 'pass');
+      assert.equal(checks['seo.lab_tbt'].status, 'fail');
+      assert.ok(database.state.audit.score_summary.seo.score < 100);
+      assert.equal(database.state.audit.score_summary.seo.cap, 79);
     });
   });
 

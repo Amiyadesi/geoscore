@@ -46,6 +46,15 @@
       correctType: 'Correct type',
       browserRendered: 'Browser Run rendered',
       scoreVersion: 'Score version',
+      scoreLimits: 'Scoring limits',
+      overallScore: 'Overall',
+      rawScore: 'Raw',
+      finalScore: 'Final',
+      capCritical: 'critical failure cap',
+      capMajor: 'major failure cap',
+      capMinor: 'minor failure cap',
+      capCoverage: 'evidence coverage cap',
+      capConfidence: 'evidence confidence cap',
       factualChecks: 'Factual checks',
       predictedChecks: 'Predicted simulations',
       predictedNote: 'Predicted simulations are informational and have zero scoring weight.',
@@ -56,13 +65,17 @@
       notApplicable: 'Not applicable',
       unknownStatus: 'Unknown',
       checkError: 'Error',
-      howToFix: 'Generate fix pack',
+      howToFix: 'Advanced fix details',
       pageTypeHome: 'Home',
       pageTypeAbout: 'About',
       pageTypeArticle: 'Article',
       pageTypePage: 'Page',
       pageStatusComplete: 'Complete',
       pageStatusError: 'Error',
+      lighthouseMobile: 'Lighthouse mobile',
+      lighthouseDesktop: 'Lighthouse desktop',
+      pageSpeedFallback: 'PageSpeed fallback',
+      cruxRealUser: 'CrUX real-user data',
     },
     zh: {
       profile: '站点画像',
@@ -104,6 +117,15 @@
       correctType: '纠正类型',
       browserRendered: 'Browser Run 渲染',
       scoreVersion: '评分版本',
+      scoreLimits: '评分限制',
+      overallScore: '总分',
+      rawScore: '原始分',
+      finalScore: '最终分',
+      capCritical: 'critical 失败上限',
+      capMajor: 'major 失败上限',
+      capMinor: 'minor 失败上限',
+      capCoverage: '证据覆盖率上限',
+      capConfidence: '证据置信度上限',
       factualChecks: '事实检查',
       predictedChecks: '预测模拟',
       predictedNote: '预测模拟仅供参考，评分权重固定为 0。',
@@ -114,13 +136,17 @@
       notApplicable: '不适用',
       unknownStatus: '未知',
       checkError: '错误',
-      howToFix: '生成修复包',
+      howToFix: '高级修复详情',
       pageTypeHome: '首页',
       pageTypeAbout: '关于页',
       pageTypeArticle: '文章页',
       pageTypePage: '页面',
       pageStatusComplete: '完成',
       pageStatusError: '错误',
+      lighthouseMobile: 'Lighthouse 移动端',
+      lighthouseDesktop: 'Lighthouse 桌面端',
+      pageSpeedFallback: 'PageSpeed 备用数据',
+      cruxRealUser: 'CrUX 真实用户数据',
     },
   };
 
@@ -381,17 +407,66 @@
     const aeoRaw = summary
       ? firstDefined(summary.aeo, scores?.aeo, summary.aeo_score)
       : data?.aeo_score;
-    const overallObject = overallRaw && typeof overallRaw === 'object' ? overallRaw : {};
+    const categoryDetail = raw => {
+      const object = raw && typeof raw === 'object' ? raw : {};
+      const capReasons = Array.isArray(object.cap_reasons) ? object.cap_reasons.map(reason => ({
+        code: String(reason?.code ?? 'SCORE_CAP'),
+        cap: finiteNumber(reason?.cap),
+        checkIds: Array.isArray(reason?.check_ids) ? reason.check_ids.map(String) : [],
+      })) : [];
+      return {
+        score: metricValue(raw),
+        rawScore: metricValue(firstDefined(object.raw_score, object.rawScore, raw)),
+        coverage: percentValue(object.coverage),
+        confidence: percentValue(object.confidence),
+        cap: finiteNumber(object.cap),
+        capReasons,
+      };
+    };
+    const overallDetail = categoryDetail(overallRaw);
+    const seoDetail = categoryDetail(seoRaw);
+    const geoDetail = categoryDetail(geoRaw);
     return {
       present: Boolean(summary),
-      overall: metricValue(overallRaw),
-      seo: metricValue(seoRaw),
-      geo: metricValue(geoRaw),
+      overall: overallDetail.score,
+      seo: seoDetail.score,
+      geo: geoDetail.score,
       aeo: metricValue(aeoRaw),
-      coverage: percentValue(firstDefined(summary?.coverage?.overall, summary?.coverage, overallObject.coverage, summary?.overall_coverage)),
-      confidence: percentValue(firstDefined(summary?.confidence?.overall, summary?.confidence, overallObject.confidence, summary?.overall_confidence)),
+      coverage: percentValue(firstDefined(summary?.coverage?.overall, summary?.coverage, overallDetail.coverage, summary?.overall_coverage)),
+      confidence: percentValue(firstDefined(summary?.confidence?.overall, summary?.confidence, overallDetail.confidence, summary?.overall_confidence)),
       scoreVersion: firstDefined(summary?.score_version, data?.score_version),
+      status: firstDefined(summary?.status, overallDetail.score === null ? 'insufficient_evidence' : 'complete'),
+      overallDetail,
+      seoDetail,
+      geoDetail,
     };
+  }
+
+  function capReasonText(reason, lang) {
+    const t = copy(lang);
+    const labels = {
+      CRITICAL_FAILURE: t.capCritical,
+      MAJOR_FAILURE: t.capMajor,
+      MINOR_FAILURE: t.capMinor,
+      LOW_COVERAGE: t.capCoverage,
+      LOW_CONFIDENCE: t.capConfidence,
+    };
+    const cap = finiteNumber(reason?.cap);
+    const checkIds = Array.isArray(reason?.checkIds) ? reason.checkIds : [];
+    return `${labels[reason?.code] ?? reason?.code ?? 'Score cap'}${cap === null ? '' : ` ${cap}/100`}${checkIds.length ? ` (${checkIds.join(', ')})` : ''}`;
+  }
+
+  function scoreLimitRows(scores, lang) {
+    const t = copy(lang);
+    return [
+      { label: t.overallScore, detail: scores.overallDetail },
+      { label: 'SEO', detail: scores.seoDetail },
+      { label: 'GEO', detail: scores.geoDetail },
+    ].filter(item => item.detail?.capReasons?.length).map(item => {
+      const raw = item.detail.rawScore === null ? t.insufficient : `${Math.round(item.detail.rawScore)}/100`;
+      const final = item.detail.score === null ? t.insufficient : `${Math.round(item.detail.score)}/100`;
+      return `<li class="text-xs text-amber-800 leading-relaxed"><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(t.rawScore)} ${escapeHtml(raw)} -> ${escapeHtml(t.finalScore)} ${escapeHtml(final)} · ${escapeHtml(item.detail.capReasons.map(reason => capReasonText(reason, lang)).join('; '))}</li>`;
+    });
   }
 
   function normalizeContext(data) {
@@ -433,12 +508,15 @@
   }
 
   function normalizeAllActions(data, lang) {
-    const priorityRank = { critical: 0, high: 1, medium: 2, low: 3 };
+    const priorityRank = { critical: 4, high: 3, major: 3, medium: 2, minor: 1, low: 1, info: 0 };
     const actions = Array.isArray(data?.recommendations_v2) ? [...data.recommendations_v2] : [];
     actions.sort((a, b) => {
-      const aRank = priorityRank[String(a?.priority ?? '').toLowerCase()] ?? 99;
-      const bRank = priorityRank[String(b?.priority ?? '').toLowerCase()] ?? 99;
-      return aRank - bRank;
+      const aNumber = finiteNumber(a?.priority);
+      const bNumber = finiteNumber(b?.priority);
+      if (aNumber !== null || bNumber !== null) return (bNumber ?? -1) - (aNumber ?? -1);
+      const aRank = priorityRank[String(a?.severity ?? a?.priority ?? '').toLowerCase()] ?? -1;
+      const bRank = priorityRank[String(b?.severity ?? b?.priority ?? '').toLowerCase()] ?? -1;
+      return bRank - aRank;
     });
     return actions.map((action, index) => {
       const actionLanguage = language(lang);
@@ -457,6 +535,10 @@
         fix: localized(actionCopy.fix ?? action?.fix ?? action?.how_to_fix ?? action?.recommendation, lang),
         verify: localized(actionCopy.verify ?? action?.verification ?? action?.verify ?? action?.retest, lang),
         priority: String(action?.priority ?? '').toLowerCase(),
+        severity: String(action?.severity ?? '').toLowerCase(),
+        source: localized(action?.source ?? action?.detected_by, lang),
+        confidence: percentValue(action?.confidence),
+        code: localized(action?.technical_code ?? action?.code_snippet ?? action?.code, lang),
         predicted: action?.predicted === true || String(action?.certainty ?? action?.source_type ?? '').toLowerCase() === 'predicted',
       };
     });
@@ -496,6 +578,7 @@
         page: localized(page, lang),
         evidence,
         confidence: percentValue(check?.confidence),
+        severity: String(check?.severity ?? (predicted ? 'info' : 'minor')).toLowerCase(),
         predicted,
         weight: finiteNumber(check?.weight),
       };
@@ -508,6 +591,190 @@
       summary[check.status] = (summary[check.status] ?? 0) + 1;
       return summary;
     }, { pass: 0, fail: 0, not_applicable: 0, unknown: 0, error: 0 });
+  }
+
+  function renderCheckSummaryBar(data, lang) {
+    const summary = checkSummary(data, lang);
+    const t = copy(lang);
+    return [
+      summary.pass ? `<span class="text-green-700 font-medium">✓ ${summary.pass} ${escapeHtml(t.pass)}</span>` : '',
+      summary.fail ? `<span class="text-orange-700 font-medium">✕ ${summary.fail} ${escapeHtml(t.fail)}</span>` : '',
+      (summary.unknown + summary.error) ? `<span class="text-slate-500 font-medium">? ${summary.unknown + summary.error} ${escapeHtml(t.unknownStatus)}</span>` : '',
+      summary.not_applicable ? `<span class="text-slate-400 font-medium">– ${summary.not_applicable} ${escapeHtml(t.notApplicable)}</span>` : '',
+    ].filter(Boolean).join('<span class="text-slate-300">·</span>');
+  }
+
+  function performanceSourceLabel(data, lang) {
+    const t = copy(lang);
+    const lighthouse = data?.modules?.lighthouse?.data;
+    const pageSpeed = data?.modules?.on_page_seo?.data?.page_speed;
+    const crux = data?.modules?.crux?.data;
+    if (lighthouse?.mobile_score != null) return t.lighthouseMobile;
+    if (lighthouse?.desktop_score != null) return t.lighthouseDesktop;
+    if (pageSpeed?.performance != null) return t.pageSpeedFallback;
+    if (crux?.has_data) return t.cruxRealUser;
+    return '';
+  }
+
+  function generateFullRepairMarkdown(data, lang) {
+    const selected = language(lang);
+    const zh = selected === 'zh';
+    const scores = normalizeScoreSummary(data);
+    const context = normalizeContext(data);
+    const pages = normalizePages(data);
+    const checks = normalizeChecks(data, selected).filter(item => !item.predicted);
+    const actions = normalizeAllActions(data, selected).filter(item => !item.predicted);
+    const actionById = new Map(actions.map(item => [item.id, item]));
+    const severityRank = { critical: 4, major: 3, minor: 2, info: 1 };
+    const failures = checks
+      .filter(item => item.status === 'fail' && item.weight !== 0 && item.severity !== 'info')
+      .sort((a, b) => (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0) || a.id.localeCompare(b.id));
+    const unavailable = checks.filter(item => item.status === 'unknown' || item.status === 'error');
+    const secondaryChecks = checks.filter(item =>
+      item.status === 'not_applicable' ||
+      ((item.weight === 0 || item.severity === 'info') && item.status !== 'unknown' && item.status !== 'error'),
+    );
+    const skippedModules = Object.entries(data?.modules ?? {})
+      .filter(([, result]) => result?.status === 'skipped')
+      .map(([name, result]) => ({
+        name,
+        reason: localized(result?.data?.reason ?? result?.error, selected),
+      }));
+
+    const labels = zh ? {
+      title: 'GeoScore 完整修复报告', audit: '审计信息', generated: '生成时间', version: '评分版本', mode: '审计模式', target: '目标',
+      profile: '站点画像', archetype: '站点类型', entity: '实体', industry: '行业方向', business: '业务模式', locale: '页面语言', root: '根域名', classification: '分类证据',
+      scores: '分数与评分限制', final: '最终分', raw: '原始加权分', coverage: '覆盖率', confidence: '置信度', cap: '最高分上限', limits: '限制原因', insufficient: '证据不足',
+      pages: '抽样页面', failures: '全部失败项与修复方案', noFailures: '没有已知且适用的计分失败项。', page: '页面', source: '检测来源', evidence: '原始证据', why: '失败原因', fix: '修改方法', verify: '复验步骤', snippet: '技术片段',
+      unavailable: '未知与错误检查', unavailableNote: '这些项目没有计为失败，也没有按 0 分处理；它们只影响证据覆盖率。',
+      notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', handoff: '交给开发 AI 的统一 Handoff Prompt',
+      noInvent: '不得虚构价格、套餐、服务、地址、实体、作者、统计来源或站点未公开的业务事实。不得自动发布。',
+      severity: '严重度', status: '状态', check: '检查', recommendation: '修复任务', unknown: '未知', none: '无',
+    } : {
+      title: 'GeoScore full repair report', audit: 'Audit identity', generated: 'Generated', version: 'Score version', mode: 'Audit mode', target: 'Target',
+      profile: 'Site profile', archetype: 'Site archetype', entity: 'Entity', industry: 'Industry vertical', business: 'Business model', locale: 'Page locale', root: 'Root domain', classification: 'Classification evidence',
+      scores: 'Scores and scoring limits', final: 'Final score', raw: 'Raw weighted score', coverage: 'Coverage', confidence: 'Confidence', cap: 'Maximum score cap', limits: 'Cap reasons', insufficient: 'Insufficient evidence',
+      pages: 'Audited page sample', failures: 'All failed checks and repair actions', noFailures: 'No known, applicable scoring checks failed.', page: 'Page', source: 'Detection source', evidence: 'Raw evidence', why: 'Why it failed', fix: 'How to change it', verify: 'How to verify', snippet: 'Technical snippet',
+      unavailable: 'Unknown and error checks', unavailableNote: 'These checks are not failures and were not converted to zero; they affect evidence coverage only.',
+      notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', handoff: 'Unified handoff prompt for a developer AI',
+      noInvent: 'Do not invent prices, plans, services, addresses, entities, authors, statistical sources, or business facts not published by the site. Do not publish automatically.',
+      severity: 'Severity', status: 'Status', check: 'Check', recommendation: 'Repair task', unknown: 'Unknown', none: 'None',
+    };
+    const oneLine = value => String(value ?? '').replace(/\s+/g, ' ').trim();
+    const percent = value => value === null || value === undefined ? labels.unknown : `${Math.round(value)}%`;
+    const scoreValue = value => value === null || value === undefined ? labels.insufficient : `${Math.round(value)}/100`;
+    const scoreLine = (name, detail) => {
+      const reasons = detail.capReasons?.length
+        ? detail.capReasons.map(reason => capReasonText(reason, selected)).join('; ')
+        : labels.none;
+      return [
+        `### ${name}`,
+        `- ${labels.final}: ${scoreValue(detail.score)}`,
+        `- ${labels.raw}: ${scoreValue(detail.rawScore)}`,
+        `- ${labels.coverage}: ${percent(detail.coverage)}`,
+        `- ${labels.confidence}: ${percent(detail.confidence)}`,
+        `- ${labels.cap}: ${detail.cap == null ? labels.unknown : `${detail.cap}/100`}`,
+        `- ${labels.limits}: ${reasons}`,
+      ].join('\n');
+    };
+    const evidenceLines = (context?.evidence ?? []).map(item => {
+      const source = localized(item?.source, selected);
+      const detail = evidenceText(item, selected);
+      const page = localized(item?.page_url, selected);
+      return `- ${[source && `[${source}]`, page, detail].filter(Boolean).map(oneLine).join(' - ')}`;
+    });
+    const pageLines = pages.length ? pages.map(page =>
+      `- **${pageTypeLabel(page.type, selected)}** - ${page.url} - ${pageStatusLabel(page.status, selected) || labels.unknown}${page.fetchSource ? ` - ${page.fetchSource}` : ''}`,
+    ) : [`- ${labels.none}`];
+    const failureBlocks = failures.map((item, index) => {
+      const action = actionById.get(item.id);
+      const evidence = item.evidence.length ? item.evidence.map(value => `  - ${oneLine(value)}`).join('\n') : `  - ${labels.none}`;
+      const lines = [
+        `### ${index + 1}. [${item.severity.toUpperCase()}] ${item.title} (\`${item.id}\`)`,
+        `- ${labels.page}: ${action?.page || item.page || data?.target_url || `https://${data?.domain ?? ''}/`}`,
+        `- ${labels.source}: ${action?.source || item.source || labels.unknown}`,
+        `- ${labels.confidence}: ${percent(action?.confidence ?? item.confidence)}`,
+        `- ${labels.evidence}:`,
+        evidence,
+        `- ${labels.why}: ${oneLine(action?.reason || (zh ? '该检查基于上述可验证证据失败。' : 'This check failed on the verifiable evidence above.'))}`,
+        `- ${labels.fix}: ${oneLine(action?.fix || (zh ? '根据证据修复对应页面，不扩展未验证的业务事实。' : 'Correct the evidenced page without adding unsupported business facts.'))}`,
+        `- ${labels.verify}: ${oneLine(action?.verify || (zh ? '重新审计该 URL，确认状态变为 pass。' : 'Re-audit the URL and confirm the status becomes pass.'))}`,
+      ];
+      if (action?.code) lines.push(`- ${labels.snippet}:\n\n\`\`\`\n${String(action.code).replace(/\`\`\`/g, "'''")}\n\`\`\``);
+      return lines.join('\n');
+    });
+    const statusLines = items => items.length ? items.map(item =>
+      `- [${item.status}] \`${item.id}\` - ${oneLine(item.title)}${item.source ? ` - ${oneLine(item.source)}` : ''}${item.evidence[0] ? ` - ${oneLine(item.evidence[0])}` : ''}`,
+    ) : [`- ${labels.none}`];
+    const optionalLines = skippedModules.length ? skippedModules.map(item =>
+      `- \`${item.name}\`${item.reason ? ` - ${oneLine(item.reason)}` : ''}`,
+    ) : [`- ${labels.none}`];
+    const handoffTasks = failures.length ? failures.map((item, index) => {
+      const action = actionById.get(item.id);
+      return `${index + 1}. ${item.id} on ${action?.page || item.page || data?.domain}: ${oneLine(action?.fix || item.evidence.join('; '))}. Verify: ${oneLine(action?.verify || 're-run the audit and require pass')}`;
+    }).join('\n') : (zh ? '当前没有需要实施的计分失败项。' : 'There are no scoring failures to implement.');
+    const handoffPrompt = zh
+      ? `请在网站代码库中一次性处理以下 GeoScore ${scores.scoreVersion ?? ''} 失败项。先定位生成对应 URL 的源文件，保留现有框架和内容风格，只修改证据支持的部分。\n\n${handoffTasks}\n\n${labels.noInvent}\n完成后运行项目现有测试/构建，并逐项说明修改文件、证据对应关系与复验结果。`
+      : `Apply the following GeoScore ${scores.scoreVersion ?? ''} failures in one batch. First locate the source files that generate each URL, preserve the existing framework and content style, and change only what the evidence supports.\n\n${handoffTasks}\n\n${labels.noInvent}\nAfter implementation, run the project's existing tests/build and report the changed files, evidence mapping, and verification result for every item.`;
+
+    return `# ${labels.title}: ${data?.domain ?? labels.unknown}
+
+## ${labels.audit}
+
+- ${labels.generated}: ${new Date(data?.created_at ?? Date.now()).toISOString()}
+- ${labels.version}: ${scores.scoreVersion ?? 'legacy'}
+- ${labels.mode}: ${data?.mode ?? 'site'}
+- ${labels.target}: ${data?.target_url ?? `https://${data?.domain ?? ''}/`}
+
+## ${labels.profile}
+
+- ${labels.archetype}: ${context ? archetypeLabel(context.archetype, selected) : labels.unknown}
+- ${labels.entity}: ${context?.entity || labels.unknown}
+- ${labels.industry}: ${localized(context?.industry, selected) || labels.unknown}
+- ${labels.business}: ${localized(context?.businessModel, selected) || labels.unknown}
+- ${labels.locale}: ${context?.locale || labels.unknown}
+- ${labels.root}: ${context?.rootDomain || data?.domain || labels.unknown}
+
+### ${labels.classification}
+
+${evidenceLines.length ? evidenceLines.join('\n') : `- ${labels.none}`}
+
+## ${labels.scores}
+
+${scoreLine(zh ? '总分' : 'Overall', scores.overallDetail)}
+
+${scoreLine('SEO', scores.seoDetail)}
+
+${scoreLine('GEO', scores.geoDetail)}
+
+## ${labels.pages}
+
+${pageLines.join('\n')}
+
+## ${labels.failures}
+
+${failureBlocks.length ? failureBlocks.join('\n\n') : labels.noFailures}
+
+## ${labels.unavailable}
+
+${labels.unavailableNote}
+
+${statusLines(unavailable).join('\n')}
+
+## ${labels.notApplicable}
+
+${statusLines(secondaryChecks).join('\n')}
+
+## ${labels.optional}
+
+${optionalLines.join('\n')}
+
+## ${labels.handoff}
+
+\`\`\`text
+${handoffPrompt.replace(/\`\`\`/g, "'''")}
+\`\`\`
+`;
   }
 
   function pageTypeLabel(value, lang) {
@@ -582,6 +849,7 @@
     const confidence = formatPercent(context?.confidence ?? scores.confidence);
     const coverage = formatPercent(scores.coverage);
     const locale = context?.locale ? String(context.locale) : null;
+    const limitRows = scoreLimitRows(scores, lang);
 
     const profileFacts = [
       factRow(t.entity, context?.entity),
@@ -643,6 +911,7 @@
             ${coverage ? `<span class="text-xs text-slate-500">${escapeHtml(t.coverage)} ${escapeHtml(coverage)}</span>` : ''}
           </div>
           ${scores.scoreVersion ? `<div class="text-[10px] text-slate-400 mt-1">${escapeHtml(t.scoreVersion)} ${escapeHtml(scores.scoreVersion)}</div>` : ''}
+          ${limitRows.length ? `<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"><div class="text-[10px] font-semibold uppercase text-amber-700 mb-1">${escapeHtml(t.scoreLimits)}</div><ul class="space-y-1">${limitRows.join('')}</ul></div>` : ''}
         </div>
         <div class="shrink-0 print:hidden" role="group" aria-label="${escapeHtml(ui.reportLanguage)}">
           <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
@@ -881,7 +1150,10 @@
     normalizeContext,
     normalizePages,
     normalizeScoreSummary,
+    generateFullRepairMarkdown,
     checkSummary,
+    renderCheckSummaryBar,
+    performanceSourceLabel,
     isEvidenceAudit,
     parseAuditInput,
     renderEvidenceRecommendations,

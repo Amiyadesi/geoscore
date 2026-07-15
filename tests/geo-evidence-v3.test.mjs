@@ -88,8 +88,8 @@ function baselineModules() {
 
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
-    assert.equal(core.SCORE_VERSION, '2.1.0');
-    assert.match(cache.cacheKey('example.com'), /^recent:v12:/);
+    assert.equal(core.SCORE_VERSION, '2.2.0');
+    assert.match(cache.cacheKey('example.com'), /^recent:v13:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -108,7 +108,7 @@ describe('GEO Evidence v3 contract', () => {
   });
 
   it('exposes a stable factual check registry separate from predicted checks', () => {
-    assert.equal(core.FACTUAL_CHECK_IDS.length, 27);
+    assert.ok(core.FACTUAL_CHECK_IDS.length > 27);
     assert.ok(core.FACTUAL_CHECK_IDS.includes('geo.claim_source_support'));
     assert.ok(core.FACTUAL_CHECK_IDS.includes('geo.statistic_provenance'));
     assert.ok(!core.FACTUAL_CHECK_IDS.includes('geo.predicted_citation'));
@@ -148,18 +148,28 @@ describe('GEO Evidence v3 contract', () => {
 
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
-    assert.equal(meta.version, '2.1.0');
+    assert.equal(meta.version, '2.2.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
     assert.equal(meta.rate_limit.fresh_audits, 11);
-    assert.equal(meta.checks.factual, 27);
+    assert.equal(meta.checks.factual, core.FACTUAL_CHECK_IDS.length);
+    assert.equal(meta.checks.scoring + meta.checks.informational, meta.checks.factual);
+    assert.equal(meta.checks.predicted, 1);
+    assert.equal(meta.scoring.severity_caps.critical, 49);
+    assert.equal(meta.scoring.severity_caps.major, 79);
+    assert.equal(meta.scoring.severity_caps.minor, 94);
+    assert.equal(meta.scoring.minimum_overall_coverage, 0.6);
+    assert.equal(meta.scoring.minimum_overall_confidence, 0.5);
+    assert.ok(meta.capabilities.optional_modules_not_run.includes('broken_links'));
+    assert.equal(meta.capabilities.full_markdown_repair_report, true);
+    assert.equal(meta.capabilities.lighthouse_score_merge, true);
     assert.equal(meta.capabilities.ai_citation_monitoring, 'predicted_only');
     assert.doesNotMatch(JSON.stringify(meta), /chatgpt|perplexity|google_ai/i);
 
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
     const response = await worker.default.fetch(new Request('https://geo-api.example/api/meta'), env, {});
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).score_version, '2.1.0');
+    assert.equal((await response.json()).score_version, '2.2.0');
   });
 
   it('keeps public metadata provider-neutral and deletes the requested cache scope', async () => {

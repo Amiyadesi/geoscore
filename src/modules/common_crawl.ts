@@ -197,7 +197,7 @@ async function latestCollection(fetcher: EvidenceFetcher, timeoutMs: number): Pr
       headers: {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip',
-        'User-Agent': 'GeoScore/2.0 (+https://geo.sayori.org)',
+        'User-Agent': 'GeoScore/2.2 (+https://geo.sayori.org)',
       },
     });
   } catch {
@@ -319,7 +319,7 @@ export async function runCommonCrawlPresence(
       headers: {
         Accept: 'application/x-ndjson, application/json',
         'Accept-Encoding': 'gzip',
-        'User-Agent': 'GeoScore/2.0 (+https://geo.sayori.org)',
+        'User-Agent': 'GeoScore/2.2 (+https://geo.sayori.org)',
       },
     });
   } catch {
