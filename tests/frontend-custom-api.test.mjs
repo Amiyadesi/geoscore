@@ -10,6 +10,7 @@ const frontend = path.join(here, '..', 'frontend');
 const read = file => fs.readFileSync(path.join(frontend, file), 'utf8');
 const index = read('index.html');
 const app = read('app.js');
+const evidenceMap = read('evidence-map.js');
 const i18nSource = read('i18n.js');
 
 function loadI18n(language = 'en-US') {
@@ -53,9 +54,10 @@ test('custom API copy is bilingual and states the zero-score and no-storage boun
 });
 
 test('model discovery is bounded, keyboard accessible and keeps manual model entry', () => {
+  const start = app.indexOf('function customApiModelIds');
   const block = app.slice(
-    app.indexOf('function customApiModelIds'),
-    app.indexOf('function sanitizeCustomEvidenceSnapshot'),
+    start,
+    app.indexOf("document.getElementById('custom-api-fetch-models')", start),
   );
   assert.match(app, /const CUSTOM_API_MODEL_LIMIT = 50/);
   assert.match(block, /models\.length >= CUSTOM_API_MODEL_LIMIT/);
@@ -77,10 +79,7 @@ test('custom API values are cleared before the factual audit and consumed once a
     app.indexOf('async function startAudit'),
     app.indexOf('function showAuditShell'),
   );
-  const evidence = app.slice(
-    app.indexOf('async function runEvidenceMap'),
-    app.indexOf('function monitorProjectUrl'),
-  );
+  const evidence = evidenceMap.slice(evidenceMap.indexOf('async function run'), evidenceMap.indexOf('function handleClick'));
   assert.match(stage, /pendingCustomApiConfig = \{/);
   assert.match(stage, /clearCustomApiInputs\(\)/);
   assert.ok(stage.indexOf('clearCustomApiInputs()') < stage.indexOf("setCustomApiStatus(uiText('customApi.queued'))"));
@@ -89,19 +88,20 @@ test('custom API values are cleared before the factual audit and consumed once a
   assert.match(evidence, /'X-API-Key': customApiConfig\.apiKey/);
   assert.match(evidence, /api_base_url: customApiConfig\.apiBaseUrl/);
   assert.match(evidence, /api_model: customApiConfig\.apiModel/);
-  assert.ok(evidence.indexOf('overwriteCustomApiConfig(customApiConfig)') < evidence.indexOf('const payload = await requestPromise'));
-  assert.match(evidence, /claimPendingCustomApiConfig\(runId\)/);
-  assert.match(app, /runPendingCustomApiEvidence\(d\.data, auditRequest\.customApiRunId\)/);
-  assert.match(app, /runPendingCustomApiEvidence\(d, auditRequest\.customApiRunId\)/);
-  assert.match(app, /setCustomApiStatus\(uiText\('customApi\.sent'\)\)/);
-  assert.match(app, /setCustomApiStatus\(uiText\('customApi\.complete'\)\)/);
+  assert.ok(evidence.indexOf('overwriteCustomApiConfig?.(customApiConfig)') < evidence.indexOf('const payload = await requestPromise'));
+  assert.match(evidence, /claimPendingCustomApiConfig\?\.\(runId\)/);
+  assert.match(app, /evidenceMapController\.runPending\(d\.data, auditRequest\.customApiRunId\)/);
+  assert.match(app, /evidenceMapController\.runPending\(d, auditRequest\.customApiRunId\)/);
+  assert.match(evidence, /customApi\.sent/);
+  assert.match(evidence, /customApi\.complete/);
 });
 
 test('custom API config is not persisted, placed in the audit URL, or copied into reports', () => {
-  const customFeature = app.slice(
+  const customInputs = app.slice(
     app.indexOf('function customApiElements'),
-    app.indexOf('function monitorProjectUrl'),
+    app.indexOf('function rerenderEvidencePanels'),
   );
+  const customFeature = `${customInputs}\n${evidenceMap}`;
   const requestObject = app.slice(
     app.indexOf('currentAuditRequest = {', app.indexOf('async function startAudit')),
     app.indexOf('};', app.indexOf('currentAuditRequest = {', app.indexOf('async function startAudit'))) + 2,

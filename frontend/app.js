@@ -14,20 +14,12 @@ let currentLighthouseState = null;
 let currentAuditRequest = null;
 let reportLanguage = STORED_REPORT_LANGUAGE || UI_LANGUAGE;
 let reportLanguageManuallySet = Boolean(STORED_REPORT_LANGUAGE);
-let currentEvidenceMapState = { snapshot: null, busy: false, error: null };
+let evidenceMapController = null;
 const CUSTOM_API_MODEL_LIMIT = 50;
 let customApiModelsBusy = false;
 let customApiRunSequence = 0;
 let pendingCustomApiConfig = null;
-let currentMonitoringState = {
-  project: null,
-  managementToken: '',
-  showToken: false,
-  runs: [],
-  busy: false,
-  error: null,
-  message: '',
-};
+let monitoringController = null;
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
 function applyUiLanguage() {
@@ -872,246 +864,42 @@ async function fetchCustomApiModels() {
 
 document.getElementById('custom-api-fetch-models')?.addEventListener('click', fetchCustomApiModels);
 
-function sanitizeCustomEvidenceSnapshot(value) {
-  if (Array.isArray(value)) return value.map(sanitizeCustomEvidenceSnapshot);
-  if (!value || typeof value !== 'object') return value;
-  const blocked = new Set(['api_key', 'apikey', 'authorization', 'api_base_url', 'base_url', 'endpoint', 'api_model', 'model']);
-  const clean = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (blocked.has(key.toLowerCase())) continue;
-    clean[key] = sanitizeCustomEvidenceSnapshot(item);
-  }
-  return clean;
-}
-
-function showMonitoringVerificationNotice(message, failed = false) {
-  const notice = document.createElement('div');
-  notice.id = 'monitor-verification-notice';
-  notice.setAttribute('role', failed ? 'alert' : 'status');
-  notice.className = `fixed left-4 right-4 top-4 z-[100] mx-auto max-w-xl rounded-xl border px-4 py-3 text-sm shadow-lg ${failed ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-green-200 bg-green-50 text-green-800'}`;
-  notice.textContent = message;
-  document.getElementById(notice.id)?.remove();
-  document.body.appendChild(notice);
-  setTimeout(() => notice.remove(), 8000);
-}
-
-async function verifyMonitoringEmailFromUrl() {
-  const url = new URL(window.location.href);
-  const projectId = url.searchParams.get('monitor_project') || '';
-  const verificationToken = url.searchParams.get('verify') || '';
-  if (!projectId || !verificationToken) return;
-  url.searchParams.delete('monitor_project');
-  url.searchParams.delete('verify');
-  history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-  try {
-    await fetchJson(`${API}/api/monitor-projects/${encodeURIComponent(projectId)}/email/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ token: verificationToken }),
-    });
-    showMonitoringVerificationNotice(uiText('audit.monitor.emailVerified'));
-  } catch (error) {
-    showMonitoringVerificationNotice(auxiliaryError(error, verificationToken).message, true);
-  }
-}
-
-verifyMonitoringEmailFromUrl();
-
 function rerenderEvidencePanels() {
   if (!currentAuditData) return;
   renderEvidenceReportSections(currentAuditData);
   if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
 }
 
-async function runEvidenceMap(options = {}) {
-  const requestedAuditId = options.auditId || currentAuditId;
-  let customApiConfig = options.customApiConfig || null;
-  const usesCustomApi = Boolean(customApiConfig);
-  if (!requestedAuditId || currentEvidenceMapState.busy) {
-    overwriteCustomApiConfig(customApiConfig);
-    return;
-  }
-  currentEvidenceMapState = { ...currentEvidenceMapState, busy: true, error: null };
-  rerenderEvidencePanels();
-  try {
-    const endpoint = `${API}/api/audits/${encodeURIComponent(requestedAuditId)}/evidence-map`;
-    let requestPromise;
-    if (customApiConfig) {
-      let request = new Request(endpoint, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-API-Key': customApiConfig.apiKey,
-        },
-        body: JSON.stringify({
-          api_base_url: customApiConfig.apiBaseUrl,
-          api_model: customApiConfig.apiModel,
-        }),
-        referrerPolicy: 'no-referrer',
-      });
-      requestPromise = fetchJson(request);
-      request = null;
-      overwriteCustomApiConfig(customApiConfig);
-      customApiConfig = null;
-      setCustomApiStatus(uiText('customApi.sent'));
-    } else {
-      requestPromise = fetchJson(endpoint, {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-      });
-    }
-    const payload = await requestPromise;
-    if (currentAuditId !== requestedAuditId) return;
-    const snapshot = sanitizeCustomEvidenceSnapshot(payload.data ?? null);
-    currentEvidenceMapState = { snapshot, busy: false, error: null };
-    currentAuditData = { ...currentAuditData, evidence_map: snapshot };
-    if (usesCustomApi) setCustomApiStatus(uiText('customApi.complete'));
-  } catch (error) {
-    if (currentAuditId === requestedAuditId) {
-      currentEvidenceMapState = {
-        ...currentEvidenceMapState,
-        busy: false,
-        error: usesCustomApi
-          ? { code: 'CUSTOM_API_EVIDENCE_FAILED', message: uiText('customApi.error.evidence') }
-          : auxiliaryError(error),
-      };
-      if (usesCustomApi) setCustomApiStatus(uiText('customApi.error.evidence'), true);
-    }
-  } finally {
-    overwriteCustomApiConfig(customApiConfig);
-  }
-  if (currentAuditId === requestedAuditId) rerenderEvidencePanels();
-}
+evidenceMapController = window.GeoScoreEvidenceMap.create({
+  apiBase: API,
+  fetchJson,
+  auxiliaryError,
+  uiText,
+  setCustomApiStatus,
+  overwriteCustomApiConfig,
+  claimPendingCustomApiConfig,
+  getAuditId: () => currentAuditId,
+  getAuditData: () => currentAuditData,
+  setAuditData: data => { currentAuditData = data; },
+  rerender: rerenderEvidencePanels,
+});
 
-function runPendingCustomApiEvidence(data, runId) {
-  const config = claimPendingCustomApiConfig(runId);
-  if (!config) return;
-  const auditId = data?.audit_id || currentAuditId;
-  if (!auditId) {
-    overwriteCustomApiConfig(config);
-    return;
-  }
-  runEvidenceMap({ auditId, customApiConfig: config });
-}
+monitoringController = window.GeoScoreMonitoring.create({
+  apiBase: API,
+  fetchJson,
+  auxiliaryError,
+  uiText,
+  getReportLanguage: () => reportLanguage,
+  getAuditId: () => currentAuditId,
+  getAuditData: () => currentAuditData,
+  setAuditData: data => { currentAuditData = data; },
+  rerender: rerenderEvidencePanels,
+});
 
-function monitorProjectUrl(action = '') {
-  const id = currentMonitoringState.project?.id;
-  if (!id) return null;
-  return `${API}/api/monitor-projects/${encodeURIComponent(id)}${action ? `/${action}` : ''}`;
-}
-
-function monitorHeaders(extra = {}) {
-  return {
-    Accept: 'application/json',
-    'X-Project-Token': currentMonitoringState.managementToken,
-    ...extra,
-  };
-}
-
-async function loadMonitoringHistory() {
-  const url = monitorProjectUrl('runs');
-  if (!url || !currentMonitoringState.managementToken) return;
-  const payload = await fetchJson(url, { headers: monitorHeaders() });
-  currentMonitoringState = { ...currentMonitoringState, runs: Array.isArray(payload.runs) ? payload.runs : [] };
-  if (currentAuditData) currentAuditData = { ...currentAuditData, monitoring_history: currentMonitoringState.runs };
-}
-
-async function createMonitoringProject(form) {
-  if (!currentAuditId || currentMonitoringState.busy) return;
-  const email = String(new FormData(form).get('email') || '').trim();
-  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
-  rerenderEvidencePanels();
-  try {
-    const payload = await fetchJson(`${API}/api/monitor-projects`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ audit_id: currentAuditId, ...(email ? { email } : {}) }),
-    });
-    currentMonitoringState = {
-      project: payload.project,
-      managementToken: payload.management_token || '',
-      showToken: payload.token_shown_once === true,
-      runs: [],
-      busy: false,
-      error: null,
-      message: reportLanguage === 'zh' ? '监控项目已创建。请立即保存管理 Token。' : 'Monitoring project created. Save the management token now.',
-    };
-    if (currentAuditData) currentAuditData = { ...currentAuditData, monitoring_project: payload.project };
-  } catch (error) {
-    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error) };
-  }
-  rerenderEvidencePanels();
-}
-
-async function updateMonitoringQueries(form) {
-  const url = monitorProjectUrl('queries');
-  if (!url || currentMonitoringState.busy) return;
-  const formData = new FormData(form);
-  const queryValues = formData.getAll('query').map(value => String(value).trim());
-  const intentValues = formData.getAll('intent').map(String);
-  const queries = queryValues.map((query, index) => ({ query, intent: intentValues[index] || 'informational' }));
-  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
-  rerenderEvidencePanels();
-  try {
-    const payload = await fetchJson(url, {
-      method: 'PATCH',
-      headers: monitorHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ queries }),
-    });
-    currentMonitoringState = {
-      ...currentMonitoringState,
-      project: { ...currentMonitoringState.project, queries: payload.queries ?? queries },
-      busy: false,
-      message: reportLanguage === 'zh' ? '查询已保存，监控基线将在下次运行时重建。' : 'Queries saved. The monitoring baseline will be rebuilt on the next run.',
-    };
-  } catch (error) {
-    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error) };
-  }
-  rerenderEvidencePanels();
-}
-
-async function runMonitoring({ apiKey = '' } = {}) {
-  const action = apiKey ? 'byok-runs' : 'runs';
-  const url = monitorProjectUrl(action);
-  if (!url || currentMonitoringState.busy) return;
-  currentMonitoringState = { ...currentMonitoringState, busy: true, error: null, message: '' };
-  rerenderEvidencePanels();
-  try {
-    await fetchJson(url, {
-      method: 'POST',
-      headers: monitorHeaders({
-        'Content-Type': 'application/json',
-        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
-      }),
-      body: '{}',
-    });
-    currentMonitoringState = { ...currentMonitoringState, busy: false, message: reportLanguage === 'zh' ? '监控快照已完成。' : 'Monitoring snapshot completed.' };
-    await loadMonitoringHistory();
-  } catch (error) {
-    currentMonitoringState = { ...currentMonitoringState, busy: false, error: auxiliaryError(error, apiKey) };
-  }
-  rerenderEvidencePanels();
-}
+void monitoringController.verifyEmailFromUrl();
 
 document.addEventListener('submit', (event) => {
-  const form = event.target.closest('[data-monitor-form]');
-  if (!form) return;
-  event.preventDefault();
-  if (form.dataset.monitorForm === 'create') {
-    createMonitoringProject(form);
-    return;
-  }
-  if (form.dataset.monitorForm === 'queries') {
-    updateMonitoringQueries(form);
-    return;
-  }
-  if (form.dataset.monitorForm === 'byok') {
-    const input = form.querySelector('input[name="api_key"]');
-    const apiKey = String(input?.value || '').trim();
-    if (input) input.value = '';
-    runMonitoring({ apiKey });
-  }
+  monitoringController.handleSubmit(event);
 });
 
 document.addEventListener('click', (e) => {
@@ -1137,27 +925,8 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  if (e.target.closest('[data-action="run-evidence-map"]')) {
-    runEvidenceMap();
-    return;
-  }
-
-  if (e.target.closest('[data-action="run-monitor-default"]')) {
-    runMonitoring();
-    return;
-  }
-
-  if (e.target.closest('[data-action="copy-monitor-token"]')) {
-    const token = currentMonitoringState.managementToken;
-    if (token) navigator.clipboard.writeText(token);
-    return;
-  }
-
-  if (e.target.closest('[data-action="dismiss-monitor-token"]')) {
-    currentMonitoringState = { ...currentMonitoringState, showToken: false };
-    rerenderEvidencePanels();
-    return;
-  }
+  if (evidenceMapController.handleClick(e)) return;
+  if (monitoringController.handleClick(e)) return;
 
   const quick = e.target.closest('[data-quick]');
   if (quick) { quickSearch(quick.dataset.quick); return; }
@@ -2437,7 +2206,7 @@ async function startAudit(rawInput, options = {}) {
   const pageQuery = REPORT_UI?.buildAuditPageQuery(currentAuditRequest) || `?d=${encodeURIComponent(domain)}`;
   history.pushState({}, '', pageQuery);
   showAuditShell(domain);
-  document.getElementById('business-card').innerHTML = spinnerCard(domain);
+  spinnerCard(domain);
   openAuditStream(currentAuditRequest, 0, options.fresh === true);
 }
 
@@ -2445,16 +2214,8 @@ function showAuditShell(domain) {
   stopAuditTimer();
   currentAuditData = null;
   currentLighthouseState = null;
-  currentEvidenceMapState = { snapshot: null, busy: false, error: null };
-  currentMonitoringState = {
-    project: null,
-    managementToken: '',
-    showToken: false,
-    runs: [],
-    busy: false,
-    error: null,
-    message: '',
-  };
+  evidenceMapController.reset();
+  monitoringController.reset();
   const savedReportLanguage = I18N?.getReportLanguage?.() ?? null;
   reportLanguageManuallySet = Boolean(savedReportLanguage);
   reportLanguage = savedReportLanguage || UI_LANGUAGE;
@@ -2666,8 +2427,8 @@ function renderEvidenceReportSections(data) {
   });
   const checks = REPORT_UI.renderNormalizedChecks(data, reportLanguage);
   const recommendations = REPORT_UI.renderEvidenceRecommendations(data, reportLanguage);
-  const evidenceMap = REPORT_UI.renderEvidenceMap?.(data, reportLanguage, currentEvidenceMapState) ?? '';
-  const monitoring = REPORT_UI.renderMonitoring?.(data, reportLanguage, currentMonitoringState) ?? '';
+  const evidenceMap = REPORT_UI.renderEvidenceMap?.(data, reportLanguage, evidenceMapController.getState()) ?? '';
+  const monitoring = REPORT_UI.renderMonitoring?.(data, reportLanguage, monitoringController.getState()) ?? '';
   modules.innerHTML = [evidenceMap, monitoring, recommendations, checks].filter(Boolean).join('');
   document.getElementById('cat-tabs')?.classList.add('hidden');
   return true;
@@ -2915,7 +2676,7 @@ function openAuditStream(request, attempt, fresh = false) {
       if (PROGRESS_MODULES.has(d.module)) { tickProgress(); clearTimeout(window._catCountTimer); window._catCountTimer = setTimeout(updateCatTabCounts, 120); }
     } else {
       renderFullAudit(d.data);
-      runPendingCustomApiEvidence(d.data, auditRequest.customApiRunId);
+      evidenceMapController.runPending(d.data, auditRequest.customApiRunId);
       // Instantly complete progress bar for cached results
       modulesComplete = TOTAL_MODULES;
       const fill = document.getElementById('progress-fill');
@@ -2934,7 +2695,7 @@ function openAuditStream(request, attempt, fresh = false) {
     currentAuditId = d.audit_id;
     stopAuditTimer();
     renderFullAudit(d);
-    runPendingCustomApiEvidence(d, auditRequest.customApiRunId);
+    evidenceMapController.runPending(d, auditRequest.customApiRunId);
     enableChat();
     es.close();
     // Kick off Lighthouse in a separate request (own Worker invocation = own subrequest budget)
@@ -3142,10 +2903,7 @@ function renderFullAudit(data) {
   if (!data?.domain) return;
   currentAuditData = data;
   currentAuditId = data.audit_id ?? currentAuditId;
-  currentEvidenceMapState = {
-    ...currentEvidenceMapState,
-    snapshot: data.evidence_map ?? currentEvidenceMapState.snapshot,
-  };
+  evidenceMapController.hydrate(data.evidence_map);
   if (!reportLanguageManuallySet) {
     reportLanguage = REPORT_UI?.inferReportLanguage(data, UI_LANGUAGE) ?? UI_LANGUAGE;
   }

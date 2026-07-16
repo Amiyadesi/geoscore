@@ -145,6 +145,17 @@ npx wrangler dev --config wrangler.jsonc --remote
 
 这会消耗 Cloudflare Browser Run 配额，不建议作为日常测试命令。
 
+部署前运行本地验证：
+
+```bash
+npm run check
+npm test
+npm run test:e2e:install
+npm run test:e2e
+```
+
+Playwright 使用固定 API fixture，覆盖中英文桌面端和移动端流程，不消耗线上审计或 Browser Run 配额。
+
 ## 可选服务
 
 ### Browser Run

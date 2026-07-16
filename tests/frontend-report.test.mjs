@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'frontend', 'report-ui.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(here, '..', 'frontend', 'app.js'), 'utf8');
+const monitoringSource = fs.readFileSync(path.join(here, '..', 'frontend', 'monitoring.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(here, '..', 'frontend', 'index.html'), 'utf8');
 const printCss = fs.readFileSync(path.join(here, '..', 'frontend', 'print.css'), 'utf8');
 const context = { URL, URLSearchParams };
@@ -18,12 +19,19 @@ const report = context.GeoScoreReport;
 test('evidence summary and report adapter load before legacy score rendering', () => {
   assert.ok(indexHtml.indexOf('id="evidence-summary"') < indexHtml.indexOf('id="scores"'));
   assert.ok(indexHtml.indexOf('src="report-ui.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="evidence-map.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="monitoring.js"') < indexHtml.indexOf('src="app.js"'));
 });
 
 test('audit header stacks and wraps actions on a 390px viewport', () => {
   assert.match(indexHtml, /class="flex flex-col items-stretch gap-3 px-5 py-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between"/);
   assert.match(indexHtml, /id="business-card" class="flex w-full min-w-0 items-center gap-3 sm:w-auto"/);
   assert.match(indexHtml, /class="flex w-full flex-wrap items-center gap-2 print:hidden sm:w-auto sm:shrink-0"/);
+});
+
+test('audit loading state preserves the persistent domain header elements', () => {
+  assert.match(appSource, /showAuditShell\(domain\);\s*spinnerCard\(domain\);\s*openAuditStream/);
+  assert.doesNotMatch(appSource, /innerHTML\s*=\s*spinnerCard\(domain\)/);
 });
 
 test('frontend selects the local Worker only for file and local hosts', () => {
@@ -533,26 +541,26 @@ test('monitoring UI shows the management token once, folds history and never re-
   assert.doesNotMatch(html, /name="api_key"[^>]+value=/);
   assert.doesNotMatch(html, /<details[^>]+open/);
 
-  const byokHandler = appSource.slice(
-    appSource.indexOf("if (form.dataset.monitorForm === 'byok')"),
-    appSource.indexOf("document.addEventListener('click'", appSource.indexOf("if (form.dataset.monitorForm === 'byok')")),
+  const byokHandler = monitoringSource.slice(
+    monitoringSource.indexOf("if (form.dataset.monitorForm === 'byok')"),
+    monitoringSource.indexOf('function handleClick', monitoringSource.indexOf("if (form.dataset.monitorForm === 'byok')")),
   );
   assert.match(byokHandler, /input\.value = ''/);
-  assert.ok(byokHandler.indexOf("input.value = ''") < byokHandler.indexOf('runMonitoring({ apiKey })'));
-  assert.match(appSource, /X-API-Key/);
-  assert.doesNotMatch(appSource, /localStorage\.(?:setItem|getItem)\([^\n]*api[_-]?key/i);
+  assert.ok(byokHandler.indexOf("input.value = ''") < byokHandler.indexOf('run({ apiKey })'));
+  assert.match(monitoringSource, /X-API-Key/);
+  assert.doesNotMatch(`${appSource}\n${monitoringSource}`, /localStorage\.(?:setItem|getItem)\([^\n]*api[_-]?key/i);
 });
 
 test('monitoring email verification consumes and removes the URL token before reporting status', () => {
-  const handler = appSource.slice(
-    appSource.indexOf('async function verifyMonitoringEmailFromUrl'),
-    appSource.indexOf('function rerenderEvidencePanels'),
+  const handler = monitoringSource.slice(
+    monitoringSource.indexOf('async function verifyEmailFromUrl'),
+    monitoringSource.indexOf('async function loadHistory'),
   );
   assert.match(handler, /searchParams\.delete\('monitor_project'\)/);
   assert.match(handler, /searchParams\.delete\('verify'\)/);
   assert.ok(handler.indexOf('history.replaceState') < handler.indexOf('await fetchJson'));
   assert.match(handler, /\/email\/verify/);
-  assert.match(handler, /auxiliaryError\(error, verificationToken\)/);
+  assert.match(handler, /auxiliaryError\?\.\(error, verificationToken\)/);
 });
 
 test('full Markdown download includes Evidence Map, limitations, monitoring history and grouped repairs without per-item generation', () => {

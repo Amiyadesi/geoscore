@@ -16,6 +16,8 @@
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/tailwind-input.css -o frontend/tailwind.css --minify",
     "check": "npm run build:css && tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "smoke:pagespeed": "node scripts/smoke-pagespeed.mjs",
     "prepare:cloudflare": "node scripts/prepare-cloudflare.mjs",
     "ensure:pages-domain": "node scripts/ensure-pages-domain.mjs",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250510.0",
+    "@playwright/test": "^1.61.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.4.5",
     "wrangler": "^4.90.0"

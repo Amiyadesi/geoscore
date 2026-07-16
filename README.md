@@ -237,6 +237,17 @@ npx wrangler dev --config wrangler.jsonc --remote
 This consumes the Cloudflare account's Browser Run allowance, so do not use it in
 routine unit tests.
 
+Run the local validation suite before deployment:
+
+```bash
+npm run check
+npm test
+npm run test:e2e:install
+npm run test:e2e
+```
+
+The Playwright suite uses deterministic API fixtures and covers English and Chinese desktop/mobile flows. It does not consume production audit or Browser Run quotas.
+
 ---
 
 ## Optional features
