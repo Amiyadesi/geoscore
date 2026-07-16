@@ -88,8 +88,8 @@ function baselineModules() {
 
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
-    assert.equal(core.SCORE_VERSION, '2.2.0');
-    assert.match(cache.cacheKey('example.com'), /^recent:v14:/);
+    assert.equal(core.SCORE_VERSION, '2.4.0');
+    assert.match(cache.cacheKey('example.com'), /^recent:v15:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -148,8 +148,8 @@ describe('GEO Evidence v3 contract', () => {
 
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
-    assert.equal(meta.version, '2.3.0');
-    assert.equal(meta.score_version, '2.2.0');
+    assert.equal(meta.version, '2.4.0');
+    assert.equal(meta.score_version, '2.4.0');
     assert.equal(meta.snapshot_version, '1.0.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
@@ -160,6 +160,10 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(meta.scoring.severity_caps.critical, 49);
     assert.equal(meta.scoring.severity_caps.major, 79);
     assert.equal(meta.scoring.severity_caps.minor, 94);
+    assert.deepEqual(meta.scoring.repeated_failure_caps, {
+      critical: { step: 10, floor: 19 },
+      major: { step: 10, floor: 49 },
+    });
     assert.equal(meta.scoring.minimum_overall_coverage, 0.6);
     assert.equal(meta.scoring.minimum_overall_confidence, 0.5);
     assert.ok(meta.capabilities.optional_modules_not_run.includes('broken_links'));
@@ -180,7 +184,7 @@ describe('GEO Evidence v3 contract', () => {
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
     const response = await worker.default.fetch(new Request('https://geo-api.example/api/meta'), env, {});
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).score_version, '2.2.0');
+    assert.equal((await response.json()).score_version, '2.4.0');
   });
 
   it('keeps public metadata provider-neutral and deletes the requested cache scope', async () => {

@@ -88,7 +88,7 @@ export default {
 };
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
-export const PRODUCT_VERSION = '2.3.0';
+export const PRODUCT_VERSION = '2.4.0';
 const MAX_AUDIT_PAGES = 5;
 const OPTIONAL_ANONYMOUS_MODULES = [
   'keywords',
@@ -130,6 +130,7 @@ export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
       minimum_overall_coverage: SCORE_POLICY.minimum_overall_coverage,
       minimum_overall_confidence: SCORE_POLICY.minimum_overall_confidence,
       severity_caps: SCORE_POLICY.severity_caps,
+      repeated_failure_caps: SCORE_POLICY.repeated_failure_caps,
       unknown_error_penalty: false,
       predicted_weight: 0,
     },

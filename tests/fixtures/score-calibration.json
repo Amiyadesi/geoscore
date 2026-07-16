@@ -1,0 +1,92 @@
+{
+  "baseline_checks": [
+    { "id": "seo.page_fetch", "category": "seo" },
+    { "id": "seo.indexability", "category": "seo" },
+    { "id": "seo.robots", "category": "seo" },
+    { "id": "seo.https_transport", "category": "seo" },
+    { "id": "seo.canonical", "category": "seo" },
+    { "id": "seo.title", "category": "seo" },
+    { "id": "seo.meta_description", "category": "seo" },
+    { "id": "seo.h1", "category": "seo" },
+    { "id": "seo.schema_fit", "category": "seo" },
+    { "id": "seo.mobile_viewport", "category": "seo" },
+    { "id": "seo.image_alt", "category": "seo" },
+    { "id": "seo.heading_hierarchy", "category": "seo" },
+    { "id": "geo.extractability", "category": "geo" },
+    { "id": "geo.entity_identity", "category": "geo" },
+    { "id": "geo.entity_consistency", "category": "geo" },
+    { "id": "geo.author_signal", "category": "geo" },
+    { "id": "geo.claim_source_support", "category": "geo" },
+    { "id": "geo.cross_page_consistency", "category": "geo" },
+    { "id": "geo.direct_answer", "category": "geo" },
+    { "id": "geo.freshness", "category": "geo" }
+  ],
+  "profiles": [
+    {
+      "name": "healthy-personal-blog",
+      "fixture": "chinese-personal-blog",
+      "domain": "blog.example.com",
+      "archetype": "personal_blog",
+      "overrides": {},
+      "expected": { "status": "complete", "score": 100, "cap": 100 }
+    },
+    {
+      "name": "saas-one-major-gap",
+      "fixture": "saas",
+      "domain": "app.example.com",
+      "archetype": "saas",
+      "overrides": {
+        "seo.title": "fail",
+        "seo.image_alt": "fail"
+      },
+      "expected": { "status": "complete", "score": 79, "cap": 79 }
+    },
+    {
+      "name": "ecommerce-three-major-gaps",
+      "fixture": "ecommerce",
+      "domain": "shop.example.com",
+      "archetype": "ecommerce",
+      "overrides": {
+        "seo.canonical": "fail",
+        "seo.schema_fit": "fail",
+        "geo.entity_identity": "fail"
+      },
+      "expected": { "status": "complete", "score": 59, "cap": 59 }
+    },
+    {
+      "name": "local-business-critical-extractability-gap",
+      "fixture": "local-business",
+      "domain": "dentist.example.com",
+      "archetype": "local_business",
+      "overrides": {
+        "geo.extractability": "fail",
+        "geo.entity_consistency": "fail",
+        "geo.author_signal": "fail"
+      },
+      "expected": { "status": "complete", "score": 49, "cap": 49 }
+    },
+    {
+      "name": "news-media-two-critical-indexing-gaps",
+      "fixture": "news-media",
+      "domain": "news.example.com",
+      "archetype": "news_media",
+      "overrides": {
+        "seo.indexability": "fail",
+        "seo.robots": "fail"
+      },
+      "expected": { "status": "complete", "score": 39, "cap": 39 }
+    },
+    {
+      "name": "unknown-site-insufficient-evidence",
+      "fixture": "unknown",
+      "domain": "unknown.example.com",
+      "archetype": "unknown",
+      "default_status": "unknown",
+      "overrides": {
+        "seo.page_fetch": "pass",
+        "seo.https_transport": "pass"
+      },
+      "expected": { "status": "insufficient_evidence", "score": null, "cap": 69 }
+    }
+  ]
+}

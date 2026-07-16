@@ -65,10 +65,16 @@ test('homepage and tools load the shared catalog before their page scripts', () 
 
 test('frontend CSP permits every declared runtime resource without inline executable config', () => {
   const index = read('index.html');
+  const tools = read('tools.html');
   const headers = read('_headers');
+  const tailwind = read('tailwind.css');
 
-  assert.match(index, /src="tailwind-config\.js"/);
+  assert.match(index, /href="tailwind\.css"/);
+  assert.match(tools, /href="tailwind\.css"/);
+  assert.doesNotMatch(`${index}\n${tools}\n${headers}`, /cdn\.tailwindcss\.com|tailwind-config\.js/);
   assert.doesNotMatch(index, /<script>\s*tailwind\.config\s*=/);
+  assert.match(tailwind, /\.bg-blue-600/);
+  assert.match(tailwind, /\.text-slate-900/);
   assert.match(headers, /style-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
   assert.match(headers, /font-src[^;\n]*https:\/\/cdn\.jsdelivr\.net/);
   assert.match(headers, /script-src[^;\n]*'wasm-unsafe-eval'/);

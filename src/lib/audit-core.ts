@@ -2,12 +2,16 @@ import type { ModuleResult } from './types';
 import type { FetchedAuditPage } from './audit-pages';
 import { registrableRoot } from './audit-pages';
 
-export const SCORE_VERSION = '2.2.0';
+export const SCORE_VERSION = '2.4.0';
 
 export const SCORE_POLICY = {
   minimum_overall_coverage: 0.6,
   minimum_overall_confidence: 0.5,
   severity_caps: { critical: 49, major: 79, minor: 94 },
+  repeated_failure_caps: {
+    critical: { step: 10, floor: 19 },
+    major: { step: 10, floor: 49 },
+  },
   coverage_caps: [
     { below: 0.6, cap: 69 },
     { below: 0.75, cap: 79 },
@@ -716,8 +720,15 @@ function scoreCapReasons(
     const checkIds = failures.filter(item => item.severity === severity).map(item => item.id);
     if (checkIds.length) reasons.push({ code, cap, check_ids: checkIds });
   };
-  addFailureCap('critical', 'CRITICAL_FAILURE', SCORE_POLICY.severity_caps.critical);
-  addFailureCap('major', 'MAJOR_FAILURE', SCORE_POLICY.severity_caps.major);
+  const repeatedCap = (severity: 'critical' | 'major', count: number) => {
+    const base = SCORE_POLICY.severity_caps[severity];
+    const rule = SCORE_POLICY.repeated_failure_caps[severity];
+    return Math.max(rule.floor, base - Math.max(0, count - 1) * rule.step);
+  };
+  const criticalCount = failures.filter(item => item.severity === 'critical').length;
+  const majorCount = failures.filter(item => item.severity === 'major').length;
+  addFailureCap('critical', 'CRITICAL_FAILURE', repeatedCap('critical', criticalCount));
+  addFailureCap('major', 'MAJOR_FAILURE', repeatedCap('major', majorCount));
   addFailureCap('minor', 'MINOR_FAILURE', SCORE_POLICY.severity_caps.minor);
 
   const coverageCap = SCORE_POLICY.coverage_caps.find(rule => coverage < rule.below);

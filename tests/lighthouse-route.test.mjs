@@ -189,7 +189,15 @@ describe('Lighthouse API route', () => {
       assert.equal(checks['seo.lab_cls'].status, 'pass');
       assert.equal(checks['seo.lab_tbt'].status, 'fail');
       assert.ok(database.state.audit.score_summary.seo.score < 100);
-      assert.equal(database.state.audit.score_summary.seo.cap, 79);
+      assert.equal(database.state.audit.score_summary.seo.cap, 69);
+      assert.deepEqual(
+        database.state.audit.score_summary.seo.cap_reasons.find(item => item.code === 'MAJOR_FAILURE'),
+        {
+          code: 'MAJOR_FAILURE',
+          cap: 69,
+          check_ids: ['seo.lab_performance', 'seo.lab_lcp'],
+        },
+      );
     });
   });
 
