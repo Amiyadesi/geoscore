@@ -14,12 +14,12 @@ let currentLighthouseState = null;
 let currentAuditRequest = null;
 let reportLanguage = STORED_REPORT_LANGUAGE || UI_LANGUAGE;
 let reportLanguageManuallySet = Boolean(STORED_REPORT_LANGUAGE);
+let semanticSearchController = null;
+let customApiController = null;
+let reportExportController = null;
 let evidenceMapController = null;
-const CUSTOM_API_MODEL_LIMIT = 50;
-let customApiModelsBusy = false;
-let customApiRunSequence = 0;
-let pendingCustomApiConfig = null;
 let monitoringController = null;
+let assistantController = null;
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
 function applyUiLanguage() {
@@ -363,133 +363,9 @@ function tickProgress() {
     setTimeout(() => { const bar = document.getElementById('progress-bar'); if (bar) bar.classList.add('hidden'); }, 1200);
   }
 }
-let sessionId = localStorage.getItem('session_id') || crypto.randomUUID();
-try { localStorage.setItem('session_id', sessionId); } catch { /* Safari private mode */ }
-
 // ── Semantic Search (Transformers.js v3 + WebGPU) ─────────────────────────
-// BGE-Small-EN-v1.5 ONNX (33 MB) runs on WebGPU via ONNX Runtime Web.
-// Same model family as @cf/baai/bge-small-en-v1.5 in Workers AI — vector
-// spaces are compatible, so embeddings can be compared cross-environment.
-// Swap SEMANTIC_MODEL to 'onnx-community/Ternary-Bonsai-1.7B' once that
-// ONNX conversion is published on HuggingFace Hub (not yet available).
-
-const SEMANTIC_MODEL = 'Xenova/bge-small-en-v1.5';
-const SEM_IDB = 'geo_audit_sem';
-const SEM_STORE = 'vecs';
-
-let embedder = null;
-let allBusinesses = [];
-let businessVecs = null;  // Float32Array[] parallel to allBusinesses
-let semanticReady = false;
-
-// BGE normalises vectors to unit length, so dot product = cosine similarity
-function dotSim(a, b) {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-  return s;
-}
-
-function idbOp(mode, key, val) {
-  return new Promise((resolve) => {
-    const req = indexedDB.open(SEM_IDB, 1);
-    req.onupgradeneeded = (e) => e.target.result.createObjectStore(SEM_STORE);
-    req.onsuccess = (e) => {
-      const db = e.target.result;
-      const tx = db.transaction(SEM_STORE, mode);
-      const r = mode === 'readonly'
-        ? tx.objectStore(SEM_STORE).get(key)
-        : tx.objectStore(SEM_STORE).put(val, key);
-      r.onsuccess = () => resolve(r.result ?? null);
-      r.onerror = () => resolve(null);
-    };
-    req.onerror = () => resolve(null);
-  });
-}
-
-async function embedBatch(texts) {
-  const out = await embedder(texts, { pooling: 'mean', normalize: true });
-  const dim = out.dims[out.dims.length - 1];
-  return Array.from({ length: texts.length }, (_, i) =>
-    new Float32Array(out.data.slice(i * dim, (i + 1) * dim))
-  );
-}
-
-async function initSemanticSearch() {
-  if (!navigator.gpu) return;
-  try {
-    setSemanticBadge('loading');
-
-    const { pipeline, env } = await import(
-      'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js'
-    );
-    env.allowLocalModels = false;
-    env.useBrowserCache = true;
-
-    embedder = await pipeline('feature-extraction', SEMANTIC_MODEL, {
-      device: 'webgpu',
-      dtype: 'q8',
-    });
-
-    const r = await fetch(`${API}/api/businesses`);
-    allBusinesses = r.ok ? await r.json() : [];
-    if (!allBusinesses.length) { setSemanticBadge('off'); return; }
-
-    // Restore pre-computed business embeddings from IndexedDB if available
-    const cacheKey = `${SEMANTIC_MODEL}@${allBusinesses.length}`;
-    const hit = await idbOp('readonly', cacheKey);
-    if (hit) {
-      businessVecs = hit.map(arr => new Float32Array(arr));
-    } else {
-      // Embed all businesses in batches of 16 (background, non-blocking for UI)
-      const texts = allBusinesses.map(
-        b => `${b.name} ${b.category || ''} ${b.city || ''}`.replace(/\s+/g, ' ').trim()
-      );
-      businessVecs = [];
-      for (let i = 0; i < texts.length; i += 16) {
-        businessVecs.push(...await embedBatch(texts.slice(i, i + 16)));
-      }
-      // Persist — serialise Float32Arrays to plain arrays for structured clone
-      idbOp('readwrite', cacheKey, businessVecs.map(v => Array.from(v)));
-    }
-
-    semanticReady = true;
-    setSemanticBadge('ready');
-  } catch (err) {
-    console.warn('[semantic]', err?.message ?? err);
-    setSemanticBadge('off');
-  }
-}
-
-function setSemanticBadge(state) {
-  const el = document.getElementById('semantic-badge');
-  if (!el) return;
-  el.className = 'text-xs px-2 py-0.5 rounded';
-  if (state === 'loading') {
-    el.textContent = `⚡ ${uiText('semantic.loading')}`;
-    el.classList.add('bg-amber-50', 'text-amber-600');
-  } else if (state === 'ready') {
-    el.textContent = `⚡ ${uiText('semantic.ready')}`;
-    el.classList.add('bg-green-50', 'text-green-700', 'font-medium');
-  } else {
-    el.textContent = '';
-  }
-}
-
-async function semanticSearch(q, topK = 8) {
-  if (!semanticReady || !embedder || !businessVecs) return null;
-  try {
-    const out = await embedder(q, { pooling: 'mean', normalize: true });
-    const qvec = new Float32Array(out.data);
-    const scored = allBusinesses.map((b, i) => ({ ...b, _sim: dotSim(qvec, businessVecs[i]) }));
-    scored.sort((a, b) => b._sim - a._sim);
-    return scored.filter(b => b._sim > 0.25).slice(0, topK);
-  } catch {
-    return null;
-  }
-}
-
-// Kick off model loading in background — doesn't block page render
-initSemanticSearch();
+semanticSearchController = window.GeoScoreSemanticSearch.create({ apiBase: API, uiText });
+void semanticSearchController.init();
 // Show recent audit history on page load
 renderRecentAudits();
 
@@ -665,204 +541,6 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
-function customApiElements() {
-  return {
-    panel: document.getElementById('custom-api-panel'),
-    apiKey: document.getElementById('custom-api-key'),
-    baseUrl: document.getElementById('custom-api-base-url'),
-    model: document.getElementById('custom-api-model'),
-    modelList: document.getElementById('custom-api-model-list'),
-    fetchModels: document.getElementById('custom-api-fetch-models'),
-    status: document.getElementById('custom-api-status'),
-  };
-}
-
-function setCustomApiStatus(message = '', failed = false) {
-  const { status } = customApiElements();
-  if (!status) return;
-  status.textContent = String(message || '');
-  status.classList.toggle('hidden', !message);
-  status.classList.toggle('text-orange-700', failed);
-  status.classList.toggle('text-green-700', !failed && Boolean(message));
-  status.setAttribute('role', failed ? 'alert' : 'status');
-  status.setAttribute('aria-live', failed ? 'assertive' : 'polite');
-}
-
-function focusCustomApiField(field) {
-  const { panel } = customApiElements();
-  if (panel) panel.open = true;
-  field?.focus();
-}
-
-function normalizeCustomApiBaseUrl(value) {
-  try {
-    const url = new URL(String(value || '').trim());
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
-    const normalizedPath = url.pathname.replace(/\/+$/, '');
-    url.pathname = normalizedPath || '/';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function overwriteCustomApiConfig(config) {
-  if (!config || typeof config !== 'object') return;
-  config.apiKey = '';
-  config.apiBaseUrl = '';
-  config.apiModel = '';
-  config.runId = null;
-}
-
-function discardPendingCustomApiConfig(runId = null) {
-  if (!pendingCustomApiConfig) return false;
-  if (runId !== null && pendingCustomApiConfig.runId !== runId) return false;
-  const config = pendingCustomApiConfig;
-  pendingCustomApiConfig = null;
-  overwriteCustomApiConfig(config);
-  return true;
-}
-
-function clearCustomApiInputs() {
-  const { apiKey, baseUrl, model, modelList } = customApiElements();
-  if (apiKey) apiKey.value = '';
-  if (baseUrl) baseUrl.value = '';
-  if (model) model.value = '';
-  modelList?.replaceChildren();
-}
-
-function stageCustomApiForAudit(runId) {
-  const { apiKey, baseUrl, model } = customApiElements();
-  const values = {
-    apiKey: String(apiKey?.value || '').trim(),
-    apiBaseUrl: String(baseUrl?.value || '').trim(),
-    apiModel: String(model?.value || '').trim(),
-  };
-  const hasAnyValue = Boolean(values.apiKey || values.apiBaseUrl || values.apiModel);
-  discardPendingCustomApiConfig();
-  if (!hasAnyValue) {
-    setCustomApiStatus('');
-    return { ok: true, configured: false };
-  }
-  if (!values.apiKey || !values.apiBaseUrl || !values.apiModel) {
-    setCustomApiStatus(uiText('customApi.error.required'), true);
-    focusCustomApiField(!values.apiKey ? apiKey : !values.apiBaseUrl ? baseUrl : model);
-    return { ok: false, configured: false };
-  }
-  const normalizedBaseUrl = normalizeCustomApiBaseUrl(values.apiBaseUrl);
-  if (!normalizedBaseUrl) {
-    setCustomApiStatus(uiText('customApi.error.https'), true);
-    focusCustomApiField(baseUrl);
-    return { ok: false, configured: false };
-  }
-  pendingCustomApiConfig = {
-    runId,
-    apiKey: values.apiKey,
-    apiBaseUrl: normalizedBaseUrl,
-    apiModel: values.apiModel.slice(0, 160),
-  };
-  clearCustomApiInputs();
-  setCustomApiStatus(uiText('customApi.queued'));
-  return { ok: true, configured: true };
-}
-
-function claimPendingCustomApiConfig(runId) {
-  if (!pendingCustomApiConfig || pendingCustomApiConfig.runId !== runId) return null;
-  const config = pendingCustomApiConfig;
-  pendingCustomApiConfig = null;
-  return config;
-}
-
-function customApiModelIds(payload) {
-  const candidates = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.models)
-      ? payload.models
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload?.data?.models)
-          ? payload.data.models
-          : [];
-  const seen = new Set();
-  const models = [];
-  for (const item of candidates) {
-    const value = String(typeof item === 'string' ? item : item?.id ?? item?.model ?? item?.name ?? '').trim();
-    if (!value || value.length > 160 || seen.has(value)) continue;
-    seen.add(value);
-    models.push(value);
-    if (models.length >= CUSTOM_API_MODEL_LIMIT) break;
-  }
-  return models;
-}
-
-function renderCustomApiModels(models) {
-  const { modelList } = customApiElements();
-  if (!modelList) return;
-  modelList.replaceChildren();
-  for (const value of models) {
-    const option = document.createElement('option');
-    option.value = value;
-    modelList.appendChild(option);
-  }
-}
-
-async function fetchCustomApiModels() {
-  if (customApiModelsBusy) return;
-  const { apiKey, baseUrl, fetchModels } = customApiElements();
-  let key = String(apiKey?.value || '').trim();
-  const normalizedBaseUrl = normalizeCustomApiBaseUrl(baseUrl?.value);
-  if (!key) {
-    setCustomApiStatus(uiText('customApi.error.required'), true);
-    focusCustomApiField(apiKey);
-    return;
-  }
-  if (!normalizedBaseUrl) {
-    setCustomApiStatus(uiText('customApi.error.https'), true);
-    focusCustomApiField(baseUrl);
-    return;
-  }
-  customApiModelsBusy = true;
-  if (fetchModels) {
-    fetchModels.disabled = true;
-    fetchModels.textContent = uiText('customApi.fetchingModels');
-  }
-  setCustomApiStatus(uiText('customApi.fetchingModels'));
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    const response = await fetch(`${API}/api/answer-models`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-API-Key': key,
-      },
-      body: JSON.stringify({ api_base_url: normalizedBaseUrl }),
-      signal: controller.signal,
-      referrerPolicy: 'no-referrer',
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload) throw new Error(`HTTP ${response.status}`);
-    const models = customApiModelIds(payload);
-    renderCustomApiModels(models);
-    setCustomApiStatus(models.length
-      ? uiText('customApi.modelsLoaded', { count: models.length })
-      : uiText('customApi.error.emptyModels'), models.length === 0);
-  } catch {
-    renderCustomApiModels([]);
-    setCustomApiStatus(uiText('customApi.error.fetch'), true);
-  } finally {
-    clearTimeout(timeout);
-    key = '';
-    customApiModelsBusy = false;
-    if (fetchModels) {
-      fetchModels.disabled = false;
-      fetchModels.textContent = uiText('customApi.fetchModels');
-    }
-  }
-}
-
-document.getElementById('custom-api-fetch-models')?.addEventListener('click', fetchCustomApiModels);
 
 function rerenderEvidencePanels() {
   if (!currentAuditData) return;
@@ -870,14 +548,24 @@ function rerenderEvidencePanels() {
   if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
 }
 
+customApiController = window.GeoScoreCustomApi.create({
+  apiBase: API,
+  uiText,
+});
+
+reportExportController = window.GeoScoreReportExport.create({
+  reportUi: REPORT_UI,
+  getReportLanguage: () => reportLanguage,
+});
+
 evidenceMapController = window.GeoScoreEvidenceMap.create({
   apiBase: API,
   fetchJson,
   auxiliaryError,
   uiText,
-  setCustomApiStatus,
-  overwriteCustomApiConfig,
-  claimPendingCustomApiConfig,
+  setCustomApiStatus: customApiController.setStatus,
+  overwriteCustomApiConfig: customApiController.overwriteConfig,
+  claimPendingCustomApiConfig: customApiController.claim,
   getAuditId: () => currentAuditId,
   getAuditData: () => currentAuditData,
   setAuditData: data => { currentAuditData = data; },
@@ -894,6 +582,16 @@ monitoringController = window.GeoScoreMonitoring.create({
   getAuditData: () => currentAuditData,
   setAuditData: data => { currentAuditData = data; },
   rerender: rerenderEvidencePanels,
+});
+
+assistantController = window.GeoScoreAssistantUi.create({
+  apiBase: API,
+  uiText,
+  escapeHtml: esc,
+  formatSeconds: fmtSecs,
+  getAuditId: () => currentAuditId,
+  getReportLanguage: () => reportLanguage,
+  getRecommendation: key => recMap.get(key),
 });
 
 void monitoringController.verifyEmailFromUrl();
@@ -932,7 +630,7 @@ document.addEventListener('click', (e) => {
   if (quick) { quickSearch(quick.dataset.quick); return; }
 
   const fix = e.target.closest('[data-action="toggle-fix"]');
-  if (fix) { toggleWhatToDo(fix); return; }
+  if (fix) { assistantController.toggleFix(fix); return; }
 
   // Clipboard copy — any element with data-copy="text to copy"
   const copyEl = e.target.closest('[data-copy]');
@@ -1162,623 +860,6 @@ async function loadSharedAudit(domain) {
       errEl.classList.remove('hidden');
     }
   }
-}
-
-// ── AI Agent Markdown Export ──────────────────────────────────────────────
-// Generates a single-prompt markdown file optimised for AI coding agents.
-// Works as a paste-into-Lovable prompt OR a Claude Code / Cursor context file.
-
-function detectStack(data) {
-  // Detect framework from site_intel third-party scripts or technical_seo hints
-  const techData = data?.modules?.technical_seo?.data ?? {};
-  const siteIntel = data?.modules?.site_intel?.data ?? {};
-  const scripts = (siteIntel.third_party?.script_domains ?? []).join(' ').toLowerCase();
-  const cms = (techData.cms ?? '').toLowerCase();
-  if (cms.includes('wordpress') || cms.includes('wp')) return 'wordpress';
-  if (cms.includes('shopify')) return 'shopify';
-  if (cms.includes('webflow')) return 'webflow';
-  if (cms.includes('wix')) return 'wix';
-  if (cms.includes('squarespace')) return 'squarespace';
-  if (cms.includes('next') || scripts.includes('next')) return 'nextjs';
-  if (cms.includes('nuxt')) return 'nuxt';
-  if (cms.includes('astro')) return 'astro';
-  if (cms.includes('gatsby')) return 'gatsby';
-  if (cms.includes('remix')) return 'remix';
-  // Vite SPA heuristic: no CMS detected, has JS bundle
-  return 'vite'; // safest generic default for modern SPAs
-}
-
-function stackHeadFile(stack) {
-  const map = {
-    nextjs: '`app/layout.tsx` (or `pages/_document.tsx` for Pages Router)',
-    nuxt: '`nuxt.config.ts` useHead / `app.vue` <Head>',
-    astro: 'your layout `.astro` file `<head>` section',
-    gatsby: '`gatsby-ssr.js` or your layout component',
-    remix: 'your root `app/root.tsx` <head> section',
-    wordpress: 'your theme\'s `header.php` or an SEO plugin (Yoast/RankMath)',
-    shopify: 'your theme\'s `theme.liquid` `<head>` section',
-    webflow: 'Webflow → Pages → Custom Code → Head Code',
-    wix: 'Wix → Settings → Custom Code → Head',
-    squarespace: 'Settings → Advanced → Code Injection → Header',
-    vite: '`index.html` `<head>` section',
-  };
-  return map[stack] ?? '`index.html` or your root layout `<head>`';
-}
-
-function stackPublicDir(stack) {
-  const map = {
-    nextjs: '`public/`',
-    nuxt: '`public/`',
-    astro: '`public/`',
-    gatsby: '`static/`',
-    remix: '`public/`',
-    wordpress: 'your domain root (upload via FTP or File Manager)',
-    shopify: 'Assets section (or via Shopify Files)',
-    webflow: 'Upload to Webflow Hosting → Custom Code',
-    wix: 'Wix doesn\'t support custom robots.txt — use Wix SEO settings',
-    squarespace: 'Squarespace doesn\'t support custom robots.txt — use their SEO panel',
-    vite: '`public/`',
-  };
-  return map[stack] ?? '`public/`';
-}
-
-function stackHeadersFile(stack) {
-  if (stack === 'nextjs') return '`next.config.js` `headers()` export';
-  if (stack === 'nuxt') return '`nuxt.config.ts` `routeRules`';
-  if (stack === 'astro') return '`public/_headers` (Netlify/CF Pages) or `astro.config.mjs` headers';
-  if (['gatsby','remix','vite'].includes(stack)) return '`public/_headers` (Cloudflare Pages/Netlify) or `vercel.json`';
-  return 'your server / hosting provider headers config';
-}
-
-function generateEvidenceAgentMarkdown(data) {
-  return REPORT_UI.generateFullRepairMarkdown(data, reportLanguage);
-}
-
-function generateAgentMarkdown(data) {
-  if (data?.score_summary) return generateEvidenceAgentMarkdown(data);
-  const domain   = data?.domain ?? '';
-  const seo      = data?.seo_score  ?? data?.foundation_score ?? 0;
-  const geo      = data?.geo_score  ?? data?.weakness_score   ?? 0;
-  const overall  = data?.overall_score ?? Math.round(seo * 0.55 + geo * 0.45);
-  const mods     = data?.modules ?? {};
-  const date     = new Date().toISOString().slice(0, 10);
-  const stack    = detectStack(data);
-  const headFile = stackHeadFile(stack);
-  const pubDir   = stackPublicDir(stack);
-  const hdrFile  = stackHeadersFile(stack);
-
-  const tech     = mods.technical_seo?.data ?? {};
-  const meta     = tech.page_meta ?? {};
-  const schema   = mods.schema_audit?.data ?? {};
-  const robots   = mods.robots_sitemap?.data ?? {};
-  const rt       = robots.robots_txt ?? {};
-  const sm       = robots.sitemap ?? {};
-  const offPage  = mods.off_page_seo?.data ?? {};
-  const security = mods.security_audit?.data ?? {};
-  const imgAudit = tech.image_audit ?? {};
-  const mobileData = mods.mobile_audit?.data ?? null;
-  const mobile   = mobileData ?? {};
-  const content  = mods.content_quality?.data ?? {};
-  const bl       = mods.broken_links?.data ?? {};
-  const brokenLinks = (bl.broken ?? []).filter(b => b.status !== null);
-
-  // ── Detect what the site is (for schema type) ─────────────────────────
-  const schemasFound = schema.schemas_found ?? [];
-  const coverage = schema.coverage ?? {};
-  const isPersonalEditorial = schema.site_type === 'editorial';
-  const hasVisibleFaq = mods.on_page_seo?.data?.content?.has_faq === true;
-  // Guess schema type from vertical detected in geo_predicted
-  const vertical = mods.geo_predicted?.data?.vertical ?? mods.keywords?.data?.vertical ?? 'general';
-  const schemaType =
-    isPersonalEditorial && schemasFound.includes('Person') ? 'Person' :
-    isPersonalEditorial ? 'Organization' :
-    vertical === 'restaurant' || vertical === 'food_delivery' ? 'Restaurant' :
-    vertical === 'dental' || vertical === 'medical' ? 'MedicalBusiness' :
-    vertical === 'legal' ? 'LegalService' :
-    vertical === 'real_estate' ? 'RealEstateAgent' :
-    vertical === 'fitness' ? 'SportsActivityLocation' :
-    vertical === 'hotel' ? 'Hotel' :
-    schemasFound.includes('Product') || schemasFound.includes('SoftwareApplication') ? 'SoftwareApplication' :
-    schemasFound.includes('LocalBusiness') ? 'LocalBusiness' :
-    'Organization';
-
-  // ── Build change list ─────────────────────────────────────────────────
-  const changes = [];
-  const dnsChanges = [];
-  let changeNum = 0;
-
-  function addChange(impact, title, body) {
-    changes.push({ num: ++changeNum, impact, title, body });
-  }
-
-  // ── CRITICAL: bot/crawler blocks ───────────────────────────────────────
-  if (rt.blocks_all) {
-    addChange('🔴 CRITICAL', 'Un-block all crawlers in robots.txt',
-`Your robots.txt has \`Disallow: /\` for all user-agents — this blocks Google and all search engines. Fix immediately.
-
-Replace your robots.txt in ${pubDir} with:
-\`\`\`
-User-agent: *
-Allow: /
-
-Sitemap: https://${domain}/sitemap.xml
-\`\`\``);
-  }
-  if (mobileData && !mobile.has_viewport_meta) {
-    addChange('🔴 CRITICAL', 'Add viewport meta tag',
-`The page is missing the viewport meta tag — it will not render correctly on mobile.
-
-Add inside ${headFile}:
-\`\`\`html
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-\`\`\``);
-  }
-
-  // ── HIGH: schema markup ────────────────────────────────────────────────
-  if (schemasFound.length === 0) {
-    const schemaJson = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": schemaType,
-      "name": meta.title ? meta.title.split(/[|—-]/)[0].trim() : domain,
-      "url": `https://${domain}`,
-      ...(meta.description ? { "description": meta.description } : {})
-    }, null, 2);
-    addChange('🟠 HIGH', `Add ${schemaType} JSON-LD schema markup`,
-`No structured data found. Schema markup gives search and answer systems explicit entity facts; add only types and claims supported by this page.
-
-Add this inside ${headFile} (before </head>):
-\`\`\`html
-<script type="application/ld+json">
-${schemaJson}
-</script>
-\`\`\`
-
-After adding, validate at: https://validator.schema.org`);
-  } else if (!isPersonalEditorial && !coverage.FAQPage && hasVisibleFaq) {
-    addChange('🟡 MEDIUM', 'Mark up the existing FAQ with FAQPage schema',
-`A visible FAQ section was found, but no FAQPage schema was detected.
-
-Add FAQPage JSON-LD beside the existing page schema using the exact questions and answers already published on the page. Do not create a synthetic FAQ just for markup. Validate the final JSON-LD at https://validator.schema.org.`);
-  }
-
-  // ── HIGH: static files ─────────────────────────────────────────────────
-  if (mods.robots_sitemap?.data && !rt.exists) {
-    addChange('🟠 HIGH', `Create robots.txt in ${pubDir}`,
-`robots.txt is missing. Search engines use it for crawl guidance.
-
-Create the file \`${pubDir.replace(/`/g,'')}/robots.txt\` with this exact content:
-\`\`\`
-User-agent: *
-Allow: /
-
-Sitemap: https://${domain}/sitemap.xml
-\`\`\``);
-  }
-
-  if (mods.robots_sitemap?.data && !sm.exists) {
-    addChange('🟠 HIGH', `Create sitemap.xml in ${pubDir}`,
-`No sitemap found. A sitemap helps Google discover all your pages and is required for Google Search Console submission.
-
-Create \`${pubDir.replace(/`/g,'')}/sitemap.xml\`:
-\`\`\`xml
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://${domain}/</loc>
-    <lastmod>${date}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <!-- Add a <url> block for every page on your site -->
-</urlset>
-\`\`\`
-
-Then submit it at https://search.google.com/search-console`);
-  }
-
-  // ── HIGH: llms.txt ────────────────────────────────────────────────────
-  if (mods.technical_seo?.data && REPORT_UI?.llmsTxtView?.(tech, reportLanguage)?.state === 'missing') {
-    const titleBrand = meta.title ? meta.title.split(/[|—-]/)[0].trim() : domain;
-    addChange('🟠 HIGH', `Create llms.txt in ${pubDir}`,
-`llms.txt is an optional, human-readable content index. It can make important pages easier for automated readers to discover, but it is not a citation guarantee.
-
-Create \`${pubDir.replace(/`/g,'')}/llms.txt\`:
-\`\`\`
-# ${titleBrand}
-> ${meta.description ?? `${titleBrand} — visit https://${domain} to learn more.`}
-
-## About
-${titleBrand} is ${meta.description ?? 'a service available at ' + domain}.
-
-## Key Pages
-- [Home](https://${domain}/)
-
-## Contact
-- Website: https://${domain}
-\`\`\``);
-  }
-
-  // ── HIGH: missing canonical & og tags ─────────────────────────────────
-  const missingMeta = [];
-  if ((tech.issues ?? []).some(i => i.includes('canonical'))) {
-    missingMeta.push(`  <link rel="canonical" href="https://${domain}/" />`);
-  }
-  if ((tech.issues ?? []).some(i => i.includes('og:site_name'))) {
-    const brand = meta.title ? meta.title.split(/[|—-]/)[0].trim() : domain;
-    missingMeta.push(`  <meta property="og:site_name" content="${brand}" />`);
-  }
-  if (!meta.description || meta.description.trim() === '') {
-    missingMeta.push(`  <meta name="description" content="One sentence describing what you offer and for whom. Keep under 160 characters." />`);
-    missingMeta.push(`  <meta property="og:description" content="Same as above." />`);
-  }
-  if (missingMeta.length > 0) {
-    addChange('🟠 HIGH', 'Add missing meta tags to <head>',
-`Add these tags inside ${headFile}:
-\`\`\`html
-${missingMeta.join('\n')}
-\`\`\``);
-  }
-
-  // ── HIGH: title issues ─────────────────────────────────────────────────
-  if (meta.title && meta.title.length < 30) {
-    addChange('🟠 HIGH', 'Expand page title — too short',
-`Current title is only ${meta.title.length} characters: "${meta.title}"
-Target: 30–70 characters. Include the primary keyword near the front.
-
-In ${headFile}, update:
-\`\`\`html
-<title>Your Primary Keyword | ${meta.title}</title>
-\`\`\``);
-  }
-
-  // ── HIGH: security headers ─────────────────────────────────────────────
-  const missingHeaders = security.missing_headers ?? [];
-  if (missingHeaders.length > 0 || (security.issues ?? []).some(i => i.includes('header'))) {
-    if (stack === 'nextjs') {
-      addChange('🟠 HIGH', 'Add security headers in next.config.js',
-`Missing HTTP security headers: ${missingHeaders.length > 0 ? missingHeaders.join(', ') : 'CSP, X-Frame-Options, Referrer-Policy'}. These protect against XSS and clickjacking.
-
-In \`next.config.js\` (or \`next.config.mjs\`), add a \`headers()\` export:
-\`\`\`js
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  async headers() {
-    return [{
-      source: '/(.*)',
-      headers: [
-        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-        { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-      ],
-    }];
-  },
-};
-module.exports = nextConfig;
-\`\`\``);
-    } else {
-      addChange('🟠 HIGH', `Add security headers via ${hdrFile}`,
-`Missing security headers protect against XSS, clickjacking, and MIME-sniffing attacks.
-
-Create \`public/_headers\` (for Cloudflare Pages or Netlify) with:
-\`\`\`
-/*
-  X-Frame-Options: SAMEORIGIN
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
-\`\`\`
-
-Or for Vercel, add to \`vercel.json\`:
-\`\`\`json
-{
-  "headers": [{
-    "source": "/(.*)",
-    "headers": [
-      { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-    ]
-  }]
-}
-\`\`\``);
-    }
-  }
-
-  // ── MEDIUM: content ────────────────────────────────────────────────────
-  if ((content.word_count ?? 0) > 0 && (content.word_count ?? 0) < 400) {
-    addChange('🟡 MEDIUM', 'Add more content to the homepage',
-`Only ${content.word_count} words detected. ${isPersonalEditorial
-  ? 'Expand only the pages that need real context; do not manufacture filler for a score.'
-  : 'Pages with fewer than 400 words may be considered thin by Google.'}
-
-Add substantive sections to the homepage:
-- **What this page covers** and who wrote it
-- **First-hand context** for the work, project, or topic
-- **Links to primary material** where claims need support
-- **Clear navigation** to related posts or project pages
-
-Keep additions factual and useful. Do not add made-up testimonials, FAQs, prices, or outcomes.`);
-  }
-
-  // ── MEDIUM: alt text ───────────────────────────────────────────────────
-  if ((imgAudit.missing_alt ?? 0) > 0) {
-    addChange('🟡 MEDIUM', `Fix ${imgAudit.missing_alt} images missing alt text`,
-`Alt text is required for accessibility (WCAG AA) and helps images rank in Google Image Search.
-
-Find every \`<img>\` without an \`alt\` attribute and add one:
-\`\`\`html
-<!-- Before -->
-<img src="photo.jpg" />
-
-<!-- After -->
-<img src="photo.jpg" alt="Descriptive text about the image content" />
-\`\`\`
-
-Use empty \`alt=""\` ONLY for purely decorative images (dividers, spacers).`);
-  }
-
-  // ── MEDIUM: social profiles ────────────────────────────────────────────
-  const socialProfiles = offPage.social_profiles ?? [];
-  const hasBareSocialLinks = (offPage.issues ?? []).some(i => i.includes('platform homepages'));
-  if (socialProfiles.length === 0 && !hasBareSocialLinks) {
-    addChange('🟡 MEDIUM', 'Add social media profile links to footer',
-`No social profile links found. Social links build brand authority and are used by search engines and AI engines to verify entity identity.
-
-Add links to your active profiles in the site footer:
-\`\`\`html
-<footer>
-  <!-- Add whichever platforms you're active on -->
-  <a href="https://twitter.com/yourbrand" rel="noopener">Twitter/X</a>
-  <a href="https://www.linkedin.com/company/yourbrand" rel="noopener">LinkedIn</a>
-  <a href="https://www.facebook.com/yourbrand" rel="noopener">Facebook</a>
-</footer>
-\`\`\``);
-  } else if (hasBareSocialLinks) {
-    addChange('🟡 MEDIUM', 'Fix social links — update to real profile URLs',
-`Social icons link to platform homepages (e.g., facebook.com/) rather than your actual profiles. This gives zero brand authority signal.
-
-Update each social link to point to your specific profile:
-\`\`\`html
-<!-- Wrong -->
-<a href="https://facebook.com/">Facebook</a>
-
-<!-- Right -->
-<a href="https://facebook.com/yourbrandname">Facebook</a>
-\`\`\``);
-  }
-
-  // ── MEDIUM: broken links ───────────────────────────────────────────────
-  if (brokenLinks.length > 0) {
-    const linkList = brokenLinks.slice(0, 6)
-      .map(b => `  - **[${b.status}]** ${b.type === 'internal' ? '(internal)' : '(external)'} \`${b.url}\`${b.text ? ` — "${b.text}"` : ''}`)
-      .join('\n');
-    addChange('🟠 HIGH', `Fix ${brokenLinks.length} broken link(s)`,
-`Broken links hurt crawlability and user experience. Internal broken links are especially harmful for SEO.
-
-Broken links found:\n${linkList}
-
-Fix each link: update the href to the correct URL, or remove the link if the page no longer exists.`);
-  }
-
-  // ── LOW: contact info ──────────────────────────────────────────────────
-  if (!content.has_phone && !content.has_email && !content.has_address && (content.word_count ?? 0) > 0) {
-    addChange('🟢 LOW', 'Add contact information to homepage or footer',
-`No contact details found. Google's E-E-A-T guidelines and AI engines weight pages with verifiable contact info higher.
-
-Add to your footer or a contact section:
-\`\`\`html
-<address>
-  <a href="mailto:hello@${domain}">hello@${domain}</a>
-  <!-- Add phone/address if applicable -->
-</address>
-\`\`\``);
-  }
-
-  // ── GEO: llms.txt / AI visibility note ────────────────────────────────
-  const citatRate = mods.geo_predicted?.data?.citation_rate ?? -1;
-  const geoReliable = mods.geo_predicted?.data?.is_reliable !== false;
-  if (!isPersonalEditorial && geoReliable && citatRate >= 0 && citatRate < 0.3) {
-    addChange('🟡 MEDIUM', 'Improve AI search visibility (GEO)',
-`The separate simulation found weak predicted visibility. Beyond the llms.txt file above, these actions can improve machine-readable discovery and entity corroboration:
-
-1. **Get a Wikidata entry**: Create a Wikidata item for your brand at https://www.wikidata.org/wiki/Special:NewItem — this is the single highest-impact GEO action
-2. **Get cited on authoritative sites**: Press mentions, directory listings, and .edu/.gov links all boost LLM training data inclusion
-3. **Add an About page** with specific, verifiable facts (founding date, mission, team)
-4. **Publish FAQ content** matching questions people search for in your space`);
-  }
-
-  // SPF, DKIM, and DMARC depend on the active mail provider and sending routes.
-  // Do not emit copy-paste DNS records until those facts are confirmed.
-
-  // ── Build the markdown output ─────────────────────────────────────────
-  const noChanges = changes.length === 0;
-  const estimatedNewScore = Math.min(100, overall + Math.round(changes.filter(c => c.impact.includes('HIGH') || c.impact.includes('CRITICAL')).length * 6));
-
-  const changeBlocks = changes.map(c =>
-    `---\n\n### Change ${c.num} — ${c.title} ${c.impact}\n\n${c.body}\n`
-  ).join('\n');
-
-  const dnsBlock = dnsChanges.length > 0 ? `
----
-
-## DNS Changes — Do These Outside Lovable/Cursor
-
-These are DNS record changes made at your domain registrar or DNS provider (Cloudflare, Namecheap, GoDaddy, etc.). They cannot be done in code.
-
-${dnsChanges.map((d, i) => `### DNS ${i + 1} — ${d}`).join('\n\n')}
-` : '';
-
-  const stackNote = stack !== 'vite' ? `\n> **Detected stack:** ${stack} — file paths and code examples are tailored accordingly.` : '';
-
-  return `# SEO & GEO Fix Prompt — ${domain}
-> **Audit date:** ${date} | **Current score:** ${overall}/100 (SEO ${seo} · GEO ${geo}) | **Estimated score after fixes:** ~${estimatedNewScore}/100
-> **${changes.length} code change${changes.length !== 1 ? 's' : ''} below** · ${dnsChanges.length > 0 ? dnsChanges.length + ' DNS change' + (dnsChanges.length > 1 ? 's' : '') + ' (at end)' : 'No DNS changes needed'}
-${stackNote}
-
----
-
-## How to use this file
-
-**Lovable / Bolt / v0:** Copy everything from the first \`---\` line onwards and paste it as a single message in chat.
-
-**Claude Code:** \`claude "$(cat SEO-FIXES-${domain}.md)"\`
-
-**Cursor / Windsurf:** Open this file and say *"Apply all the changes in this file to my project"*
-
----
-
-## The Prompt (paste from here)
-
-I need you to apply the following SEO and GEO fixes to my website at **${domain}**. Please implement all ${changes.length} code change${changes.length !== 1 ? 's' : ''} in one go. Each change includes the exact content or code — use it as-is, adjusting file paths only if your project structure differs.
-
-${noChanges ? '**No code changes needed — this site is in great shape!**' : changeBlocks}
-${dnsBlock}
----
-
-*End of prompt. After applying these changes, the site should score approximately **${estimatedNewScore}/100** (up from ${overall}/100).*
-
----
-
-*Generated by [GeoScore Audit Tool](https://geo.sayori.org) on ${date}*
-`;
-}
-
-function downloadAgentMarkdown(data) {
-  const md = generateAgentMarkdown(data);
-  const domain = (data?.domain ?? 'site').replace(/[^a-z0-9.-]/gi, '-');
-  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `GEOSCORE-REPAIR-${domain}.md`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-}
-
-// ── Formatted PDF Report Window ───────────────────────────────────────────
-
-function openReportWindow(data) {
-  const domain = data?.domain ?? '';
-  const scoreSummary = REPORT_UI?.normalizeScoreSummary(data) ?? {};
-  const seo = scoreSummary.seo ?? null;
-  const geo = scoreSummary.geo ?? null;
-  const overall = scoreSummary.overall ?? null;
-  const date = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
-  const mods = data?.modules ?? {};
-
-  const scoreColor = s => s == null ? '#94a3b8' : s >= 75 ? '#16a34a' : s >= 50 ? '#d97706' : '#dc2626';
-  const scoreBg    = s => s == null ? '#f8fafc' : s >= 75 ? '#f0fdf4' : s >= 50 ? '#fffbeb' : '#fef2f2';
-  const scoreText  = s => s == null ? '—' : Math.round(s);
-
-  // Evidence-contract reports export only applicable, evidenced failures.
-  const allIssues = Array.isArray(data?.recommendations_v2)
-    ? data.recommendations_v2.map(item => [
-        item?.title,
-        item?.page_url ? `Page: ${item.page_url}` : '',
-        item?.evidence ? `Observed: ${item.evidence}` : '',
-        item?.fix ? `Fix: ${item.fix}` : '',
-      ].filter(Boolean).join(' — '))
-    : Object.values(mods).flatMap(mod => mod?.data?.issues ?? []);
-
-  const issueRows = allIssues.slice(0, 20).map(i =>
-    `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569">• ${i.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td></tr>`
-  ).join('');
-
-  const modRows = [
-    ['Technical SEO',    mods.technical_seo,    '⚙'],
-    ['On-Page SEO',      mods.on_page_seo,       '📝'],
-    ['Content Quality',  mods.content_quality,   '📄'],
-    ['Authority',        mods.authority,          '🏆'],
-    ['Off-Page / Social',mods.off_page_seo,      '📣'],
-    ['Security',         mods.security_audit,    '🔒'],
-    ['Accessibility',    mods.accessibility,     '♿'],
-    ['GEO / AI',         mods.geo_predicted,     '🤖'],
-    ['robots.txt + Sitemap', mods.robots_sitemap,'🕷'],
-    ['Core Web Vitals',  mods.crux,              '⚡'],
-  ].map(([label, mod, icon]) => {
-    if (!mod) return '';
-    const st = mod.status;
-    const dot = st === 'ok' ? '🟢' : st === 'partial' ? '🟡' : st === 'failed' ? '🔴' : '⚪';
-    const issues = (mod?.data?.issues ?? []).slice(0,3).map(i =>
-      `<div style="font-size:11px;color:#64748b;margin-top:3px">• ${i.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
-    ).join('');
-    return `<tr style="border-bottom:1px solid #f1f5f9">
-      <td style="padding:10px 12px;width:32px;font-size:16px">${dot}</td>
-      <td style="padding:10px 4px;font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap">${icon} ${label}</td>
-      <td style="padding:10px 12px">${issues || '<span style="font-size:11px;color:#22c55e">✓ No issues</span>'}</td>
-    </tr>`;
-  }).join('');
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>SEO Audit Report — ${domain}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;font-size:14px;line-height:1.5}
-  @media print{
-    .no-print{display:none!important}
-    .page-break{page-break-before:always}
-    body{font-size:11pt}
-    table{page-break-inside:auto}
-    tr{page-break-inside:avoid}
-  }
-</style>
-</head>
-<body>
-<div class="no-print" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;gap:12px">
-  <button onclick="window.print()" style="background:#1e293b;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🖨 Print / Save as PDF</button>
-  <button onclick="window.close()" style="background:#fff;border:1px solid #e2e8f0;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px">✕ Close</button>
-  <span style="font-size:12px;color:#94a3b8;margin-left:auto">Tip: In the print dialog choose "Save as PDF" → set margins to Minimal for best results</span>
-</div>
-
-<div style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:40px 48px">
-  <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:8px">SEO &amp; GEO Audit Report</div>
-  <h1 style="font-size:28px;font-weight:700;margin-bottom:4px">${domain}</h1>
-  <div style="font-size:13px;color:#94a3b8">${date}</div>
-  <div style="display:flex;gap:20px;margin-top:28px">
-    <div style="background:rgba(255,255,255,.08);border-radius:12px;padding:16px 24px;text-align:center">
-      <div style="font-size:36px;font-weight:800;color:${scoreColor(overall)}">${scoreText(overall)}</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Overall Score</div>
-    </div>
-    <div style="background:rgba(255,255,255,.08);border-radius:12px;padding:16px 24px;text-align:center">
-      <div style="font-size:36px;font-weight:800;color:${scoreColor(seo)}">${scoreText(seo)}</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:2px">SEO Score</div>
-    </div>
-    <div style="background:rgba(255,255,255,.08);border-radius:12px;padding:16px 24px;text-align:center">
-      <div style="font-size:36px;font-weight:800;color:${scoreColor(geo)}">${scoreText(geo)}</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:2px">GEO Score</div>
-    </div>
-  </div>
-</div>
-
-<div style="padding:32px 48px">
-  <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;color:#1e293b">Module Breakdown</h2>
-  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
-    ${modRows || '<tr><td style="padding:12px;color:#94a3b8">No module data</td></tr>'}
-  </table>
-
-  ${allIssues.length ? `
-  <div class="page-break" style="margin-top:32px">
-    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;color:#1e293b">All Issues (${allIssues.length})</h2>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
-      ${issueRows}
-      ${allIssues.length > 20 ? `<tr><td style="padding:8px;font-size:11px;color:#94a3b8">… and ${allIssues.length - 20} more issues</td></tr>` : ''}
-    </table>
-  </div>` : ''}
-
-  <div style="margin-top:40px;padding-top:20px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;text-align:center">
-    Generated by GeoScore Audit Tool · ${date}
-  </div>
-</div>
-</body>
-</html>`;
-
-  const w = window.open('', '_blank');
-  if (w) { w.document.write(html); w.document.close(); }
 }
 
 // ── Re-audit score diff ────────────────────────────────────────────────────
@@ -2053,7 +1134,7 @@ async function fetchSuggestions(q) {
       fetch(`${API}/api/search?q=${encodeURIComponent(q)}`)
         .then(r => r.ok ? r.json() : [])
         .catch(() => []),
-      semanticSearch(q),
+      semanticSearchController.search(q),
     ]);
 
     if (semResults?.length) {
@@ -2136,7 +1217,7 @@ function buildDomainGuesses(input) {
 }
 
 async function startAudit(rawInput, options = {}) {
-  discardPendingCustomApiConfig();
+  customApiController.discard();
   const parsed = parsePublicDomainInput(rawInput);
   let domain = parsed.domain;
   if (!parsed.ok) {
@@ -2191,8 +1272,8 @@ async function startAudit(rawInput, options = {}) {
     return;
   }
 
-  const customApiRunId = ++customApiRunSequence;
-  const customApiStage = stageCustomApiForAudit(customApiRunId);
+  const customApiRunId = customApiController.nextRunId();
+  const customApiStage = customApiController.stage(customApiRunId);
   if (!customApiStage.ok) return;
 
   currentDomain = domain;
@@ -2659,7 +1740,7 @@ function openAuditStream(request, attempt, fresh = false) {
     : request;
   const endpoint = REPORT_UI?.buildAuditEndpoint(API, auditRequest, { fresh: fresh && attempt === 0 });
   if (!endpoint) {
-    appendError('Only public domains are supported');
+    assistantController.appendError('Only public domains are supported');
     return;
   }
   const es = new EventSource(endpoint);
@@ -2696,7 +1777,7 @@ function openAuditStream(request, attempt, fresh = false) {
     stopAuditTimer();
     renderFullAudit(d);
     evidenceMapController.runPending(d, auditRequest.customApiRunId);
-    enableChat();
+    assistantController.enableChat();
     es.close();
     // Kick off Lighthouse in a separate request (own Worker invocation = own subrequest budget)
     fetchLighthouse(auditRequest.domain);
@@ -2706,13 +1787,13 @@ function openAuditStream(request, attempt, fresh = false) {
     es.close();
     if (attempt < 2) {
       setTimeout(() => openAuditStream(auditRequest, attempt + 1), 2000 * (attempt + 1));
-      appendError(`Connection interrupted — retrying (${attempt + 1}/2)...`, true);
+      assistantController.appendError(`Connection interrupted — retrying (${attempt + 1}/2)...`, true);
     } else {
       stopAuditTimer();
-      if (discardPendingCustomApiConfig(auditRequest.customApiRunId)) {
-        setCustomApiStatus(uiText('customApi.error.audit'), true);
+      if (customApiController.discard(auditRequest.customApiRunId)) {
+        customApiController.setStatus(uiText('customApi.error.audit'), true);
       }
-      appendError('Audit failed or timed out. Please try again.');
+      assistantController.appendError('Audit failed or timed out. Please try again.');
       // Clear any modules stuck on spinner
       document.querySelectorAll('[id^="module-"] .spinner').forEach(spinner => {
         const card = spinner.closest('[id^="module-"]');
@@ -3214,8 +2295,8 @@ function wireActionButtons(data) {
     if (!navFreshBtn.dataset.wired) {
       navFreshBtn.dataset.wired = '1';
       navFreshBtn.addEventListener('click', () => {
-        const customApiRunId = ++customApiRunSequence;
-        const customApiStage = stageCustomApiForAudit(customApiRunId);
+        const customApiRunId = customApiController.nextRunId();
+        const customApiStage = customApiController.stage(customApiRunId);
         if (!customApiStage.ok) return;
         currentAuditRequest = {
           ...(currentAuditRequest ?? { domain: currentDomain, mode: 'site', targetUrl: null, archetypeHint: null }),
@@ -3256,7 +2337,7 @@ function wireActionButtons(data) {
       const orig = agentBtn.innerHTML;
       agentBtn.textContent = uiText('status.building');
       setTimeout(() => {
-        downloadAgentMarkdown(currentAuditData || data);
+        reportExportController.download(currentAuditData || data);
         agentBtn.textContent = uiText('status.downloaded');
         setTimeout(() => { agentBtn.innerHTML = orig; }, 2000);
       }, 50);
@@ -3267,7 +2348,7 @@ function wireActionButtons(data) {
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn && !exportBtn.dataset.wired) {
     exportBtn.dataset.wired = '1';
-    exportBtn.addEventListener('click', () => openReportWindow(data));
+    exportBtn.addEventListener('click', () => reportExportController.open(data));
   }
 
   // (shareBtn already wired above — duplicate block removed)
@@ -4674,235 +3755,6 @@ function renderRecommendations(recs) {
   // Keep count live as user checks boxes
   document.getElementById('recs-list')?.addEventListener('change', updateRecsCount);
   document.getElementById('modules').appendChild(el);
-}
-
-async function toggleWhatToDo(btn) {
-  const li = btn.closest('li');
-  const box = li && li.querySelector('.what-to-do');
-  if (!box) return;
-
-  const isHidden = box.classList.toggle('hidden');
-  btn.textContent = isHidden ? uiText('fix.show') : uiText('fix.hide');
-  if (isHidden || box.dataset.loaded) return;
-
-  const recommendationId = btn.dataset.recommendationId;
-  const rec = recommendationId
-    ? recMap.get(String(recommendationId))
-    : recMap.get(Number(btn.dataset.recIndex));
-  if (!rec) return;
-
-  // First open — fetch AI-generated fix guide
-  box.dataset.loaded = '1';
-  const fixStart = Date.now();
-  const fixTimerEl = document.createElement('div');
-  fixTimerEl.className = 'text-xs text-slate-400 italic flex items-center gap-2';
-  fixTimerEl.innerHTML = `${esc(uiText('fix.generating'))} <span class="font-mono text-blue-400">0s</span>`;
-  box.innerHTML = '';
-  box.appendChild(fixTimerEl);
-  const fixTimerInterval = setInterval(() => {
-    const s = fixTimerEl.querySelector('span');
-    if (s) s.textContent = fmtSecs(Date.now() - fixStart);
-  }, 1000);
-
-  try {
-    if (!currentAuditId || !recommendationId) throw new Error('Fix pack requires an evidence audit');
-    const res = await fetch(`${API}/api/fix`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audit_id: currentAuditId,
-        recommendation_id: recommendationId,
-        language: reportLanguage,
-        output: 'full',
-      }),
-    });
-    const pack = await res.json().catch(() => null);
-    if (!res.ok || !pack) throw new Error(pack?.error?.message || 'Fix pack unavailable');
-    clearInterval(fixTimerInterval);
-    box.innerHTML = renderFixPack(pack) +
-      `<div class="text-[10px] text-slate-300 mt-2 text-right">${fmtSecs(Date.now() - fixStart)}</div>`;
-  } catch {
-    clearInterval(fixTimerInterval);
-    box.innerHTML = `<div class="text-xs text-blue-500">${esc(uiText('fix.failed'))}</div>`;
-    delete box.dataset.loaded;
-  }
-}
-
-function renderFixPack(pack) {
-  const sections = [];
-  const evidence = pack?.evidence;
-  if (evidence) {
-    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '证据摘要' : 'Evidence summary'}</div><div class="text-xs text-slate-500">${esc((evidence.observed ?? []).join(' · ') || evidence.why || '')}</div></div>`);
-  }
-  if (pack?.code_snippets?.length) {
-    sections.push(pack.code_snippets.map(item => `<div><div class="font-semibold text-slate-700 mb-1">${esc(item.label || 'Code')}</div><pre class="bg-slate-900 text-green-300 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">${esc(item.code || '')}</pre></div>`).join(''));
-  }
-  if (pack?.fix_steps?.length) {
-    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '修改步骤' : 'Fix steps'}</div><ol class="list-decimal ml-5 text-xs text-slate-600 space-y-1">${pack.fix_steps.map(item => `<li>${esc(item)}</li>`).join('')}</ol></div>`);
-  }
-  if (pack?.verify?.length) {
-    sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${reportLanguage === 'zh' ? '复验清单' : 'Verification'}</div><ul class="list-disc ml-5 text-xs text-slate-600 space-y-1">${pack.verify.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>`);
-  }
-  if (pack?.handoff_prompt) {
-    sections.push(`<div><div class="flex items-center justify-between gap-2 mb-1"><div class="font-semibold text-slate-700">${reportLanguage === 'zh' ? '交给开发 AI' : 'Developer AI handoff'}</div><button type="button" data-copy="${esc(pack.handoff_prompt)}" class="text-[10px] text-blue-600 border border-blue-200 rounded px-2 py-1">${esc(uiText('common.copy'))}</button></div><pre class="bg-slate-50 border border-slate-200 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap text-slate-600">${esc(pack.handoff_prompt)}</pre></div>`);
-  }
-  return `<div class="space-y-3">${sections.join('')}</div>`;
-}
-
-function renderFixMarkdown(text) {
-  const escaped = text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const html = escaped
-    // code blocks ```...```
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, (_, c) =>
-      `<pre class="bg-slate-900 text-green-300 rounded p-2 my-2 text-xs overflow-x-auto whitespace-pre-wrap">${c.trim()}</pre>`)
-    // inline code `...`
-    .replace(/`([^`]+)`/g, '<code class="bg-slate-100 text-pink-700 px-1 rounded text-xs">$1</code>')
-    // bold **...**
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // headings ## ...
-    .replace(/^#{1,3} (.+)$/gm, '<div class="font-semibold text-slate-700 mt-3 mb-1">$1</div>')
-    // numbered list items "1. ..."
-    .replace(/^(\d+)\. (.+)$/gm, (_, n, content) =>
-      `<div class="flex gap-2 mt-2"><span class="shrink-0 font-bold text-blue-600 w-4">${n}.</span><span>${content}</span></div>`)
-    // bullet list items "- ..."
-    .replace(/^[-•] (.+)$/gm, '<div class="flex gap-2 mt-1 ml-4"><span class="shrink-0 text-slate-400">•</span><span>$1</span></div>')
-    // blank lines → spacing
-    .replace(/\n{2,}/g, '<div class="mt-2"></div>')
-    .replace(/\n/g, ' ');
-
-  return `<div class="text-xs text-slate-700 leading-relaxed space-y-0.5">${html}</div>`;
-}
-
-function appendError(msg, temporary = false) {
-  const el = document.createElement('div');
-  el.className = `${temporary ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-blue-50 border-blue-200 text-blue-700'} border rounded-xl p-4 text-sm fade-in`;
-  el.textContent = msg;
-  document.getElementById('modules').appendChild(el);
-  if (temporary) setTimeout(() => el.remove(), 5000);
-}
-
-// ── Chat ────────────────────────────────────────────────────────────────────
-
-function enableChat() {
-  const bubble = document.getElementById('chat-bubble');
-  if (bubble) bubble.classList.replace('hidden', 'flex');
-  const main = document.getElementById('main-content');
-  if (main) main.style.paddingBottom = '76px';
-}
-
-function openChat() {
-  document.getElementById('chat-bubble')?.classList.replace('flex', 'hidden');
-  document.getElementById('chat-section')?.classList.remove('hidden');
-  const main = document.getElementById('main-content');
-  if (main) main.style.paddingBottom = '180px';
-  document.getElementById('chat-input')?.focus();
-}
-
-function minimizeChat() {
-  document.getElementById('chat-section')?.classList.add('hidden');
-  const bubble = document.getElementById('chat-bubble');
-  if (bubble) bubble.classList.replace('hidden', 'flex');
-  const main = document.getElementById('main-content');
-  if (main) main.style.paddingBottom = '76px';
-}
-
-document.getElementById('chat-bubble')?.addEventListener('click', openChat);
-document.getElementById('chat-minimize')?.addEventListener('click', minimizeChat);
-
-function clearChat() {
-  const msgs = document.getElementById('chat-messages');
-  if (msgs) { msgs.innerHTML = ''; msgs.style.maxHeight = '0'; }
-  const clearBtn = document.getElementById('chat-clear');
-  if (clearBtn) { clearBtn.classList.add('hidden'); clearBtn.classList.remove('flex'); }
-  const sugg = document.getElementById('chat-suggestions');
-  if (sugg) sugg.classList.remove('hidden');
-}
-
-const chatInput = document.getElementById('chat-input');
-const chatSend  = document.getElementById('chat-send');
-const chatClear = document.getElementById('chat-clear');
-
-if (chatSend)  chatSend.addEventListener('click', sendChat);
-if (chatInput) chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
-if (chatClear) chatClear.addEventListener('click', clearChat);
-
-document.querySelectorAll('.chat-suggestion').forEach(btn => {
-  btn.addEventListener('click', () => {
-    chatInput.value = btn.textContent.trim();
-    chatInput.focus();
-    sendChat();
-  });
-});
-
-async function sendChat() {
-  const q = chatInput.value.trim();
-  if (!q || !currentAuditId) return;
-  chatInput.value = '';
-  chatSend.disabled = true;
-
-  appendChatMessage('user', q);
-  const assistantEl = appendChatMessage('assistant', '…');
-  const chatStart = Date.now();
-  const chatTimerInterval = setInterval(() => {
-    if (!assistantEl.textContent || assistantEl.textContent === '…') {
-      assistantEl.textContent = `… ${fmtSecs(Date.now() - chatStart)}`;
-    }
-  }, 1000);
-
-  try {
-    const res = await fetch(`${API}/api/chat/${currentAuditId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, session_id: sessionId }),
-    });
-
-    if (!res.ok) { clearInterval(chatTimerInterval); assistantEl.textContent = 'Error getting response.'; return; }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    assistantEl.textContent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      for (const line of decoder.decode(value).split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const data = JSON.parse(line.slice(6));
-          if (data.response) { buffer += data.response; assistantEl.textContent = buffer; }
-        } catch { /* skip */ }
-      }
-    }
-    clearInterval(chatTimerInterval);
-    document.getElementById('chat-messages').scrollTop = 9999;
-  } catch {
-    clearInterval(chatTimerInterval);
-    assistantEl.textContent = 'Network error. Please try again.';
-  } finally {
-    chatSend.disabled = false;
-  }
-}
-
-function appendChatMessage(role, text) {
-  const msgs = document.getElementById('chat-messages');
-  if (!msgs.children.length) {
-    msgs.style.maxHeight = '220px';
-    // Show clear button and hide suggestion chips once conversation begins
-    const clearBtn = document.getElementById('chat-clear');
-    if (clearBtn) { clearBtn.classList.remove('hidden'); clearBtn.classList.add('flex'); }
-    document.getElementById('chat-suggestions')?.classList.add('hidden');
-  }
-  const el = document.createElement('div');
-  el.className = role === 'user'
-    ? 'text-sm bg-blue-50 text-blue-900 px-3 py-2 rounded-xl self-end ml-8'
-    : 'text-sm bg-slate-100 text-slate-800 px-3 py-2 rounded-xl mr-8';
-  el.textContent = text;
-  msgs.appendChild(el);
-  msgs.scrollTop = 9999;
-  return el;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

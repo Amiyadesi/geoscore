@@ -10,6 +10,7 @@ const frontend = path.join(here, '..', 'frontend');
 const read = file => fs.readFileSync(path.join(frontend, file), 'utf8');
 const index = read('index.html');
 const app = read('app.js');
+const customApi = read('custom-api.js');
 const evidenceMap = read('evidence-map.js');
 const i18nSource = read('i18n.js');
 
@@ -54,37 +55,33 @@ test('custom API copy is bilingual and states the zero-score and no-storage boun
 });
 
 test('model discovery is bounded, keyboard accessible and keeps manual model entry', () => {
-  const start = app.indexOf('function customApiModelIds');
-  const block = app.slice(
-    start,
-    app.indexOf("document.getElementById('custom-api-fetch-models')", start),
-  );
-  assert.match(app, /const CUSTOM_API_MODEL_LIMIT = 50/);
-  assert.match(block, /models\.length >= CUSTOM_API_MODEL_LIMIT/);
-  assert.match(block, /\/api\/answer-models/);
-  assert.match(block, /method: 'POST'/);
-  assert.match(block, /'X-API-Key': key/);
-  assert.match(block, /JSON\.stringify\(\{ api_base_url: normalizedBaseUrl \}\)/);
-  assert.match(block, /document\.createElement\('option'\)/);
+  assert.match(customApi, /const MODEL_LIMIT = 50/);
+  assert.match(customApi, /models\.length >= MODEL_LIMIT/);
+  assert.match(customApi, /\/api\/answer-models/);
+  assert.match(customApi, /method: 'POST'/);
+  assert.match(customApi, /'X-API-Key': key/);
+  assert.match(customApi, /JSON\.stringify\(\{ api_base_url: normalizedBaseUrl \}\)/);
+  assert.match(customApi, /documentRef\.createElement\('option'\)/);
   assert.match(index, /<datalist id="custom-api-model-list"><\/datalist>/);
   assert.match(index, /data-i18n-placeholder="customApi\.model\.placeholder"/);
+  assert.ok(index.indexOf('src="custom-api.js"') < index.indexOf('src="app.js"'));
 });
 
 test('custom API values are cleared before the factual audit and consumed once after completion', () => {
-  const stage = app.slice(
-    app.indexOf('function stageCustomApiForAudit'),
-    app.indexOf('function claimPendingCustomApiConfig'),
+  const stage = customApi.slice(
+    customApi.indexOf('function stage(runId)'),
+    customApi.indexOf('function claim(runId)'),
   );
   const start = app.slice(
     app.indexOf('async function startAudit'),
     app.indexOf('function showAuditShell'),
   );
   const evidence = evidenceMap.slice(evidenceMap.indexOf('async function run'), evidenceMap.indexOf('function handleClick'));
-  assert.match(stage, /pendingCustomApiConfig = \{/);
-  assert.match(stage, /clearCustomApiInputs\(\)/);
-  assert.ok(stage.indexOf('clearCustomApiInputs()') < stage.indexOf("setCustomApiStatus(uiText('customApi.queued'))"));
-  assert.match(start, /stageCustomApiForAudit\(customApiRunId\)/);
-  assert.ok(start.indexOf('stageCustomApiForAudit(customApiRunId)') < start.indexOf('openAuditStream(currentAuditRequest'));
+  assert.match(stage, /pendingConfig = \{/);
+  assert.match(stage, /clearInputs\(\)/);
+  assert.ok(stage.indexOf('clearInputs()') < stage.indexOf("setStatus(uiText('customApi.queued'))"));
+  assert.match(start, /customApiController\.stage\(customApiRunId\)/);
+  assert.ok(start.indexOf('customApiController.stage(customApiRunId)') < start.indexOf('openAuditStream(currentAuditRequest'));
   assert.match(evidence, /'X-API-Key': customApiConfig\.apiKey/);
   assert.match(evidence, /api_base_url: customApiConfig\.apiBaseUrl/);
   assert.match(evidence, /api_model: customApiConfig\.apiModel/);
@@ -97,11 +94,7 @@ test('custom API values are cleared before the factual audit and consumed once a
 });
 
 test('custom API config is not persisted, placed in the audit URL, or copied into reports', () => {
-  const customInputs = app.slice(
-    app.indexOf('function customApiElements'),
-    app.indexOf('function rerenderEvidencePanels'),
-  );
-  const customFeature = `${customInputs}\n${evidenceMap}`;
+  const customFeature = `${customApi}\n${evidenceMap}`;
   const requestObject = app.slice(
     app.indexOf('currentAuditRequest = {', app.indexOf('async function startAudit')),
     app.indexOf('};', app.indexOf('currentAuditRequest = {', app.indexOf('async function startAudit'))) + 2,

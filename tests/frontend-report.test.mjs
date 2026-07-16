@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'frontend', 'report-ui.js'), 'utf8');
+const reportExportSource = fs.readFileSync(path.join(here, '..', 'frontend', 'report-export.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(here, '..', 'frontend', 'app.js'), 'utf8');
+const assistantSource = fs.readFileSync(path.join(here, '..', 'frontend', 'assistant-ui.js'), 'utf8');
 const monitoringSource = fs.readFileSync(path.join(here, '..', 'frontend', 'monitoring.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(here, '..', 'frontend', 'index.html'), 'utf8');
 const printCss = fs.readFileSync(path.join(here, '..', 'frontend', 'print.css'), 'utf8');
@@ -16,11 +18,19 @@ context.globalThis = context;
 vm.runInNewContext(source, context, { filename: 'report-ui.js' });
 const report = context.GeoScoreReport;
 
+const reportExportContext = { Blob, URL };
+reportExportContext.globalThis = reportExportContext;
+vm.runInNewContext(reportExportSource, reportExportContext, { filename: 'report-export.js' });
+const reportExport = reportExportContext.GeoScoreReportExport;
+
 test('evidence summary and report adapter load before legacy score rendering', () => {
   assert.ok(indexHtml.indexOf('id="evidence-summary"') < indexHtml.indexOf('id="scores"'));
   assert.ok(indexHtml.indexOf('src="report-ui.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="report-ui.js"') < indexHtml.indexOf('src="report-export.js"'));
+  assert.ok(indexHtml.indexOf('src="report-export.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="evidence-map.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="monitoring.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="assistant-ui.js"') < indexHtml.indexOf('src="app.js"'));
 });
 
 test('audit header stacks and wraps actions on a 390px viewport', () => {
@@ -249,19 +259,51 @@ test('full Markdown export includes every failure, score caps, unavailable check
 });
 
 test('primary Markdown download is deterministic while per-item fix packs remain optional', () => {
-  const evidenceGenerator = appSource.slice(
-    appSource.indexOf('function generateEvidenceAgentMarkdown'),
-    appSource.indexOf('function generateAgentMarkdown'),
+  const evidenceGenerator = reportExportSource.slice(
+    reportExportSource.indexOf('function generateEvidenceAgentMarkdown'),
+    reportExportSource.indexOf('function generateAgentMarkdown'),
   );
-  const downloader = appSource.slice(
-    appSource.indexOf('function downloadAgentMarkdown'),
-    appSource.indexOf('// ── Formatted PDF Report Window'),
+  const downloader = reportExportSource.slice(
+    reportExportSource.indexOf('function downloadAgentMarkdown'),
+    reportExportSource.indexOf('// ── Formatted PDF Report Window'),
   );
   assert.match(evidenceGenerator, /generateFullRepairMarkdown/);
   assert.doesNotMatch(evidenceGenerator, /normalizeActions|\/api\/fix/);
   assert.match(downloader, /GEOSCORE-REPAIR-\$\{domain\}\.md/);
   assert.doesNotMatch(downloader, /\/api\/fix/);
   assert.match(report.renderEvidenceRecommendations({ recommendations_v2: [{ id: 'seo.title', title: 'Title' }] }, 'en'), /Advanced fix details/);
+});
+
+test('formatted report export writes and closes the opened document', () => {
+  let html = '';
+  let closed = false;
+  const opened = {
+    document: {
+      write(value) { html = value; },
+      close() { closed = true; },
+    },
+  };
+  const exporter = reportExport.create({
+    reportUi: report,
+    getReportLanguage: () => 'en',
+    document: {},
+    window: { open: () => opened },
+    Blob,
+    URL,
+  });
+
+  exporter.open({
+    domain: 'example.com',
+    score_summary: {
+      overall: { score: 70 },
+      seo: { score: 72 },
+      geo: { score: 68 },
+    },
+    modules: {},
+  });
+
+  assert.match(html, /SEO Audit Report — example\.com/);
+  assert.equal(closed, true);
 });
 
 test('frontend merges audit-bound Lighthouse evidence back into the active report', () => {
@@ -283,9 +325,9 @@ test('evidence recommendations use the stored-audit fix-pack contract', () => {
     }],
   }, 'en');
   assert.match(html, /data-recommendation-id="seo\.title"/);
-  assert.match(appSource, /audit_id: currentAuditId/);
-  assert.match(appSource, /recommendation_id: recommendationId/);
-  assert.match(appSource, /output: 'full'/);
+  assert.match(assistantSource, /audit_id: auditId/);
+  assert.match(assistantSource, /recommendation_id: recommendationId/);
+  assert.match(assistantSource, /output: 'full'/);
 });
 
 test('v2 insufficient evidence remains null instead of using legacy zero projections', () => {
@@ -588,5 +630,5 @@ test('full Markdown download includes Evidence Map, limitations, monitoring hist
   assert.match(markdown, /Monitoring history/);
   assert.match(markdown, /Search is a dated snapshot/);
   assert.doesNotMatch(markdown, /\/api\/fix/);
-  assert.match(appSource, /downloadAgentMarkdown\(currentAuditData \|\| data\)/);
+  assert.match(appSource, /reportExportController\.download\(currentAuditData \|\| data\)/);
 });

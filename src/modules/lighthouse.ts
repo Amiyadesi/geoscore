@@ -54,6 +54,27 @@ interface PsiFetchResult {
   error?: LighthouseProviderError;
 }
 
+interface PsiAudit {
+  numericValue?: number;
+  details?: {
+    type?: string;
+    overallSavingsMs?: number;
+  };
+}
+
+interface PsiResponseData {
+  lighthouseResult?: {
+    categories?: Record<string, { score?: number }>;
+    audits?: Record<string, PsiAudit>;
+  };
+}
+
+function psiResponse(data: unknown): PsiResponseData | null {
+  return data && typeof data === 'object' && !Array.isArray(data)
+    ? data as PsiResponseData
+    : null;
+}
+
 export class LighthouseUpstreamError extends Error {
   readonly code: string;
   readonly retryable: boolean;
@@ -170,8 +191,7 @@ async function fetchPsi(
 }
 
 function extractScore(data: unknown, category = 'performance'): number | null {
-  const d = data as Record<string, any>;
-  const score = d?.lighthouseResult?.categories?.[category]?.score;
+  const score = psiResponse(data)?.lighthouseResult?.categories?.[category]?.score;
   const numeric = Number(score);
   return score != null && Number.isFinite(numeric) && numeric >= 0 && numeric <= 1
     ? Math.round(numeric * 100)
@@ -179,17 +199,15 @@ function extractScore(data: unknown, category = 'performance'): number | null {
 }
 
 function numericAudit(data: unknown, id: string): number | null {
-  const d = data as Record<string, any>;
-  const value = d?.lighthouseResult?.audits?.[id]?.numericValue;
+  const value = psiResponse(data)?.lighthouseResult?.audits?.[id]?.numericValue;
   return value != null ? Number(value) : null;
 }
 
 function countOpportunities(data: unknown): number {
-  const d = data as Record<string, any>;
-  const audits = d?.lighthouseResult?.audits;
+  const audits = psiResponse(data)?.lighthouseResult?.audits;
   if (!audits) return 0;
-  return Object.values(audits as Record<string, any>).filter(
-    (audit: any) => audit?.details?.type === 'opportunity' && (audit?.details?.overallSavingsMs ?? 0) > 150,
+  return Object.values(audits).filter(
+    audit => audit.details?.type === 'opportunity' && (audit.details.overallSavingsMs ?? 0) > 150,
   ).length;
 }
 

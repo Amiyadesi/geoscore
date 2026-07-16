@@ -56,7 +56,7 @@ export async function handleFeedback(req: Request, env: Env): Promise<Response> 
 
           if (embedding?.data?.[0]) {
             const vectorId = `${domain}-${Date.now()}`;
-            await (env.VECTORS as any).upsert([{
+            await env.VECTORS.upsert([{
               id: vectorId,
               values: embedding.data[0],
               metadata: { domain, vertical: body.correct_value },

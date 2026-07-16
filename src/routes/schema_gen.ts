@@ -103,13 +103,14 @@ Rules:
 - Output ONLY the raw JSON object. No <script> tags. No markdown. No explanation.`;
 
   try {
-    const stream = await (env.AI as any).run(CF_FAST_CHAT_MODEL, {
+    const stream: unknown = await env.AI.run(CF_FAST_CHAT_MODEL, {
       prompt,
       stream: true,
       max_tokens: 900,
-    });
+    } as Parameters<typeof env.AI.run>[1]);
+    if (!(stream instanceof ReadableStream)) throw new Error('Workers AI did not return a stream');
 
-    return new Response(stream as ReadableStream, {
+    return new Response(stream, {
       headers: { 'Content-Type': 'text/event-stream', ...CORS },
     });
   } catch {

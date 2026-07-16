@@ -64,11 +64,12 @@ Context:
 Write ONLY the llms.txt content. No explanation, no preamble. Be specific and accurate. For pages you cannot know, use realistic generic paths like /about, /services, /contact, /blog.`;
 
   try {
-    const stream = await (env.AI as any).run(CF_FAST_CHAT_MODEL, {
+    const stream: unknown = await env.AI.run(CF_FAST_CHAT_MODEL, {
       prompt,
       stream: true,
       max_tokens: 900,
-    }) as ReadableStream;
+    } as Parameters<typeof env.AI.run>[1]);
+    if (!(stream instanceof ReadableStream)) throw new Error('Workers AI did not return a stream');
 
     return new Response(stream, {
       headers: {

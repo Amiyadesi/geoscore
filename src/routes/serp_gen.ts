@@ -46,13 +46,16 @@ Output the JSON object only, like this:
 {"title": "...", "description": "..."}`;
 
   try {
-    const result = await (env.AI as any).run(CF_FAST_CHAT_MODEL, {
+    const result: unknown = await env.AI.run(CF_FAST_CHAT_MODEL, {
       prompt,
       stream: false,
       max_tokens: 250,
-    }) as { response: string };
+    } as Parameters<typeof env.AI.run>[1]);
 
-    const raw = (result.response ?? '').trim();
+    const response = result && typeof result === 'object'
+      ? (result as { response?: unknown }).response
+      : null;
+    const raw = typeof response === 'string' ? response.trim() : '';
 
     // Extract a JSON object even if the model adds surrounding prose
     const match = raw.match(/\{[^{}]*"title"[^{}]*"description"[^{}]*\}/s)

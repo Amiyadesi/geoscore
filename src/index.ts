@@ -168,6 +168,15 @@ class LighthouseAuditUpdateError extends Error {
   }
 }
 
+interface StoredEvidenceAudit extends Record<string, unknown> {
+  domain?: string;
+  audit_context?: AuditContext;
+  normalized_checks?: unknown[];
+  checks?: unknown[];
+  pages_audited?: Array<{ url?: string }>;
+  modules?: Record<string, ModuleResult>;
+}
+
 async function persistLighthouseAuditUpdate(
   env: Env,
   auditId: string,
@@ -181,16 +190,18 @@ async function persistLighthouseAuditUpdate(
     throw new LighthouseAuditUpdateError('AUDIT_NOT_FOUND', 'No completed audit was found for audit_id', 404);
   }
 
-  let audit: Record<string, any>;
+  let audit: StoredEvidenceAudit;
   try {
-    audit = JSON.parse(row.full_json) as Record<string, any>;
+    const parsed: unknown = JSON.parse(row.full_json);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Stored audit is not an object');
+    audit = parsed as StoredEvidenceAudit;
   } catch {
     throw new LighthouseAuditUpdateError('AUDIT_DATA_INVALID', 'The stored audit cannot accept performance evidence', 409);
   }
   if (String(audit.domain ?? '').toLowerCase() !== domain) {
     throw new LighthouseAuditUpdateError('AUDIT_DOMAIN_MISMATCH', 'audit_id does not belong to the requested domain', 409);
   }
-  const context = audit.audit_context as AuditContext | undefined;
+  const context = audit.audit_context;
   const storedChecks = Array.isArray(audit.normalized_checks)
     ? audit.normalized_checks
     : Array.isArray(audit.checks) ? audit.checks : null;
@@ -201,7 +212,7 @@ async function persistLighthouseAuditUpdate(
   const pageUrl = typeof lighthouse.url === 'string'
     ? lighthouse.url
     : typeof audit.pages_audited?.[0]?.url === 'string' ? audit.pages_audited[0].url : `https://${domain}/`;
-  const checks = mergeLighthouseChecks(storedChecks as NormalizedCheck[], lighthouse as unknown as Record<string, any>, pageUrl);
+  const checks = mergeLighthouseChecks(storedChecks as NormalizedCheck[], lighthouse, pageUrl);
   const scoreSummary = scoreChecks(checks);
   const legacyScores = projectLegacyScores(scoreSummary, audit.modules ?? {});
   const modules = {

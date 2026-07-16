@@ -16,6 +16,10 @@ function loadController(file, exportName, extras = {}) {
     encodeURIComponent,
     setTimeout,
     clearTimeout,
+    setInterval,
+    clearInterval,
+    AbortController,
+    TextDecoder,
     ...extras,
   };
   context.globalThis = context;
@@ -23,6 +27,145 @@ function loadController(file, exportName, extras = {}) {
   vm.runInNewContext(source, context, { filename: file });
   return context[exportName];
 }
+
+function fakeClassList(initial = []) {
+  const values = new Set(initial);
+  return {
+    add: (...names) => names.forEach(name => values.add(name)),
+    remove: (...names) => names.forEach(name => values.delete(name)),
+    replace: (from, to) => { values.delete(from); values.add(to); },
+    toggle: (name, force) => {
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name); else values.delete(name);
+      return enabled;
+    },
+    contains: name => values.has(name),
+  };
+}
+
+test('custom API controller stages one-use config and bounds model discovery', async () => {
+  const feature = loadController('custom-api.js', 'GeoScoreCustomApi');
+  const modelOptions = [];
+  const statusAttributes = {};
+  const elements = {
+    'custom-api-panel': { open: false },
+    'custom-api-key': { value: ' secret-key ', focus() {} },
+    'custom-api-base-url': { value: 'https://api.example.com/v1/', focus() {} },
+    'custom-api-model': { value: ' model-a ', focus() {} },
+    'custom-api-model-list': {
+      replaceChildren() { modelOptions.length = 0; },
+      appendChild(option) { modelOptions.push(option.value); },
+    },
+    'custom-api-fetch-models': { disabled: false, textContent: '', addEventListener() {} },
+    'custom-api-status': {
+      textContent: '',
+      classList: fakeClassList(['hidden']),
+      setAttribute(name, value) { statusAttributes[name] = value; },
+    },
+  };
+  let capturedRequest = null;
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    uiText: (key, vars) => vars?.count ? `${key}:${vars.count}` : key,
+    document: {
+      getElementById: id => elements[id] ?? null,
+      createElement: () => ({ value: '' }),
+    },
+    fetch: async (url, options) => {
+      capturedRequest = { url, options };
+      return {
+        ok: true,
+        json: async () => ({ data: Array.from({ length: 55 }, (_, index) => ({ id: `model-${index}` })) }),
+      };
+    },
+  });
+
+  const runId = controller.nextRunId();
+  assert.deepEqual(JSON.parse(JSON.stringify(controller.stage(runId))), { ok: true, configured: true });
+  assert.equal(elements['custom-api-key'].value, '');
+  assert.equal(elements['custom-api-base-url'].value, '');
+  assert.equal(elements['custom-api-model'].value, '');
+  const config = controller.claim(runId);
+  assert.deepEqual(JSON.parse(JSON.stringify(config)), {
+    runId,
+    apiKey: 'secret-key',
+    apiBaseUrl: 'https://api.example.com/v1',
+    apiModel: 'model-a',
+  });
+  assert.equal(controller.claim(runId), null);
+  controller.overwriteConfig(config);
+  assert.equal(config.apiKey, '');
+
+  elements['custom-api-key'].value = 'models-secret';
+  elements['custom-api-base-url'].value = 'https://api.example.com/v1';
+  assert.equal(await controller.fetchModels(), true);
+  assert.equal(capturedRequest.url, 'https://geo-api.example.com/api/answer-models');
+  assert.equal(capturedRequest.options.headers['X-API-Key'], 'models-secret');
+  assert.equal(modelOptions.length, 50);
+  assert.equal(statusAttributes.role, 'status');
+});
+
+test('assistant controller requests FixPack only for the stored recommendation', async () => {
+  const feature = loadController('assistant-ui.js', 'GeoScoreAssistantUi');
+  const timerSpan = { textContent: '' };
+  const box = {
+    classList: { toggle: () => false },
+    dataset: {},
+    innerHTML: '',
+    appendChild(value) { this.child = value; },
+  };
+  const item = { querySelector: selector => selector === '.what-to-do' ? box : null };
+  const button = {
+    dataset: { recommendationId: 'seo.title' },
+    textContent: '',
+    closest: selector => selector === 'li' ? item : null,
+  };
+  let capturedRequest = null;
+  const document = {
+    createElement: () => ({
+      className: '',
+      innerHTML: '',
+      querySelector: selector => selector === 'span' ? timerSpan : null,
+    }),
+    getElementById: () => null,
+    querySelectorAll: () => [],
+  };
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    uiText: key => key,
+    escapeHtml: value => String(value),
+    formatSeconds: () => '0s',
+    getAuditId: () => 'audit_1',
+    getReportLanguage: () => 'zh',
+    getRecommendation: id => id === 'seo.title' ? { id } : null,
+    document,
+    storage: { getItem: () => null, setItem() {} },
+    crypto: { randomUUID: () => 'session_1' },
+    fetch: async (url, options) => {
+      capturedRequest = { url, options };
+      return {
+        ok: true,
+        json: async () => ({
+          evidence: { observed: ['missing title'] },
+          fix_steps: ['add title'],
+          verify: ['re-audit'],
+          handoff_prompt: 'fix only the title',
+        }),
+      };
+    },
+  });
+
+  assert.equal(await controller.toggleFix(button), true);
+  assert.equal(capturedRequest.url, 'https://geo-api.example.com/api/fix');
+  assert.deepEqual(JSON.parse(capturedRequest.options.body), {
+    audit_id: 'audit_1',
+    recommendation_id: 'seo.title',
+    language: 'zh',
+    output: 'full',
+  });
+  assert.match(box.innerHTML, /missing title/);
+  assert.match(box.innerHTML, /fix only the title/);
+});
 
 test('Evidence Map controller owns state and strips request-only API metadata', async () => {
   const feature = loadController('evidence-map.js', 'GeoScoreEvidenceMap');

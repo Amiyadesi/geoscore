@@ -119,8 +119,9 @@ function analyzeHeaders(html: string, headers: Headers): SecurityTest[] {
   headers.forEach((v, k) => { hdrs[k.toLowerCase()] = v; });
   // Use getAll() if available (CF Workers) to avoid joining multiple Set-Cookie headers
   // into one comma-separated string (which breaks parsing of cookies with dates in values)
-  const rawCookies: string[] = typeof (headers as any).getAll === 'function'
-    ? (headers as any).getAll('set-cookie') as string[]
+  const headersWithGetAll = headers as Headers & { getAll?: (name: string) => string[] };
+  const rawCookies: string[] = typeof headersWithGetAll.getAll === 'function'
+    ? headersWithGetAll.getAll('set-cookie')
     : (hdrs['set-cookie'] ? [hdrs['set-cookie']] : []);
   cookieStr = rawCookies.join('\n'); // use newline as safe separator for the split below
   const htmlBody = html.slice(0, 12000);
