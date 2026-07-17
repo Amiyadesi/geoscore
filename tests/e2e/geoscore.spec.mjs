@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { auditFixture, evidenceMapFixture } from './fixtures.mjs';
 
 const UI_COPY = {
@@ -35,6 +36,9 @@ async function mockApi(page) {
         headers: { 'Cache-Control': 'no-cache' },
         body: `event: complete\ndata: ${JSON.stringify(auditFixture)}\n\n`,
       });
+    }
+    if (url.pathname === '/api/share/example.com') {
+      return route.fulfill({ json: auditFixture });
     }
     if (url.pathname === '/api/meta') {
       return route.fulfill({
@@ -159,5 +163,27 @@ test('audit renders deterministic evidence and extracted controllers remain inte
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('shared audit reveals the report and primary Markdown download', async ({ page }) => {
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+  await mockApi(page);
+
+  await page.goto('/?share=example.com');
+
+  await expect(page.locator('#audit')).toBeVisible();
+  await expect(page.locator('#domain-name')).toHaveText('example.com');
+  await expect(page.locator('#agent-btn')).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#agent-btn').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('GEOSCORE-REPAIR-example.com.md');
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const markdown = await readFile(downloadPath, 'utf8');
+  expect(markdown).toContain('geo.author_attribution');
+  expect(markdown).toContain('Unified handoff prompt');
   expect(runtimeErrors).toEqual([]);
 });

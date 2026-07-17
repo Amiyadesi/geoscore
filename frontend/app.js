@@ -842,6 +842,7 @@ async function loadSharedAudit(domain) {
 
     // Reuse the full audit rendering pipeline — same as a live audit completing
     if (progressEl) progressEl.classList.add('hidden');
+    document.getElementById('audit')?.classList.remove('hidden');
     renderFullAudit(data);
 
     // Update URL so refreshing stays on share view
