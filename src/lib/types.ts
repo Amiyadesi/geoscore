@@ -64,6 +64,8 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   PERPLEXITY_API_KEY?: string;
   RESEND_API_KEY?: string;
+  CF_TEMP_MAIL_BASE_URL?: string;
+  CF_TEMP_MAIL_SEND_API_KEY?: string;
 }
 
 export type FixPackLanguage = 'en' | 'zh';

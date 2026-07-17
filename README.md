@@ -14,6 +14,8 @@ providers. It reports what was observed, what could not be verified, and which
 failed checks are worth fixing first.
 
 **Live demo → [geo.sayori.org](https://geo.sayori.org)**  
+**Documentation → [geo.sayori.org/docs](https://geo.sayori.org/docs)**  
+**OpenAPI → [geo-api.sayori.org/openapi.json](https://geo-api.sayori.org/openapi.json)**  
 **Example → [stripe.com audit](https://geo.sayori.org/?d=stripe.com)**
 
 ## Community acknowledgement
@@ -23,7 +25,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.4 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.4.1 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -36,7 +38,7 @@ an A-range result.
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.4 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.4.1 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -75,17 +77,19 @@ stored in D1, KV, URLs, reports, or frontend persistence.
 Email alerts require a verified address. Baseline establishment, score-version
 changes, and insufficient coverage/confidence suppress comparisons. For a
 comparable non-zero factual score change, the run and dated snapshot are stored
-before Resend is called, and delivery status is written separately so provider
+before the primary mail channel is called, and delivery status is written separately so provider
 failure cannot erase a completed monitoring run. A project owner can retry a
 failed delivery through the run-scoped alert endpoint; the run ID is reused as
-the provider idempotency key.
+the primary provider idempotency key. A fixed-sender `/v1/messages` service can
+act as a server-only fallback for authentication, rate-limit, network, and
+upstream failures. Rejected message parameters are not blindly retried.
 
 ### Retained code that is not run in the anonymous hot path
 
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.4 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.4.1 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected.
@@ -281,12 +285,18 @@ Rendering limits in Cloudflare's documentation before changing the budget.
 Monitoring captures weekly dated Evidence Map snapshots against the latest
 compatible completed audit. It does not claim to re-run every audit module or
 observe a consumer answer-engine UI. Generate a private token pepper of at least
-32 characters and configure it together with an optional Resend key:
+32 characters and configure it together with an optional primary mail key. A
+fixed-sender service can be configured as a fallback:
 
 ```bash
 npx wrangler secret put MONITOR_TOKEN_PEPPER --config wrangler.generated.jsonc
 npx wrangler secret put RESEND_API_KEY --config wrangler.generated.jsonc
+npx wrangler secret put CF_TEMP_MAIL_BASE_URL --config wrangler.generated.jsonc
+npx wrangler secret put CF_TEMP_MAIL_SEND_API_KEY --config wrangler.generated.jsonc
 ```
+
+Do not configure the inbox API key in the Worker; inbox creation and reads are
+reserved for local authorized QA.
 
 The GitHub Actions deployment maps `GEOSCORE_MONITOR_TOKEN_PEPPER` to the Worker
 secret `MONITOR_TOKEN_PEPPER`. Losing the one-time project management token means
@@ -351,6 +361,8 @@ endpoint, or model belongs in tracked files or public frontend state.
 | `PAGESPEED_API_KEY` | No | PageSpeed Insights / Lighthouse API key |
 | `OPENPAGERANK_KEY` | No | OpenPageRank authority data |
 | `RESEND_API_KEY` | No | Resend API key for weekly monitoring alert emails |
+| `CF_TEMP_MAIL_BASE_URL` | With fallback mail | HTTPS base URL for the fixed-sender service; `/v1/messages` is added automatically |
+| `CF_TEMP_MAIL_SEND_API_KEY` | With fallback mail | Server-only fixed-sender key; never expose the inbox API key to the Worker |
 | `SEARCH_GATEWAY_API_KEY` | No | API key sent as `X-API-Key` to the protected Search Gateway |
 | `MONITOR_TOKEN_PEPPER` | Required for monitoring | At least 32 characters; used to HMAC one-time project and email-verification tokens before D1 storage |
 | `API_KEY` | No | Worker-only generic external LLM fallback; never passed to a client or public report |

@@ -78,6 +78,20 @@ function normalizedCrawlerCheck(policy) {
 }
 
 describe('Crawler Policy v2', () => {
+  it('counts only truly blocking external scripts in the document head', async () => {
+    const html = `<!doctype html><html><head>
+      <script src="/blocking.js"></script>
+      <script src="/deferred.js" defer></script>
+      <script src="/module.js" type="module"></script>
+    </head><body><main><h1>Example</h1></main><script src="/body.js"></script></body></html>`;
+    const fetcher = async () => new Response('', { status: 404 });
+    const result = await technical.runTechnicalSeo(
+      'example.com', html, new Headers(), 10, 'https://example.com/', { fetcher },
+    );
+
+    assert.equal(result.render_blocking_scripts, 1);
+  });
+
   it('separates search, training, and user-triggered bot groups', () => {
     const policy = technical.buildCrawlerPolicyV2(`User-agent: GPTBot\nDisallow: /\n\nUser-agent: ChatGPT-User\nDisallow: /\n\nUser-agent: OAI-SearchBot\nAllow: /`);
 

@@ -7,8 +7,15 @@
     try {
       const url = new URL(String(value || '').trim());
       if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
-      const normalizedPath = url.pathname.replace(/\/+$/, '');
-      url.pathname = normalizedPath || '/';
+      let normalizedPath = url.pathname.replace(/\/+$/, '');
+      const loweredPath = normalizedPath.toLowerCase();
+      for (const suffix of ['/chat/completions', '/models']) {
+        if (loweredPath.endsWith(suffix)) {
+          normalizedPath = normalizedPath.slice(0, -suffix.length).replace(/\/+$/, '');
+          break;
+        }
+      }
+      url.pathname = normalizedPath || '/v1';
       return url.toString().replace(/\/$/, '');
     } catch {
       return null;

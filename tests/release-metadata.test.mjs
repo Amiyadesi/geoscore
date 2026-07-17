@@ -13,7 +13,7 @@ test('standalone release metadata is public MIT with upstream attribution', () =
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const deployWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'deploy.yml'), 'utf8');
 
-  assert.equal(pkg.version, '2.4.0');
+  assert.equal(pkg.version, '2.4.1');
   assert.equal(pkg.private, false);
   assert.equal(pkg.license, 'MIT');
   assert.equal(pkg.repository?.url, 'git+https://github.com/Amiyadesi/geoscore.git');
@@ -22,6 +22,8 @@ test('standalone release metadata is public MIT with upstream attribution', () =
   assert.match(readme, /License and attribution/);
   assert.match(deployWorkflow, /GEOSCORE_MONITOR_TOKEN_PEPPER:\s*\$\{\{ secrets\.GEOSCORE_MONITOR_TOKEN_PEPPER \}\}/);
   assert.match(deployWorkflow, /MONITOR_TOKEN_PEPPER:\s*process\.env\.GEOSCORE_MONITOR_TOKEN_PEPPER/);
+  assert.match(deployWorkflow, /CF_TEMP_MAIL_BASE_URL:\s*process\.env\.GEOSCORE_CF_TEMP_MAIL_BASE_URL/);
+  assert.match(deployWorkflow, /CF_TEMP_MAIL_SEND_API_KEY:\s*process\.env\.GEOSCORE_CF_TEMP_MAIL_SEND_API_KEY/);
   assert.doesNotMatch(readme, /private operational repository|not currently licensed for redistribution/i);
   assert.equal(fs.existsSync(path.join(root, 'LICENSE-STATUS.md')), false);
 });

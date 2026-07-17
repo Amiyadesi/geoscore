@@ -16,6 +16,12 @@
 /tools.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+/docs/docs.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/docs/docs.css
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /tailwind.css
   Cache-Control: no-cache, no-store, must-revalidate
 

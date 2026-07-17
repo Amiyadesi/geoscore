@@ -105,6 +105,16 @@ test('custom API controller stages one-use config and bounds model discovery', a
   assert.equal(statusAttributes.role, 'status');
 });
 
+test('custom API base URL normalization adds v1 and removes endpoint suffixes', () => {
+  const feature = loadController('custom-api.js', 'GeoScoreCustomApi');
+
+  assert.equal(feature.normalizeBaseUrl('https://api.example.com'), 'https://api.example.com/v1');
+  assert.equal(feature.normalizeBaseUrl('https://api.example.com/'), 'https://api.example.com/v1');
+  assert.equal(feature.normalizeBaseUrl('https://api.example.com/v1/models'), 'https://api.example.com/v1');
+  assert.equal(feature.normalizeBaseUrl('https://api.example.com/chat/completions'), 'https://api.example.com/v1');
+  assert.equal(feature.normalizeBaseUrl('https://api.example.com/api/v1'), 'https://api.example.com/api/v1');
+});
+
 test('assistant controller requests FixPack only for the stored recommendation', async () => {
   const feature = loadController('assistant-ui.js', 'GeoScoreAssistantUi');
   const timerSpan = { textContent: '' };
@@ -213,9 +223,9 @@ test('Evidence Map controller owns state and strips request-only API metadata', 
   assert.equal(config.apiBaseUrl, '');
   assert.equal(config.apiModel, '');
   assert.equal(controller.getState().snapshot.answer.text, 'bounded result');
-  assert.equal(controller.getState().snapshot.answer.model, undefined);
+  assert.equal(controller.getState().snapshot.answer.model, 'model-a');
   assert.equal(controller.getState().snapshot.api_key, undefined);
-  assert.equal(auditData.evidence_map.answer.model, undefined);
+  assert.equal(auditData.evidence_map.answer.model, 'model-a');
   assert.equal(renderCount, 2);
 });
 
@@ -237,7 +247,7 @@ test('Evidence Map controller reset prevents state leaking into the next audit',
   });
 });
 
-test('monitoring controller clears BYOK input before the request and never stores it', async () => {
+test('monitoring controller sends complete BYOK config, clears inputs and never stores credentials', async () => {
   class FakeFormData {
     constructor(form) { this.form = form; }
     get(name) { return this.form.values?.[name] ?? ''; }
@@ -245,9 +255,11 @@ test('monitoring controller clears BYOK input before the request and never store
   }
 
   const feature = loadController('monitoring.js', 'GeoScoreMonitoring');
+  const customApi = loadController('custom-api.js', 'GeoScoreCustomApi');
   let auditData = { audit_id: 'audit_1', domain: 'example.com' };
   let resolveRun;
   let byokHeaders = null;
+  let byokBody = null;
   const calls = [];
   const controller = feature.create({
     apiBase: 'https://geo-api.example.com',
@@ -262,6 +274,7 @@ test('monitoring controller clears BYOK input before the request and never store
       }
       if (String(url).endsWith('/byok-runs')) {
         byokHeaders = options.headers;
+        byokBody = JSON.parse(options.body);
         await new Promise(resolve => { resolveRun = resolve; });
         return { ok: true };
       }
@@ -276,13 +289,18 @@ test('monitoring controller clears BYOK input before the request and never store
     getAuditData: () => auditData,
     setAuditData: value => { auditData = value; },
     FormData: FakeFormData,
+    normalizeBaseUrl: customApi.normalizeBaseUrl,
   });
 
   await controller.createProject({ values: { email: '' } });
-  const input = { value: 'sk-one-use-byok' };
+  const inputs = {
+    'input[name="api_key"]': { value: 'sk-one-use-byok' },
+    'input[name="api_base_url"]': { value: 'https://api.example.com' },
+    'input[name="api_model"]': { value: 'model-a' },
+  };
   const form = {
     dataset: { monitorForm: 'byok' },
-    querySelector: () => input,
+    querySelector: selector => inputs[selector] ?? null,
   };
   const event = {
     target: { closest: () => form },
@@ -290,13 +308,105 @@ test('monitoring controller clears BYOK input before the request and never store
   };
 
   assert.equal(controller.handleSubmit(event), true);
-  assert.equal(input.value, '');
+  assert.equal(inputs['input[name="api_key"]'].value, '');
+  assert.equal(inputs['input[name="api_base_url"]'].value, '');
+  assert.equal(inputs['input[name="api_model"]'].value, '');
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(byokHeaders['X-API-Key'], 'sk-one-use-byok');
+  assert.deepEqual(byokBody, { api_base_url: 'https://api.example.com/v1', api_model: 'model-a' });
   assert.doesNotMatch(JSON.stringify(controller.getState()), /sk-one-use-byok/);
+  assert.doesNotMatch(JSON.stringify(controller.getState()), /api\.example\.com/);
   assert.doesNotMatch(JSON.stringify(auditData), /sk-one-use-byok/);
   resolveRun();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.ok(calls.some(url => url.endsWith('/byok-runs')));
   assert.ok(calls.some(url => url.endsWith('/runs')));
+});
+
+test('monitoring model discovery preserves request-scoped inputs across rerenders', async () => {
+  const feature = loadController('monitoring.js', 'GeoScoreMonitoring');
+  const customApi = loadController('custom-api.js', 'GeoScoreCustomApi');
+  const makeForm = () => {
+    const inputs = {
+      'input[name="api_key"]': { value: '' },
+      'input[name="api_base_url"]': { value: '' },
+      'input[name="api_model"]': { value: '' },
+    };
+    return { inputs, querySelector: selector => inputs[selector] ?? null };
+  };
+  let currentForm = makeForm();
+  currentForm.inputs['input[name="api_key"]'].value = 'sk-request-scoped-models';
+  currentForm.inputs['input[name="api_base_url"]'].value = 'https://api.example.com';
+  currentForm.inputs['input[name="api_model"]'].value = 'model-before-fetch';
+  const document = {
+    querySelector: selector => selector === '[data-monitor-form="byok"]' ? currentForm : null,
+  };
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    fetchJson: async (url, options) => {
+      assert.equal(url, 'https://geo-api.example.com/api/answer-models');
+      assert.equal(options.headers['X-API-Key'], 'sk-request-scoped-models');
+      assert.deepEqual(JSON.parse(options.body), { api_base_url: 'https://api.example.com/v1' });
+      return { models: ['model-a', 'model-b'] };
+    },
+    getReportLanguage: () => 'en',
+    getAuditId: () => 'audit_1',
+    normalizeBaseUrl: customApi.normalizeBaseUrl,
+    document,
+    rerender: () => { currentForm = makeForm(); },
+  });
+
+  assert.equal(await controller.fetchModels(currentForm), true);
+  assert.equal(currentForm.inputs['input[name="api_key"]'].value, 'sk-request-scoped-models');
+  assert.equal(currentForm.inputs['input[name="api_base_url"]'].value, 'https://api.example.com');
+  assert.equal(currentForm.inputs['input[name="api_model"]'].value, 'model-before-fetch');
+  assert.deepEqual(controller.getState().modelOptions, ['model-a', 'model-b']);
+  assert.doesNotMatch(JSON.stringify(controller.getState()), /sk-request-scoped-models|api\.example\.com/);
+});
+
+test('monitoring controller connects, explicitly saves, forgets and rotates a project token', async () => {
+  class FakeFormData {
+    constructor(form) { this.form = form; }
+    get(name) { return this.form.values?.[name] ?? ''; }
+    getAll(name) { return this.form.values?.[name] ?? []; }
+  }
+  const storage = new Map();
+  const localStorage = {
+    getItem: key => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: key => storage.delete(key),
+  };
+  const projectId = 'mon_01JGEOSCORE24CONNECTPROJECT';
+  const oldToken = 'gmt_existing_management_token';
+  const newToken = 'gmt_rotated_management_token';
+  const feature = loadController('monitoring.js', 'GeoScoreMonitoring', { localStorage });
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    fetchJson: async (url, options = {}) => {
+      if (String(url).endsWith(`/api/monitor-projects/${projectId}`)) {
+        assert.equal(options.headers['X-Project-Token'], oldToken);
+        return { project: { id: projectId, root_domain: 'example.com', queries: [] } };
+      }
+      if (String(url).endsWith(`/api/monitor-projects/${projectId}/runs`)) return { runs: [] };
+      if (String(url).endsWith(`/api/monitor-projects/${projectId}/token/rotate`)) {
+        return { management_token: newToken, token_shown_once: true };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    },
+    getReportLanguage: () => 'en',
+    getAuditId: () => 'audit_1',
+    FormData: FakeFormData,
+    localStorage,
+  });
+
+  assert.equal(await controller.connectProject({ values: { project_id: projectId, management_token: oldToken } }), true);
+  assert.equal(controller.getState().project.id, projectId);
+  assert.equal(controller.saveTokenToDevice(), true);
+  assert.equal(storage.get(`geoscore:monitor-token:${projectId}`), oldToken);
+  assert.equal(controller.forgetTokenFromDevice(), true);
+  assert.equal(storage.has(`geoscore:monitor-token:${projectId}`), false);
+  assert.equal(await controller.rotateToken(), true);
+  assert.equal(controller.getState().managementToken, newToken);
+  assert.equal(controller.getState().showToken, true);
+  assert.equal(storage.has(`geoscore:monitor-token:${projectId}`), false);
 });

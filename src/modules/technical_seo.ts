@@ -896,10 +896,12 @@ export async function runTechnicalSeo(
       article_author:         html.match(/<meta[^>]*property=["']article:author["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
     };
 
-    // Render-blocking scripts: <script src> without async or defer
+    // Only scripts in <head> can block initial HTML parsing. Body scripts are
+    // intentionally excluded even when they omit async/defer.
+    const headHtml = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';
     const scriptTagRegex = /<script\s([^>]*)>/gi;
     let sm;
-    while ((sm = scriptTagRegex.exec(html)) !== null) {
+    while ((sm = scriptTagRegex.exec(headHtml)) !== null) {
       const attrs = sm[1];
       if (/\bsrc\s*=/i.test(attrs) && !/\basync\b/i.test(attrs) && !/\bdefer\b/i.test(attrs) && !/\btype\s*=\s*["']module["']/i.test(attrs)) {
         render_blocking_scripts++;

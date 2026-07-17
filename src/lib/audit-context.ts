@@ -210,6 +210,15 @@ export function normalizedEntityName(value: string): string {
     .trim();
 }
 
+export function normalizedSiteLabel(value: string): string {
+  const normalized = normalizedEntityName(value);
+  const withoutChineseSuffix = normalized.replace(/(?:\u7684)?(?:\u4e66\u684c|\u535a\u5ba2|\u7f51\u7ad9|\u5c0f\u7ad9)$/u, '').trim();
+  const withoutEnglishSuffix = withoutChineseSuffix
+    .replace(/(?:s\s+)?(?:desk|blog|notes|website|site)$/u, '')
+    .trim();
+  return withoutEnglishSuffix || normalized;
+}
+
 /**
  * Return explicit same-type entity names per page. Missing schema on a sampled
  * page is absence of evidence, not a contradiction; only an explicit competing

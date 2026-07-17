@@ -6,7 +6,7 @@
   function sanitizeSnapshot(value) {
     if (Array.isArray(value)) return value.map(sanitizeSnapshot);
     if (!value || typeof value !== 'object') return value;
-    const blocked = new Set(['api_key', 'apikey', 'authorization', 'api_base_url', 'base_url', 'endpoint', 'api_model', 'model']);
+    const blocked = new Set(['api_key', 'apikey', 'authorization', 'api_base_url', 'base_url', 'endpoint', 'api_model']);
     const clean = {};
     for (const [key, item] of Object.entries(value)) {
       if (blocked.has(key.toLowerCase())) continue;
@@ -53,6 +53,7 @@
       const requestedAuditId = runOptions.auditId || getAuditId();
       let customApiConfig = runOptions.customApiConfig || null;
       const usesCustomApi = Boolean(customApiConfig);
+      const requestedApiModel = usesCustomApi ? String(customApiConfig.apiModel || '').trim() : '';
       if (!requestedAuditId || state.busy) {
         overwriteCustomApiConfig?.(customApiConfig);
         return false;
@@ -92,6 +93,15 @@
         const payload = await requestPromise;
         if (getAuditId() !== requestedAuditId) return false;
         const snapshot = sanitizeSnapshot(payload.data ?? null);
+        if (requestedApiModel && snapshot?.answer && typeof snapshot.answer === 'object') {
+          snapshot.answer.model = requestedApiModel;
+        }
+        if (requestedApiModel && Array.isArray(snapshot?.answer_snapshot?.observations)) {
+          snapshot.answer_snapshot.observations = snapshot.answer_snapshot.observations.map(observation => ({
+            ...observation,
+            model: requestedApiModel,
+          }));
+        }
         state = { snapshot, busy: false, error: null };
         const auditData = getAuditData?.();
         if (auditData) setAuditData?.({ ...auditData, evidence_map: snapshot });

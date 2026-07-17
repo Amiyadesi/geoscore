@@ -20,6 +20,8 @@ const DEFAULT_BROWSER_DAILY_BUDGET_SECONDS = BROWSER_RUN_FREE_SECONDS - BROWSER_
 const BROWSER_RUN_PROVIDER = 'Cloudflare Browser Run' as const;
 const BROWSER_RUN_SOURCE = 'browser_binding_quick_action' as const;
 const DIRECT_HTTP_PROVIDER = 'Direct HTTP' as const;
+const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
+const INFRASTRUCTURE_PATH = /(?:^|\/)(?:cdn-cgi|_next|_nuxt|_astro|wp-content|wp-includes)(?:\/|$)/i;
 const BROWSER_REJECTED_RESOURCE_TYPES: BrowserRunResourceType[] = [
   'image',
   'media',
@@ -274,6 +276,16 @@ export function classifyAuditPageType(url: string): AuditPageType {
   return 'other';
 }
 
+export function isAuditableHtmlCandidate(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl);
+    const path = url.pathname.replace(/\/+$/, '') || '/';
+    return !INFRASTRUCTURE_PATH.test(path) && !NON_HTML_PATH_EXTENSION.test(path);
+  } catch {
+    return false;
+  }
+}
+
 export function extractInternalLinks(baseUrl: string, html: string): string[] {
   if (!html) return [];
   let base: URL;
@@ -292,6 +304,7 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
         if (!['http:', 'https:'].includes(resolved.protocol)) continue;
         if (registrableRoot(resolved.hostname) !== root) continue;
         resolved.hash = '';
+        if (!isAuditableHtmlCandidate(resolved.toString())) continue;
         links.add(resolved.toString());
       } catch { /* ignore malformed links */ }
     }
@@ -312,6 +325,7 @@ function normalizedCandidates(urls: string[], homeUrl: string): string[] {
       if (!['http:', 'https:'].includes(url.protocol)) continue;
       if (registrableRoot(url.hostname) !== homeRoot) continue;
       url.hash = '';
+      if (!isAuditableHtmlCandidate(url.toString())) continue;
       const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
       if (cleanPath === homePath && url.search === home.search) continue;
       unique.add(url.toString());

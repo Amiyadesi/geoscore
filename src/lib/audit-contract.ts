@@ -1,6 +1,6 @@
 import type { FetchedAuditPage } from './audit-pages';
 
-export const SCORE_VERSION = '2.4.0';
+export const SCORE_VERSION = '2.4.1';
 
 export const SCORE_POLICY = {
   minimum_overall_coverage: 0.6,

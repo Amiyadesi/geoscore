@@ -1,0 +1,4 @@
+[allowlist]
+description = "Public Cloudflare Web Analytics beacon identifier embedded in the frontend"
+paths = ['''^frontend/index\.html$''']
+regexes = ['''data-cf-beacon=.*"token":\s*"[0-9a-f]{32}"''']

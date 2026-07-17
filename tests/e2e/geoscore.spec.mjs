@@ -5,12 +5,14 @@ const UI_COPY = {
   en: {
     lang: 'en',
     title: 'Make your website easier for search and AI to understand',
+    docsTitle: 'From audit to a verifiable repair',
     audit: 'Audit',
     customApi: 'Custom API',
   },
   zh: {
     lang: 'zh-CN',
     title: '让搜索引擎和 AI 更容易理解你的网站',
+    docsTitle: '从审查走到可以复验的修复',
     audit: '开始审查',
     customApi: '自定义 API',
   },
@@ -37,8 +39,8 @@ async function mockApi(page) {
     if (url.pathname === '/api/meta') {
       return route.fulfill({
         json: {
-          version: '2.4.0',
-          score_version: '2.4.0',
+          version: '2.4.1',
+          score_version: '2.4.1',
           max_pages: 5,
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },
@@ -102,6 +104,31 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   await expect(page.locator('#custom-api-panel')).not.toHaveAttribute('open', '');
   await page.locator('#custom-api-panel > summary').click();
   await expect(page.locator('#custom-api-key')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('docs follow browser language and fit the viewport', async ({ page }, testInfo) => {
+  const language = languageForProject(testInfo.project.name);
+  const copy = UI_COPY[language];
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+
+  await page.goto('/docs/index.html');
+
+  await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
+  await expect(page.locator('main article:not([hidden]) h1')).toHaveText(copy.docsTitle);
+  const activeTaskNav = page.locator('#task-nav nav:not([hidden])');
+  await expect(activeTaskNav).toHaveCount(1);
+  if (testInfo.project.name.startsWith('mobile-')) {
+    const menu = page.locator('#docs-menu');
+    await expect(menu).toBeVisible();
+    await menu.click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+    await expect(activeTaskNav).toBeVisible();
+  } else {
+    await expect(activeTaskNav).toBeVisible();
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   expect(runtimeErrors).toEqual([]);
 });

@@ -1,6 +1,6 @@
 import type { FetchedAuditPage } from './audit-pages';
 import type { ModuleResult } from './types';
-import { contentPagesFor, directAnswerApplicable, geoPageSignals, normalizedEntityName, sampledEntitySignals } from './audit-context';
+import { contentPagesFor, directAnswerApplicable, geoPageSignals, normalizedEntityName, normalizedSiteLabel, sampledEntitySignals } from './audit-context';
 import type { AuditContext, CheckStatus, NormalizedCheck } from './audit-contract';
 import { check } from './audit-scoring';
 
@@ -655,7 +655,7 @@ export function buildNormalizedChecks(
       : freshnessPages.map(page => `${page.pageUrl}: ${page.dates[0] ?? 'no published/modified date'}`).slice(0, 8),
   }));
   const labelPages = geoSignals.filter(page => page.siteLabels.length > 0);
-  const labels = [...new Set(labelPages.flatMap(page => page.siteLabels.map(normalizedEntityName)).filter(Boolean))];
+  const labels = [...new Set(labelPages.flatMap(page => page.siteLabels.map(normalizedSiteLabel)).filter(Boolean))];
   output.push(check({
     id: 'geo.cross_page_consistency', category: 'geo', title: zh ? '跨页面站点身份一致性' : 'Cross-page site identity consistency', weight: 2,
     status: completedPages.length < 2 || labelPages.length < 2 ? 'not_applicable' : labels.length === 1 ? 'pass' : 'fail',

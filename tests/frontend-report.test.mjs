@@ -553,6 +553,18 @@ test('Evidence Map keeps source provenance and provider runs in a closed native 
     diagnosis: [{ stage: 'discovery', status: 'pass', evidence: ['Target observed.'] }],
     sources: [{ title: 'Example docs', canonical_url: 'https://example.com/docs', provider: 'search-api-a', provider_rank: 2, source_type: 'audited_site', domain: 'example.com', retrieved_at: '2026-07-15T00:00:00Z' }],
     search_snapshot: { provider_runs: [{ provider: 'search-api-a', status: 'complete', result_count: 1, latency_ms: 120, cache_hit: false }] },
+    answer_snapshot: {
+      observations: [{
+        query: 'What is Example?',
+        status: 'complete',
+        model: 'model-a',
+        answer: 'Example is a dated API answer with bounded evidence.',
+        citations: [{ url: 'https://example.com/source', title: 'Example source' }],
+        observed_at: '2026-07-15T00:00:01Z',
+        latency_ms: 320,
+      }],
+      limitations: ['API answer observations are not consumer interface results.'],
+    },
     limitations: ['Search results do not prove consumer answer citations.'],
   };
   const html = report.renderEvidenceMap(data, 'en', { snapshot, busy: false });
@@ -560,6 +572,12 @@ test('Evidence Map keeps source provenance and provider runs in a closed native 
   assert.match(html, /Search snapshots never change the factual score/);
   assert.match(html, /data-action="run-evidence-map"/);
   assert.match(html, /data-disclosure="evidence-provenance"/);
+  assert.match(html, /Latest API answer/);
+  assert.match(html, /Example is a dated API answer/);
+  assert.match(html, /model-a/);
+  assert.match(html, /What is Example/);
+  assert.match(html, /320ms/);
+  assert.match(html, /Example source/);
   assert.doesNotMatch(html, /<details[^>]+open/);
   assert.ok(html.indexOf('data-disclosure="evidence-provenance"') < html.indexOf('search-api-a'));
 });
@@ -580,6 +598,13 @@ test('monitoring UI shows the management token once, folds history and never re-
   assert.match(html, /Shown once/);
   assert.match(html, /data-disclosure="monitoring-history"/);
   assert.match(html, /type="password" name="api_key"/);
+  assert.match(html, /name="api_base_url"/);
+  assert.match(html, /name="api_model"/);
+  assert.match(html, /data-action="fetch-monitor-models"/);
+  assert.match(html, /data-monitor-form="connect"/);
+  assert.match(html, /data-action="rotate-monitor-token"/);
+  assert.match(html, /data-action="save-monitor-token"/);
+  assert.match(html, /data-action="forget-monitor-token"/);
   assert.doesNotMatch(html, /name="api_key"[^>]+value=/);
   assert.doesNotMatch(html, /<details[^>]+open/);
 
@@ -587,8 +612,8 @@ test('monitoring UI shows the management token once, folds history and never re-
     monitoringSource.indexOf("if (form.dataset.monitorForm === 'byok')"),
     monitoringSource.indexOf('function handleClick', monitoringSource.indexOf("if (form.dataset.monitorForm === 'byok')")),
   );
-  assert.match(byokHandler, /input\.value = ''/);
-  assert.ok(byokHandler.indexOf("input.value = ''") < byokHandler.indexOf('run({ apiKey })'));
+  assert.match(byokHandler, /apiKeyInput\.value = ''/);
+  assert.ok(byokHandler.indexOf("apiKeyInput.value = ''") < byokHandler.indexOf('run({ apiKey'));
   assert.match(monitoringSource, /X-API-Key/);
   assert.doesNotMatch(`${appSource}\n${monitoringSource}`, /localStorage\.(?:setItem|getItem)\([^\n]*api[_-]?key/i);
 });
@@ -627,6 +652,7 @@ test('full Markdown download includes Evidence Map, limitations, monitoring hist
   assert.match(markdown, /repair-parse-a/);
   assert.match(markdown, /Query Evidence Map/);
   assert.match(markdown, /search-api-a/);
+  assert.match(markdown, /API answer snapshots/);
   assert.match(markdown, /Monitoring history/);
   assert.match(markdown, /Search is a dated snapshot/);
   assert.doesNotMatch(markdown, /\/api\/fix/);

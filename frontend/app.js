@@ -582,6 +582,7 @@ monitoringController = window.GeoScoreMonitoring.create({
   getAuditData: () => currentAuditData,
   setAuditData: data => { currentAuditData = data; },
   rerender: rerenderEvidencePanels,
+  normalizeBaseUrl: window.GeoScoreCustomApi.normalizeBaseUrl,
 });
 
 assistantController = window.GeoScoreAssistantUi.create({

@@ -21,6 +21,7 @@ import {
   type RequestScopedAnswerConfig,
 } from '../lib/search-gateway';
 import { publicAppUrl } from '../lib/security';
+import { sendEmail, type EmailDeliveryResult } from '../lib/email';
 import type { Env } from '../lib/types';
 import { monotonicFactory } from 'ulid';
 
@@ -86,12 +87,6 @@ interface MonitorAlertPlan {
     subject: string;
     html: string;
   } | null;
-}
-
-interface EmailDeliveryResult {
-  ok: boolean;
-  error_code: string | null;
-  retryable: boolean;
 }
 
 interface MonitorRunRow {
@@ -394,48 +389,6 @@ function publicProject(project: MonitorProjectRow, queries: MonitorQueryRow[]) {
     updated_at: project.updated_at,
     queries,
   };
-}
-
-async function sendEmail(
-  env: Env,
-  to: string,
-  subject: string,
-  html: string,
-  idempotencyKey?: string,
-): Promise<EmailDeliveryResult> {
-  if (!env.RESEND_API_KEY) {
-    return { ok: false, error_code: 'EMAIL_PROVIDER_NOT_CONFIGURED', retryable: false };
-  }
-  try {
-    const headers = new Headers({
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    });
-    if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey);
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        from: env.RESEND_FROM || 'Sayori GeoScore <alerts@sayori.org>',
-        to: [to],
-        subject,
-        html,
-      }),
-    });
-    if (response.ok) return { ok: true, error_code: null, retryable: false };
-    if (response.status === 401 || response.status === 403) {
-      return { ok: false, error_code: 'EMAIL_PROVIDER_AUTH_FAILED', retryable: false };
-    }
-    if (response.status === 429) {
-      return { ok: false, error_code: 'EMAIL_PROVIDER_RATE_LIMITED', retryable: true };
-    }
-    if (response.status >= 500) {
-      return { ok: false, error_code: 'EMAIL_PROVIDER_UNAVAILABLE', retryable: true };
-    }
-    return { ok: false, error_code: 'EMAIL_SEND_REJECTED', retryable: false };
-  } catch {
-    return { ok: false, error_code: 'EMAIL_PROVIDER_UNAVAILABLE', retryable: true };
-  }
 }
 
 async function sendVerificationEmail(

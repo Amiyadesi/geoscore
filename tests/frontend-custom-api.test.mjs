@@ -102,7 +102,8 @@ test('custom API config is not persisted, placed in the audit URL, or copied int
   assert.doesNotMatch(customFeature, /localStorage|sessionStorage|indexedDB/);
   assert.doesNotMatch(requestObject, /apiKey|apiBaseUrl|apiModel|api_base_url|api_model/);
   assert.match(requestObject, /customApiRunId/);
-  assert.match(customFeature, /blocked = new Set\(\['api_key'.*'api_base_url'.*'api_model'.*'model'\]\)/s);
+  assert.match(customFeature, /blocked = new Set\(\['api_key'.*'api_base_url'.*'api_model'/s);
+  assert.doesNotMatch(customFeature, /'api_model', 'model'/);
   assert.match(customFeature, /CUSTOM_API_EVIDENCE_FAILED/);
   assert.doesNotMatch(customFeature, /currentAuditData\s*=\s*\{[^}]*api_base_url/s);
 });

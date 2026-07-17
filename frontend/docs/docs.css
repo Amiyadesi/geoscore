@@ -1,0 +1,118 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033;
+  background: #f7f9fc;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: #f7f9fc; }
+a { color: #1255a6; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; }
+[hidden] { display: none !important; }
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  border-radius: 6px;
+  background: #172033;
+  color: #fff;
+  padding: .65rem .9rem;
+}
+.skip-link:focus { top: 1rem; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #dce3ec;
+  background: rgba(255, 255, 255, .96);
+  padding: .65rem clamp(1rem, 3vw, 2.5rem);
+  backdrop-filter: blur(10px);
+}
+.brand { display: inline-flex; align-items: center; gap: .65rem; color: #172033; font-weight: 750; text-decoration: none; }
+.brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 7px; background: #1659b7; color: #fff; font-size: .85rem; }
+.top-actions { display: flex; align-items: center; gap: .65rem; }
+.api-link { font-size: .82rem; font-weight: 650; }
+.language-switch { display: inline-flex; border: 1px solid #cdd7e5; border-radius: 7px; background: #fff; padding: 2px; }
+.language-switch button { border: 0; border-radius: 5px; background: transparent; color: #5d6878; padding: .35rem .55rem; cursor: pointer; font-size: .75rem; font-weight: 700; }
+.language-switch button[aria-pressed="true"] { background: #172033; color: #fff; }
+.menu-button { display: none; width: 34px; height: 34px; border: 1px solid #cdd7e5; border-radius: 7px; background: #fff; color: #172033; cursor: pointer; }
+
+.docs-shell {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 760px) minmax(150px, 190px);
+  gap: clamp(1.25rem, 3vw, 3rem);
+  width: min(1380px, 100%);
+  margin: 0 auto;
+  padding: 2rem clamp(1rem, 3vw, 2.5rem) 5rem;
+}
+.task-nav, .page-toc { position: sticky; top: 82px; align-self: start; max-height: calc(100vh - 100px); overflow: auto; }
+.task-nav nav, .page-toc > div { display: grid; gap: .18rem; }
+.task-nav a, .page-toc a { border-left: 2px solid transparent; color: #5d6878; padding: .42rem .55rem; font-size: .82rem; text-decoration: none; }
+.task-nav a:hover, .page-toc a:hover { border-left-color: #1c75bc; background: #edf5fb; color: #164f84; }
+.nav-label { margin: 1rem 0 .25rem; color: #8a95a5; font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.nav-label:first-child { margin-top: 0; }
+
+main { min-width: 0; }
+.doc-intro { padding: .7rem 0 2.2rem; border-bottom: 1px solid #dce3ec; }
+.eyebrow { margin: 0 0 .7rem; color: #0b7d74; font-size: .78rem; font-weight: 800; }
+h1 { margin: 0; max-width: 18ch; color: #111827; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.08; }
+.doc-intro > p:not(.eyebrow) { max-width: 68ch; color: #566173; font-size: 1.02rem; line-height: 1.75; }
+.intro-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.25rem; }
+.intro-actions a { border: 1px solid #c7d2e2; border-radius: 7px; padding: .62rem .85rem; background: #fff; font-size: .84rem; font-weight: 700; text-decoration: none; }
+.intro-actions .primary-action { border-color: #1659b7; background: #1659b7; color: #fff; }
+
+section { scroll-margin-top: 82px; padding: 2.35rem 0; border-bottom: 1px solid #dce3ec; }
+h2 { margin: 0 0 1rem; color: #142033; font-size: 1.45rem; }
+p, li { color: #4e596b; line-height: 1.72; }
+li + li { margin-top: .35rem; }
+code { border-radius: 4px; background: #edf1f6; padding: .1rem .3rem; color: #9b2f4a; font-family: "Cascadia Code", Consolas, monospace; font-size: .88em; }
+.note { display: grid; grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 1rem; margin-top: 1.3rem; border-left: 3px solid #0b7d74; background: #eaf7f5; padding: .9rem 1rem; }
+.note strong { color: #086860; }
+.note span { color: #3e5f5b; line-height: 1.6; }
+
+.request-block { margin-top: 1.25rem; overflow: hidden; border: 1px solid #ccd6e2; border-radius: 7px; background: #101827; }
+.request-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #2d3a4d; padding: .55rem .75rem; color: #ced7e5; font-size: .75rem; }
+.request-head button { border: 1px solid #526077; border-radius: 5px; background: #1f2a3b; color: #fff; padding: .28rem .55rem; cursor: pointer; font-size: .72rem; }
+pre { margin: 0; overflow: auto; padding: 1rem; color: #d9e4f2; font-size: .78rem; line-height: 1.65; }
+pre code { padding: 0; background: transparent; color: inherit; }
+
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { border-bottom: 1px solid #dce3ec; padding: .7rem .55rem; text-align: left; vertical-align: top; }
+th { color: #253147; background: #eef2f7; }
+td { color: #566173; }
+
+@media (max-width: 1050px) {
+  .docs-shell { grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); }
+  .page-toc { display: none; }
+}
+
+@media (max-width: 760px) {
+  .topbar { padding-inline: .85rem; }
+  .api-link { display: none; }
+  .menu-button { display: grid; place-items: center; }
+  .docs-shell { display: block; padding: 1.3rem 1rem 4rem; }
+  .task-nav { display: none; position: fixed; inset: 58px 0 auto 0; z-index: 25; max-height: calc(100vh - 58px); border-bottom: 1px solid #cdd7e5; background: #fff; padding: 1rem; box-shadow: 0 12px 30px rgba(31, 42, 59, .12); }
+  .task-nav[data-open="true"] { display: block; }
+  h1 { font-size: 2.1rem; }
+  .doc-intro { padding-top: .3rem; }
+  .note { grid-template-columns: 1fr; gap: .35rem; }
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+@media print {
+  .topbar, .task-nav, .page-toc, .intro-actions, .request-head button { display: none !important; }
+  .docs-shell { display: block; padding: 0; }
+  body { background: #fff; }
+}

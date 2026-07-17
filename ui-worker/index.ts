@@ -47,6 +47,9 @@ function normalizeUpstream(value: string | undefined): string {
 function buildUpstreamUrl(origin: string, requestUrl: URL): URL {
   const upstreamUrl = new URL(requestUrl.pathname, origin);
   if (requestUrl.pathname === '/tools') upstreamUrl.pathname = '/tools.html';
+  if (requestUrl.pathname === '/docs' || requestUrl.pathname === '/docs/') {
+    upstreamUrl.pathname = '/docs/index.html';
+  }
   upstreamUrl.search = requestUrl.search;
   return upstreamUrl;
 }

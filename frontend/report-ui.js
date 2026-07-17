@@ -93,18 +93,37 @@
       provenance: 'Source provenance and provider runs',
       providerRuns: 'Provider runs',
       limitations: 'Limitations',
+      latestAnswer: 'Latest API answer',
+      otherAnswers: 'Other API answers',
+      fullAnswer: 'Full answer and citations',
+      answerQuery: 'Query',
+      answerModel: 'Model',
+      answerLatency: 'Latency',
+      answerCitations: 'Citations',
+      noAnswer: 'No API answer snapshot is available.',
       monitoring: 'Weekly evidence monitoring',
       monitoringBody: 'Keep up to twelve dated search/API snapshots. They do not prove consumer AI citations and remain separate from the factual readiness score.',
       createMonitor: 'Create monitoring project',
+      connectMonitor: 'Connect existing project',
+      projectId: 'Project ID',
+      projectToken: 'Management token',
+      connect: 'Connect',
       optionalEmail: 'Email for weekly change alerts (optional)',
       managementToken: 'Management token',
       tokenWarning: 'Shown once. Save it now; GeoScore cannot recover it.',
       tokenSaved: 'I saved the token',
+      saveOnDevice: 'Save on this device',
+      forgetDevice: 'Forget this device',
+      rotateToken: 'Rotate token',
+      savedOnDevice: 'Saved on this device',
       querySettings: 'Queries',
       saveQueries: 'Save queries',
       runDefault: 'Run with hosted API',
       runByok: 'Run once with API key',
       apiKey: 'API key',
+      apiBaseUrl: 'Base URL',
+      apiModel: 'Model',
+      fetchModels: 'Fetch models',
       apiKeyPrivacy: 'Used only for this request. It is cleared immediately and is never stored.',
       monitorHistory: 'Monitoring history',
       noHistory: 'No monitoring runs yet.',
@@ -211,18 +230,37 @@
       provenance: '来源溯源与 API 运行明细',
       providerRuns: 'API 运行记录',
       limitations: '限制说明',
+      latestAnswer: '最新 API 回答',
+      otherAnswers: '其他 API 回答',
+      fullAnswer: '完整回答与引用',
+      answerQuery: '查询',
+      answerModel: '模型',
+      answerLatency: '耗时',
+      answerCitations: '引用',
+      noAnswer: '当前没有可用的 API 回答快照。',
       monitoring: '每周证据监控',
       monitoringBody: '最多保留十二次带日期的搜索/API 快照；它们不能证明消费端 AI 引用，并始终与事实就绪度评分分离。',
       createMonitor: '创建监控项目',
+      connectMonitor: '连接已有监控项目',
+      projectId: '项目 ID',
+      projectToken: '管理 Token',
+      connect: '连接',
       optionalEmail: '接收每周变化提醒的邮箱（可选）',
       managementToken: '管理 Token',
       tokenWarning: '只展示一次。请立即保存，GeoScore 无法找回。',
       tokenSaved: '我已保存 Token',
+      saveOnDevice: '保存到本设备',
+      forgetDevice: '忘记本设备',
+      rotateToken: '轮换 Token',
+      savedOnDevice: '已保存到本设备',
       querySettings: '查询设置',
       saveQueries: '保存查询',
       runDefault: '使用托管 API 运行',
       runByok: '使用 API Key 单次运行',
       apiKey: 'API Key',
+      apiBaseUrl: 'Base URL',
+      apiModel: '模型',
+      fetchModels: '拉取模型',
       apiKeyPrivacy: '仅用于本次请求；提交后立即清空，绝不存储。',
       monitorHistory: '监控历史',
       noHistory: '尚无监控运行记录。',
@@ -753,7 +791,7 @@
       notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', handoff: '交给开发 AI 的统一 Handoff Prompt',
       noInvent: '不得虚构价格、套餐、服务、地址、实体、作者、统计来源或站点未公开的业务事实。不得自动发布。',
       severity: '严重度', status: '状态', check: '检查', recommendation: '修复任务', unknown: '未知', none: '无',
-      repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
+      repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', answerSnapshots: 'API 回答快照', answer: '回答', model: '模型', latency: '耗时', citations: '引用', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
     } : {
       title: 'GeoScore full repair report', audit: 'Audit identity', generated: 'Generated', version: 'Score version', mode: 'Audit mode', target: 'Target',
       profile: 'Site profile', archetype: 'Site archetype', entity: 'Entity', industry: 'Industry vertical', business: 'Business model', locale: 'Page locale', root: 'Root domain', classification: 'Classification evidence',
@@ -763,7 +801,7 @@
       notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', handoff: 'Unified handoff prompt for a developer AI',
       noInvent: 'Do not invent prices, plans, services, addresses, entities, authors, statistical sources, or business facts not published by the site. Do not publish automatically.',
       severity: 'Severity', status: 'Status', check: 'Check', recommendation: 'Repair task', unknown: 'Unknown', none: 'None',
-      repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
+      repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', answerSnapshots: 'API answer snapshots', answer: 'Answer', model: 'Model', latency: 'Latency', citations: 'Citations', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
     };
     const oneLine = value => String(value ?? '').replace(/\s+/g, ' ').trim();
     const percent = value => value === null || value === undefined ? labels.unknown : `${Math.round(value)}%`;
@@ -863,6 +901,35 @@
         ...(providerRuns.length ? providerRuns.map(item => `- API run: ${oneLine(item?.provider ?? 'API')} — ${oneLine(item?.status)} — ${oneLine(item?.result_count ?? 0)} results — ${oneLine(item?.latency_ms ?? 0)}ms`) : []),
       ];
     })() : [`- ${labels.noSnapshot}`];
+    const answerSnapshotEntries = [
+      { source: labels.evidenceMap, snapshot: answerSnapshotValue(evidenceMap?.answer_snapshot) },
+      ...monitoringHistory.map((run, index) => ({
+        source: `${labels.monitoring} ${index + 1}`,
+        snapshot: answerSnapshotValue(run?.answer),
+      })),
+    ].filter(item => Array.isArray(item.snapshot?.observations) && item.snapshot.observations.length);
+    const answerSnapshotLines = answerSnapshotEntries.length ? answerSnapshotEntries.flatMap(entry => {
+      const observationLines = entry.snapshot.observations.flatMap((observation, index) => {
+        const citations = Array.isArray(observation?.citations) ? observation.citations : [];
+        return [
+          `### ${oneLine(entry.source)} ${index + 1}`,
+          `- ${labels.queries}: ${oneLine(localized(observation?.query, selected) || labels.unknown)}`,
+          `- ${labels.model}: ${oneLine(observation?.model ?? labels.unknown)}`,
+          `- ${labels.status}: ${oneLine(observation?.status ?? labels.unknown)}`,
+          `- ${labels.observedAt}: ${oneLine(observation?.observed_at ?? labels.unknown)}`,
+          `- ${labels.latency}: ${observation?.latency_ms == null ? labels.unknown : `${Math.round(Number(observation.latency_ms))}ms`}`,
+          `- ${labels.answer}: ${oneLine(localized(observation?.answer, selected) || labels.none)}`,
+          `- ${labels.citations}: ${citations.length}`,
+          ...(citations.length ? citations.map(citation => `  - ${oneLine(localized(citation?.title, selected) || citation?.url || labels.unknown)}${citation?.url ? ` - ${oneLine(citation.url)}` : ''}`) : []),
+        ];
+      });
+      const snapshotLimitations = Array.isArray(entry.snapshot?.limitations) ? entry.snapshot.limitations : [];
+      if (snapshotLimitations.length) {
+        observationLines.push(`- ${labels.limitations}:`);
+        observationLines.push(...snapshotLimitations.map(item => `  - ${oneLine(localized(item, selected))}`));
+      }
+      return observationLines;
+    }) : [`- ${labels.noSnapshot}`];
     const monitoringLines = monitoringHistory.length ? monitoringHistory.map(run =>
       `- ${formatTimestamp(run?.created_at, selected)} — ${labels.runType}: ${oneLine(run?.run_type ?? labels.unknown)} — ${labels.status}: ${oneLine(run?.status ?? labels.unknown)} — ${labels.final}: ${run?.factual_score == null ? labels.insufficient : `${Math.round(Number(run.factual_score))}/100`} — ${labels.delta}: ${run?.score_delta == null ? labels.none : oneLine(run.score_delta)} — ${labels.baseline}: ${oneLine(run?.baseline_action ?? labels.unknown)}`,
     ) : [`- ${labels.noHistory}`];
@@ -936,6 +1003,10 @@ ${optionalLines.join('\n')}
 ## ${labels.evidenceMap}
 
 ${evidenceMapLines.join('\n')}
+
+## ${labels.answerSnapshots}
+
+${answerSnapshotLines.join('\n')}
 
 ## ${labels.monitoring}
 
@@ -1242,6 +1313,53 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     return `<span class="inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold ${view.cls}">${escapeHtml(view.label)}</span>`;
   }
 
+  function answerSnapshotValue(value) {
+    if (Array.isArray(value?.observations)) return value;
+    if (Array.isArray(value?.snapshot?.observations)) return value.snapshot;
+    return null;
+  }
+
+  function renderAnswerObservation(observation, lang, expanded = false) {
+    const t = copy(lang);
+    const answer = localized(observation?.answer, lang);
+    const query = localized(observation?.query, lang);
+    const model = localized(observation?.model, lang) || t.unknown;
+    const citations = Array.isArray(observation?.citations) ? observation.citations : [];
+    const meta = [
+      `${t.answerModel}: ${model}`,
+      `${t.status}: ${observation?.status || t.unknownStatus}`,
+      observation?.observed_at ? formatTimestamp(observation.observed_at, lang) : '',
+      observation?.latency_ms == null ? '' : `${t.answerLatency}: ${Math.round(Number(observation.latency_ms))}ms`,
+      `${t.answerCitations}: ${citations.length}`,
+    ].filter(Boolean).join(' · ');
+    const citationRows = citations.map((citation, index) => {
+      const href = safeHttpUrl(citation?.url);
+      const title = localized(citation?.title, lang) || href || `${t.source} ${index + 1}`;
+      return `<li class="break-words">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="font-medium text-blue-700 hover:text-blue-800">${escapeHtml(title)}</a>` : escapeHtml(title)}</li>`;
+    }).join('');
+    return `<div class="border-l-2 border-cyan-200 pl-3 py-1">
+      <div class="flex flex-wrap items-center gap-2">${evidenceStatusBadge(observation?.status, lang)}<span class="text-[10px] text-slate-400 break-words">${escapeHtml(meta)}</span></div>
+      ${query ? `<p class="mt-1 text-xs font-semibold text-slate-700 break-words">${escapeHtml(t.answerQuery)}: ${escapeHtml(query)}</p>` : ''}
+      ${answer ? `<p class="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600">${escapeHtml(compact(answer, expanded ? 20_000 : 520))}</p>` : ''}
+      ${(answer || citationRows) ? `<details class="mt-2" data-disclosure="api-answer-full"><summary class="cursor-pointer text-[11px] font-medium text-cyan-700">${escapeHtml(t.fullAnswer)}</summary><div class="mt-2 space-y-2">${answer ? `<div class="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600">${escapeHtml(answer)}</div>` : ''}${citationRows ? `<ol class="list-decimal space-y-1 pl-4 text-[11px] text-slate-500">${citationRows}</ol>` : ''}</div></details>` : ''}
+    </div>`;
+  }
+
+  function renderAnswerSnapshot(value, lang, heading = null) {
+    const t = copy(lang);
+    const snapshot = answerSnapshotValue(value);
+    const observations = Array.isArray(snapshot?.observations) ? snapshot.observations : [];
+    if (!observations.length) return '';
+    const first = renderAnswerObservation(observations[0], lang);
+    const rest = observations.slice(1).map(item => renderAnswerObservation(item, lang, true)).join('');
+    return `<div class="space-y-3" data-answer-snapshot>
+      <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-bold text-slate-800">${escapeHtml(heading || t.latestAnswer)}</h3><span class="text-[10px] font-medium text-cyan-700">${escapeHtml(t.evidenceMapZeroWeight)}</span></div>
+      ${first}
+      ${rest ? `<details data-disclosure="other-api-answers"><summary class="cursor-pointer text-[11px] font-semibold text-slate-600">${escapeHtml(t.otherAnswers)} · ${observations.length - 1}</summary><div class="mt-2 space-y-3">${rest}</div></details>` : ''}
+      ${Array.isArray(snapshot?.limitations) && snapshot.limitations.length ? `<details data-disclosure="api-answer-limitations"><summary class="cursor-pointer text-[11px] font-medium text-slate-500">${escapeHtml(t.limitations)}</summary><ul class="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-500">${snapshot.limitations.map(item => `<li>${escapeHtml(localized(item, lang))}</li>`).join('')}</ul></details>` : ''}
+    </div>`;
+  }
+
   function renderEvidenceMap(data, lang, state) {
     if (!data?.audit_id) return '';
     const t = copy(lang);
@@ -1257,6 +1375,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     const limitations = Array.isArray(snapshot?.limitations) ? snapshot.limitations : [];
     const observedQueries = Array.isArray(target?.observed_queries) ? target.observed_queries : [];
     const runLabel = snapshot ? t.evidenceMapRefresh : t.evidenceMapRun;
+    const answerPanel = renderAnswerSnapshot(snapshot?.answer_snapshot, lang);
     const metrics = snapshot ? `<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
       <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(target.appearances ?? 0)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.appearances)}</div></div>
       <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(observedQueries.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.observedQueries)}</div></div>
@@ -1281,7 +1400,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
         <button type="button" data-action="run-evidence-map" ${busy ? 'disabled' : ''} class="shrink-0 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60 print:hidden">${escapeHtml(busy ? t.evidenceMapRunning : runLabel)}</button>
       </div>
       ${error ? `<div role="alert" class="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">${escapeHtml(error)}</div>` : ''}
-      ${snapshot ? `<div class="mt-4 space-y-3">${metrics}${opportunityRows ? `<div><h3 class="text-xs font-semibold text-slate-700 mb-1.5">${escapeHtml(t.contentOpportunities)}</h3><ul class="space-y-1.5">${opportunityRows}</ul></div>` : ''}
+      ${snapshot ? `<div class="mt-4 space-y-4">${answerPanel}${metrics}${opportunityRows ? `<div><h3 class="text-xs font-semibold text-slate-700 mb-1.5">${escapeHtml(t.contentOpportunities)}</h3><ul class="space-y-1.5">${opportunityRows}</ul></div>` : ''}
         <details class="rounded-lg border border-slate-200" data-disclosure="evidence-provenance"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-700">${escapeHtml(t.provenance)}</summary><div class="px-3 pb-3 space-y-3">
           ${queryRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.querySettings)}</div><ul class="space-y-1">${queryRows}</ul></div>` : ''}
           ${diagnosisRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.diagnosis)}</div><ul>${diagnosisRows}</ul></div>` : ''}
@@ -1315,6 +1434,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     const error = state?.error ? localized(state.error.message ?? state.error, lang) : '';
     const message = localized(state?.message, lang);
     const token = state?.showToken ? state?.managementToken : '';
+    const modelOptions = Array.isArray(state?.modelOptions) ? state.modelOptions : [];
     const queryRows = Array.isArray(project?.queries) ? project.queries.map((query, index) => `<div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
       <label class="min-w-0"><span class="sr-only">${escapeHtml(`${t.querySettings} ${index + 1}`)}</span><input type="text" name="query" maxlength="240" required value="${escapeHtml(query?.query ?? '')}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"></label>
       <label><span class="sr-only">${escapeHtml(t.queryIntent)}</span><select name="intent" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none">${monitorIntentOptions(query?.intent ?? 'informational', lang)}</select></label>
@@ -1323,12 +1443,13 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
       const score = run?.factual_score == null ? t.insufficient : `${Math.round(Number(run.factual_score))}/100`;
       const delta = run?.score_delta == null ? '—' : `${Number(run.score_delta) > 0 ? '+' : ''}${run.score_delta}`;
       const evidenceRuns = Array.isArray(run?.evidence?.snapshot?.provider_runs) ? run.evidence.snapshot.provider_runs : [];
-      const answerRuns = Array.isArray(run?.answer?.snapshot?.provider_runs) ? run.answer.snapshot.provider_runs : [];
-      const provenanceRows = [...evidenceRuns, ...answerRuns].map(item => `<li>${escapeHtml([item?.provider ?? 'API', item?.status, item?.result_count == null ? '' : `${item.result_count} results`, item?.latency_ms == null ? '' : `${item.latency_ms}ms`].filter(Boolean).join(' · '))}</li>`).join('');
+      const provenanceRows = evidenceRuns.map(item => `<li>${escapeHtml([item?.provider ?? 'API', item?.status, item?.result_count == null ? '' : `${item.result_count} results`, item?.latency_ms == null ? '' : `${item.latency_ms}ms`].filter(Boolean).join(' · '))}</li>`).join('');
+      const runAnswer = renderAnswerSnapshot(run?.answer, lang, t.latestAnswer);
       return `<li class="py-3 border-t border-slate-100 first:border-t-0">
         <div class="flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-semibold text-slate-700">${escapeHtml(formatTimestamp(run?.created_at, lang))}</span>${evidenceStatusBadge(run?.status, lang)}</div>
         <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(score)} · ${escapeHtml(t.scoreDelta)} ${escapeHtml(delta)} · ${escapeHtml(run?.run_type ?? '')} · ${escapeHtml(run?.baseline_action ?? t.baseline)}</div>
         ${provenanceRows ? `<details class="mt-2" data-disclosure="monitor-run-provenance"><summary class="cursor-pointer text-[11px] font-medium text-slate-500">${escapeHtml(t.provenance)}</summary><ul class="mt-1 list-disc pl-4 text-[11px] text-slate-400 space-y-1">${provenanceRows}</ul></details>` : ''}
+        ${runAnswer ? `<div class="mt-3">${runAnswer}</div>` : ''}
       </li>`;
     }).join('');
 
@@ -1336,16 +1457,25 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
       <label class="min-w-0 flex-1"><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.optionalEmail)}</span><input type="email" name="email" autocomplete="email" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
       <button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.saving : t.createMonitor)}</button>
     </form>`;
+    const connect = `<details class="mt-3 rounded-lg border border-slate-200" data-disclosure="connect-monitor"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-700">${escapeHtml(t.connectMonitor)}</summary><form data-monitor-form="connect" class="grid gap-2 px-3 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectId)}</span><input type="text" name="project_id" autocomplete="off" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
+      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectToken)}</span><input type="password" name="management_token" autocomplete="off" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
+      <button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(t.connect)}</button>
+    </form></details>`;
+    const latestRunAnswer = renderAnswerSnapshot(runs[0]?.answer, lang, t.latestAnswer);
+    const modelList = modelOptions.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
     const controls = project ? `<div class="mt-4 space-y-4">
-      ${token ? `<div role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-semibold text-amber-800">${escapeHtml(t.managementToken)}</div><p class="mt-1 text-[11px] text-amber-700">${escapeHtml(t.tokenWarning)}</p><code id="monitor-management-token" class="mt-2 block overflow-x-auto whitespace-nowrap rounded bg-white px-2 py-1.5 text-xs text-slate-700">${escapeHtml(token)}</code><div class="mt-2 flex flex-wrap gap-2"><button type="button" data-action="copy-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(SHARED_I18N?.t?.('common.copy', {}, language(lang)) ?? 'Copy')}</button><button type="button" data-action="dismiss-monitor-token" class="rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.tokenSaved)}</button></div></div>` : ''}
-      <div class="text-xs text-slate-500"><code>${escapeHtml(project.id ?? '')}</code> · ${escapeHtml(project.root_domain ?? data.domain ?? '')} · ${escapeHtml(project.schedule ?? 'weekly')}</div>
+      ${token ? `<div role="status" class="rounded-lg border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-semibold text-amber-800">${escapeHtml(t.managementToken)}</div><p class="mt-1 text-[11px] text-amber-700">${escapeHtml(t.tokenWarning)}</p><code id="monitor-management-token" class="mt-2 block overflow-x-auto whitespace-nowrap rounded bg-white px-2 py-1.5 text-xs text-slate-700">${escapeHtml(token)}</code><div class="mt-2 flex flex-wrap gap-2"><button type="button" data-action="copy-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(SHARED_I18N?.t?.('common.copy', {}, language(lang)) ?? 'Copy')}</button><button type="button" data-action="save-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.saveOnDevice)}</button><button type="button" data-action="dismiss-monitor-token" class="rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.tokenSaved)}</button></div></div>` : ''}
+      <div class="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span><code>${escapeHtml(project.id ?? '')}</code> · ${escapeHtml(project.root_domain ?? data.domain ?? '')} · ${escapeHtml(project.schedule ?? 'weekly')}${state?.tokenSaved ? ` · ${escapeHtml(t.savedOnDevice)}` : ''}</span><span class="flex flex-wrap gap-2"><button type="button" data-action="save-monitor-token" class="font-semibold text-indigo-700 hover:text-indigo-800">${escapeHtml(t.saveOnDevice)}</button><button type="button" data-action="forget-monitor-token" class="font-semibold text-slate-500 hover:text-slate-700">${escapeHtml(t.forgetDevice)}</button><button type="button" data-action="rotate-monitor-token" class="font-semibold text-orange-700 hover:text-orange-800">${escapeHtml(t.rotateToken)}</button></span></div>
       <form data-monitor-form="queries" class="rounded-xl border border-slate-200 p-3"><div class="text-xs font-semibold text-slate-700 mb-2">${escapeHtml(t.querySettings)}</div><div class="space-y-2">${queryRows}</div><button type="submit" ${busy ? 'disabled' : ''} class="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(busy ? t.saving : t.saveQueries)}</button></form>
       <div class="grid gap-3 lg:grid-cols-2">
         <button type="button" data-action="run-monitor-default" ${busy ? 'disabled' : ''} class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runDefault)}</button>
-        <form data-monitor-form="byok" class="rounded-xl border border-slate-200 p-3"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiKey)}</span><input type="password" name="api_key" autocomplete="off" minlength="12" maxlength="512" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><p class="mt-1 text-[10px] text-slate-400">${escapeHtml(t.apiKeyPrivacy)}</p><button type="submit" ${busy ? 'disabled' : ''} class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runByok)}</button></form>
+        <form data-monitor-form="byok" class="rounded-xl border border-slate-200 p-3 space-y-2"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiKey)}</span><input type="password" name="api_key" autocomplete="off" minlength="12" maxlength="512" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiBaseUrl)}</span><input type="url" name="api_base_url" inputmode="url" autocomplete="off" required placeholder="https://api.example.com" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiModel)}</span><input type="text" name="api_model" list="monitor-api-model-list" autocomplete="off" maxlength="160" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><button type="button" data-action="fetch-monitor-models" ${busy ? 'disabled' : ''} class="self-end rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(t.fetchModels)}</button></div><datalist id="monitor-api-model-list">${modelList}</datalist><p class="text-[10px] text-slate-400">${escapeHtml(t.apiKeyPrivacy)}</p><button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runByok)}</button></form>
       </div>
+      ${latestRunAnswer ? `<div class="border-t border-slate-100 pt-4">${latestRunAnswer}</div>` : ''}
       <details class="rounded-xl border border-slate-200" data-disclosure="monitoring-history"><summary class="cursor-pointer select-none px-3 py-2.5 text-xs font-semibold text-slate-700">${escapeHtml(t.monitorHistory)} · ${escapeHtml(runs.length)}</summary><div class="px-3 pb-3"><p class="text-[10px] text-slate-400 mb-2">${escapeHtml(t.historyRetention)}</p>${historyRows ? `<ul>${historyRows}</ul>` : `<p class="text-xs text-slate-400">${escapeHtml(t.noHistory)}</p>`}</div></details>
-    </div>` : create;
+      ${connect}
+    </div>` : `${create}${connect}`;
 
     return `<section id="monitoring-section" class="bg-white rounded-xl border border-indigo-200 p-4 fade-in" data-category="all">
       <div><div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.monitoring)}</h2>${project ? `<span class="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">weekly</span>` : ''}</div><p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(t.monitoringBody)}</p></div>

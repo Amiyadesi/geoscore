@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeoScore Docs</title>
+  <meta name="description" content="GeoScore audit, Evidence Map, monitoring token, BYOK, Markdown export, Search Gateway, and public API documentation">
+  <link rel="canonical" href="https://geo.sayori.org/docs">
+  <link rel="stylesheet" href="/docs/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#docs-main">Skip to documentation</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="GeoScore home">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span>GeoScore Docs</span>
+    </a>
+    <div class="top-actions">
+      <a class="api-link" href="https://geo-api.sayori.org/openapi.json">OpenAPI</a>
+      <div class="language-switch" role="group" aria-label="Documentation language">
+        <button type="button" data-language="en">EN</button>
+        <button type="button" data-language="zh">中文</button>
+      </div>
+      <button class="menu-button" id="docs-menu" type="button" aria-expanded="false" aria-controls="task-nav" aria-label="Open documentation navigation">
+        <span aria-hidden="true">☰</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="docs-shell">
+    <aside class="task-nav" id="task-nav" aria-label="Documentation tasks">
+      <nav data-doc-lang="en">
+        <p class="nav-label">Start here</p>
+        <a href="#en-first-audit">First audit</a>
+        <a href="#en-evidence-map">Evidence Map</a>
+        <a href="#en-monitoring">Monitoring token</a>
+        <a href="#en-byok">Custom API</a>
+        <p class="nav-label">Operate</p>
+        <a href="#en-email">Email verification</a>
+        <a href="#en-export">Markdown export</a>
+        <a href="#en-errors">Errors and limits</a>
+        <a href="#en-search-gateway">Search Gateway and MCP</a>
+      </nav>
+      <nav data-doc-lang="zh" hidden>
+        <p class="nav-label">开始使用</p>
+        <a href="#zh-first-audit">第一次审查</a>
+        <a href="#zh-evidence-map">Evidence Map</a>
+        <a href="#zh-monitoring">监控 Token</a>
+        <a href="#zh-byok">自定义 API</a>
+        <p class="nav-label">运行与接入</p>
+        <a href="#zh-email">邮箱验证</a>
+        <a href="#zh-export">Markdown 导出</a>
+        <a href="#zh-errors">错误与额度</a>
+        <a href="#zh-search-gateway">Search Gateway 与 MCP</a>
+      </nav>
+    </aside>
+
+    <main id="docs-main" tabindex="-1">
+      <article data-doc-lang="en">
+        <header class="doc-intro">
+          <p class="eyebrow">GeoScore 2.4.1</p>
+          <h1>From audit to a verifiable repair</h1>
+          <p>Use the factual audit first, then add dated search or API observations when you need them. Evidence Map, monitoring, and custom-model output never change the factual score.</p>
+          <div class="intro-actions">
+            <a class="primary-action" href="/">Run an audit</a>
+            <a href="https://github.com/Amiyadesi/geoscore">View source</a>
+          </div>
+        </header>
+
+        <section id="en-first-audit">
+          <h2>First audit</h2>
+          <p>Site mode samples up to five representative HTML pages. URL mode checks one target page and may read the homepage for context. Start with site mode, confirm the site profile, and repair critical or major failures before low-impact items.</p>
+          <ol>
+            <li>Enter a public domain or complete page URL</li>
+            <li>Choose site or URL mode</li>
+            <li>Review the site archetype, evidence coverage, confidence, and top three actions</li>
+            <li>Open detailed checks only when you need the raw evidence</li>
+          </ol>
+          <div class="note"><strong>Scoring rule</strong><span>Only known and applicable pass/fail checks enter the weighted score. Unknown, error, and not-applicable states do not become zero.</span></div>
+        </section>
+
+        <section id="en-evidence-map">
+          <h2>Evidence Map and API answers</h2>
+          <p>Evidence Map creates a dated query plan, records observed sources, and can request one answer snapshot from a hosted or custom API. The latest answer appears at the top with its query, model, status, time, latency, answer text, and citations.</p>
+          <p>These snapshots describe an API response at a point in time. They are not proof that ChatGPT, Perplexity, Gemini, or Google AI Overview cited the site in a consumer interface.</p>
+        </section>
+
+        <section id="en-monitoring">
+          <h2>Monitoring project and management token</h2>
+          <p>Creating a project returns a project ID and a management token. The token authorizes project reads, query changes, runs, history, rotation, and deletion. GeoScore stores only a peppered hash and cannot recover the original token.</p>
+          <ul>
+            <li>Copy it immediately after project creation</li>
+            <li>Saving it on this device is explicit and optional</li>
+            <li>Use “Connect existing project” with the project ID and token on another device</li>
+            <li>Rotate it if it was exposed; the old token stops working immediately</li>
+          </ul>
+          <div class="request-block">
+            <div class="request-head"><span>Load a project</span><button type="button" data-copy="en-monitor-request">Copy</button></div>
+            <pre id="en-monitor-request"><code>curl https://geo-api.sayori.org/api/monitor-projects/PROJECT_ID \
+  -H "X-Project-Token: MANAGEMENT_TOKEN"</code></pre>
+          </div>
+        </section>
+
+        <section id="en-byok">
+          <h2>Custom API and automatic <code>/v1</code></h2>
+          <p>Paste the provider root such as <code>https://api.example.com</code>. GeoScore automatically adds <code>/v1</code>. If you paste <code>/models</code> or <code>/chat/completions</code>, it returns to the matching API root before sending the request.</p>
+          <p>Use “Fetch models” to load a bounded model list or type a model ID manually. The API key and Base URL are cleared after the request and are not stored, placed in the URL, or included in exports. The selected model ID, answer, and citations may be retained as evidence.</p>
+          <div class="request-block">
+            <div class="request-head"><span>Run monitoring once with your API</span><button type="button" data-copy="en-byok-request">Copy</button></div>
+            <pre id="en-byok-request"><code>curl -X POST https://geo-api.sayori.org/api/monitor-projects/PROJECT_ID/byok-runs \
+  -H "Content-Type: application/json" \
+  -H "X-Project-Token: MANAGEMENT_TOKEN" \
+  -H "X-API-Key: REQUEST_SCOPED_API_KEY" \
+  -d '{"api_base_url":"https://api.example.com","api_model":"model-id"}'</code></pre>
+          </div>
+        </section>
+
+        <section id="en-email">
+          <h2>Email verification and historical snapshots</h2>
+          <p>An optional email address receives a verification link. Alerts begin only after verification and only for comparable weekly score changes. A new score version, a first baseline, or insufficient evidence suppresses change alerts.</p>
+          <p>The completed run is stored before delivery is attempted. A mail-provider failure cannot erase the audit snapshot, and eligible failed alerts can be retried with the same run-scoped identity.</p>
+        </section>
+
+        <section id="en-export">
+          <h2>Markdown repair report</h2>
+          <p>The one-click Markdown download is deterministic and does not require an AI call. It includes the site profile, sampled pages, score caps, every failed check, unknown and error evidence, repair groups, Evidence Map, API answer snapshots, monitoring history, limitations, verification steps, and one provider-neutral handoff prompt.</p>
+          <p>Keys and Base URLs are excluded from the report. GeoScore never modifies or publishes the audited website.</p>
+        </section>
+
+        <section id="en-errors">
+          <h2>Error codes, free limits, and privacy</h2>
+          <table>
+            <thead><tr><th>Code or state</th><th>Meaning</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><code>CUSTOM_API_CONFIG_INCOMPLETE</code></td><td>Key, Base URL, or model is missing</td><td>Fill all three fields</td></tr>
+              <tr><td><code>401 / 403</code></td><td>Project or upstream API authentication failed</td><td>Check or rotate the relevant token</td></tr>
+              <tr><td><code>429</code></td><td>GeoScore or an upstream provider reached a limit</td><td>Wait for the retry window</td></tr>
+              <tr><td><code>502 / 503</code></td><td>Optional provider or service unavailable</td><td>Retry when marked retryable; factual checks remain separate</td></tr>
+              <tr><td><code>partial</code></td><td>Some evidence completed and some failed</td><td>Use the available evidence and inspect the failed source</td></tr>
+            </tbody>
+          </table>
+          <p>Runtime limits are published by <a href="https://geo-api.sayori.org/api/meta"><code>/api/meta</code></a>. GeoScore accepts public targets only. Request-scoped keys are sent in headers, never in query strings.</p>
+        </section>
+
+        <section id="en-search-gateway">
+          <h2>Search Gateway and MCP</h2>
+          <p>GeoScore uses Search Gateway as an optional evidence source for query fan-out, search snapshots, and bounded answer snapshots. Search results are evidence, not simulated consumer citations.</p>
+          <ul>
+            <li>Service: <a href="https://search.sayori.org">search.sayori.org</a></li>
+            <li>Swagger: <a href="https://search.sayori.org/docs">search.sayori.org/docs</a></li>
+            <li>Source: <a href="https://github.com/Amiyadesi/search-gateway">Amiyadesi/search-gateway</a></li>
+            <li>MCP server: run <code>mcp/search_gateway_mcp.py</code> from the Search Gateway repository and configure the service URL and API key in the client environment</li>
+          </ul>
+          <p>For exact GeoScore requests and response schemas, use the <a href="https://geo-api.sayori.org/openapi.json">OpenAPI document</a>.</p>
+        </section>
+      </article>
+
+      <article data-doc-lang="zh" hidden>
+        <header class="doc-intro">
+          <p class="eyebrow">GeoScore 2.4.1</p>
+          <h1>从审查走到可以复验的修复</h1>
+          <p>先用事实审查确认网站真实缺什么，再按需要加入带日期的搜索或 API 观察记录。Evidence Map、监控和自定义模型回答都不会改变事实分</p>
+          <div class="intro-actions">
+            <a class="primary-action" href="/">开始审查</a>
+            <a href="https://github.com/Amiyadesi/geoscore">查看源码</a>
+          </div>
+        </header>
+
+        <section id="zh-first-audit">
+          <h2>第一次审查</h2>
+          <p>站点模式最多抽取五个代表性 HTML 页面。单 URL 模式只检查目标页，需要上下文时会额外读取首页。建议先跑站点模式，确认站点画像，再优先清理 critical 和 major 失败项</p>
+          <ol>
+            <li>输入公开域名或完整页面 URL</li>
+            <li>选择站点模式或单 URL 模式</li>
+            <li>检查站点类型、证据覆盖率、置信度和三个优先行动</li>
+            <li>需要定位问题时再展开详细检查与原始证据</li>
+          </ol>
+          <div class="note"><strong>评分规则</strong><span>只有已知且适用的 pass 和 fail 会进入加权分，unknown、error 和 not_applicable 不会被当成 0 分</span></div>
+        </section>
+
+        <section id="zh-evidence-map">
+          <h2>Evidence Map 与 API 回答</h2>
+          <p>Evidence Map 会生成带日期的查询计划，记录观察到的来源，也可以从托管 API 或自定义 API 请求一次回答快照。最新回答会直接显示查询、模型、状态、时间、耗时、正文与引用</p>
+          <p>这些快照只说明某个 API 在某个时间点返回了什么，并不能证明 ChatGPT、Perplexity、Gemini 或 Google AI Overview 的消费端界面引用了网站</p>
+        </section>
+
+        <section id="zh-monitoring">
+          <h2>监控项目与管理 Token</h2>
+          <p>创建项目后会得到 project ID 和 management token。这个 Token 用于读取项目、修改查询、执行快照、查看历史、轮换 Token 和删除项目。GeoScore 只保存经过 pepper 保护的哈希，无法找回原始 Token</p>
+          <ul>
+            <li>创建后立即复制 Token</li>
+            <li>保存到本设备必须由你明确点击，默认不会保存</li>
+            <li>换设备时使用“连接已有监控项目”并填写 project ID 与 Token</li>
+            <li>Token 暴露后立即轮换，旧 Token 会马上失效</li>
+          </ul>
+          <div class="request-block">
+            <div class="request-head"><span>读取项目</span><button type="button" data-copy="zh-monitor-request">复制</button></div>
+            <pre id="zh-monitor-request"><code>curl https://geo-api.sayori.org/api/monitor-projects/PROJECT_ID \
+  -H "X-Project-Token: MANAGEMENT_TOKEN"</code></pre>
+          </div>
+        </section>
+
+        <section id="zh-byok">
+          <h2>自定义 API 与自动补全 <code>/v1</code></h2>
+          <p>只需要粘贴服务根地址，例如 <code>https://api.example.com</code>，GeoScore 会自动补上 <code>/v1</code>。如果粘贴的是 <code>/models</code> 或 <code>/chat/completions</code>，也会先退回对应 API 根路径</p>
+          <p>可以用“拉取模型”加载有限数量的模型，也可以手动填写 model ID。API Key 与 Base URL 在请求结束后会被清空，不会保存、写入 URL 或进入导出报告。模型 ID、回答与引用可以作为证据快照保存</p>
+          <div class="request-block">
+            <div class="request-head"><span>使用自己的 API 执行一次监控</span><button type="button" data-copy="zh-byok-request">复制</button></div>
+            <pre id="zh-byok-request"><code>curl -X POST https://geo-api.sayori.org/api/monitor-projects/PROJECT_ID/byok-runs \
+  -H "Content-Type: application/json" \
+  -H "X-Project-Token: MANAGEMENT_TOKEN" \
+  -H "X-API-Key: REQUEST_SCOPED_API_KEY" \
+  -d '{"api_base_url":"https://api.example.com","api_model":"model-id"}'</code></pre>
+          </div>
+        </section>
+
+        <section id="zh-email">
+          <h2>邮箱验证与历史快照</h2>
+          <p>可选邮箱会先收到验证链接。只有验证成功并出现可比较的每周分数变化时才会发送提醒。第一次建立基线、评分版本变化或证据不足时不会发送涨跌告警</p>
+          <p>系统会先保存完整运行结果，再尝试发信。邮件服务故障不会抹掉已经完成的快照，符合条件的失败告警可以按同一个运行标识重试</p>
+        </section>
+
+        <section id="zh-export">
+          <h2>Markdown 修复报告</h2>
+          <p>一键 Markdown 下载是确定性的，不需要调用 AI。报告包含站点画像、抽样页面、分数封顶、全部失败项、unknown 与 error 证据、修复组、Evidence Map、API 回答快照、监控历史、限制说明、复验步骤和一份通用 handoff prompt</p>
+          <p>API Key 与 Base URL 不会进入报告，GeoScore 也不会修改或发布被审查的网站</p>
+        </section>
+
+        <section id="zh-errors">
+          <h2>错误码、免费额度与隐私</h2>
+          <table>
+            <thead><tr><th>错误码或状态</th><th>含义</th><th>处理方式</th></tr></thead>
+            <tbody>
+              <tr><td><code>CUSTOM_API_CONFIG_INCOMPLETE</code></td><td>Key、Base URL 或 model 缺失</td><td>同时填写三个字段</td></tr>
+              <tr><td><code>401 / 403</code></td><td>项目或上游 API 鉴权失败</td><td>检查或轮换对应 Token</td></tr>
+              <tr><td><code>429</code></td><td>GeoScore 或上游服务达到额度</td><td>等待重试窗口</td></tr>
+              <tr><td><code>502 / 503</code></td><td>可选证据源或服务不可用</td><td>可重试时稍后重试，事实检查仍独立保留</td></tr>
+              <tr><td><code>partial</code></td><td>部分证据成功，部分失败</td><td>先使用成功证据，再查看失败来源</td></tr>
+            </tbody>
+          </table>
+          <p>当前免费额度和运行限制以 <a href="https://geo-api.sayori.org/api/meta"><code>/api/meta</code></a> 为准。GeoScore 只接受公开目标，请求级密钥放在 Header 中，不要放入查询参数</p>
+        </section>
+
+        <section id="zh-search-gateway">
+          <h2>Search Gateway 与 MCP</h2>
+          <p>GeoScore 把 Search Gateway 作为可选证据源，用于查询扩展、搜索快照和有限的回答快照。搜索结果只是证据，不是伪装成真实消费端引用的模拟数据</p>
+          <ul>
+            <li>服务入口：<a href="https://search.sayori.org">search.sayori.org</a></li>
+            <li>Swagger：<a href="https://search.sayori.org/docs">search.sayori.org/docs</a></li>
+            <li>源码：<a href="https://github.com/Amiyadesi/search-gateway">Amiyadesi/search-gateway</a></li>
+            <li>MCP：从 Search Gateway 仓库运行 <code>mcp/search_gateway_mcp.py</code>，并在客户端环境中配置服务地址和 API Key</li>
+          </ul>
+          <p>GeoScore 的准确请求与响应结构请查看 <a href="https://geo-api.sayori.org/openapi.json">OpenAPI 文档</a></p>
+        </section>
+      </article>
+    </main>
+
+    <aside class="page-toc" aria-label="On this page">
+      <div data-doc-lang="en">
+        <p class="nav-label">On this page</p>
+        <a href="#en-first-audit">First audit</a>
+        <a href="#en-evidence-map">Evidence Map</a>
+        <a href="#en-monitoring">Monitoring</a>
+        <a href="#en-byok">Custom API</a>
+        <a href="#en-errors">Errors and limits</a>
+      </div>
+      <div data-doc-lang="zh" hidden>
+        <p class="nav-label">本页目录</p>
+        <a href="#zh-first-audit">第一次审查</a>
+        <a href="#zh-evidence-map">Evidence Map</a>
+        <a href="#zh-monitoring">监控项目</a>
+        <a href="#zh-byok">自定义 API</a>
+        <a href="#zh-errors">错误与额度</a>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/docs/docs.js" defer></script>
+</body>
+</html>

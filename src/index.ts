@@ -45,6 +45,7 @@ import {
   MAX_FREE_SEARCH_PROVIDERS_PER_QUERY,
 } from './lib/query-evidence';
 import { buildRepairGroups } from './lib/repair-groups';
+import { buildOpenApiSpec } from './lib/openapi';
 import { handleFeedback, handleLearningAdmin } from './routes/feedback';
 import {
   corsHeaders,
@@ -88,7 +89,7 @@ export default {
 };
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
-export const PRODUCT_VERSION = '2.4.0';
+export const PRODUCT_VERSION = '2.4.1';
 const MAX_AUDIT_PAGES = 5;
 const OPTIONAL_ANONYMOUS_MODULES = [
   'keywords',
@@ -342,6 +343,19 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const { limited } = await searchRateLimit(env, ip);
       if (limited) return rateLimitedResponse(60);
       return handleSearch(req, env);
+    }
+
+    if (pathname === '/openapi.json' && req.method === 'GET') {
+      return new Response(JSON.stringify(buildOpenApiSpec({
+        apiUrl: publicApiUrl(env),
+        productVersion: PRODUCT_VERSION,
+        scoreVersion: SCORE_VERSION,
+      })), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+        },
+      });
     }
 
     if (pathname === '/api/answer-models' && req.method === 'POST') {

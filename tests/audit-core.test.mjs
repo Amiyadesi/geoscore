@@ -352,6 +352,10 @@ describe('GeoScore 2 audit core', () => {
       'https://example.com/posts/a-first',
       'https://example.com/docs/getting-started',
       'https://example.com/products/widget',
+      'https://example.com/cdn-cgi/scripts/challenge-platform/h/g/orchestrate/jsch/v1',
+      'https://example.com/_next/static/chunks/app.js',
+      'https://example.com/assets/site.css',
+      'https://example.com/files/guide.pdf',
       'https://other.example.net/posts/nope',
     ];
     const first = pages.selectAuditPageCandidates('https://example.com/', links, links);
@@ -360,6 +364,7 @@ describe('GeoScore 2 audit core', () => {
     assert.deepEqual(first, second);
     assert.ok(first.length <= 4, 'homepage plus candidates must stay within five total pages');
     assert.equal(first[0]?.page_type, 'about');
+    assert.doesNotMatch(JSON.stringify(first), /cdn-cgi|_next|site\.css|guide\.pdf/);
 
     const withoutAbout = links.filter(link => !link.endsWith('/about'));
     const representativeOnly = pages.selectAuditPageCandidates('https://example.com/', withoutAbout, withoutAbout);
