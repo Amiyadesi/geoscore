@@ -46,6 +46,9 @@ const candidate = {
   source: 'requested',
 };
 const challengeHtml = '<!doctype html><html><head><title>Just a moment...</title></head><body>Checking your browser</body></html>';
+const siteGroundChallengeHtml = `<!doctype html><html><head>
+  <meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F&y=ipc:test">
+  </head><body></body></html>`;
 const renderedHtml = `<!doctype html><html lang="en"><head><title>Rendered example</title></head><body><main><h1>Example</h1><p>${'Useful rendered content. '.repeat(20)}</p></main></body></html>`;
 
 function challengeFetcher() {
@@ -360,6 +363,53 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(page.status, 'error');
     assert.equal(page.error_code, 'AUDIT_BOT_CHALLENGE');
     assert.match(page.error ?? '', /interstitial|access notice/i);
+  });
+
+  it('rejects a SiteGround 202 verification page with a stable challenge error', async () => {
+    const page = await fetchAuditPage(candidate, () => Promise.resolve(new Response(siteGroundChallengeHtml, {
+      status: 202,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })));
+
+    assert.equal(page.status, 'error');
+    assert.equal(page.error_code, 'AUDIT_BOT_CHALLENGE');
+    assert.equal(page.status_code, 202);
+    assert.match(page.error ?? '', /siteground|challenge/i);
+  });
+
+  it('uses Browser Run once for a SiteGround 202 verification page', async () => {
+    const binding = bindingWith(() => successResponse());
+    const page = await fetchAuditPage(candidate, () => Promise.resolve(new Response(siteGroundChallengeHtml, {
+      status: 202,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })), {
+      browserFallback: browserOptions({ binding }),
+    });
+
+    assert.equal(page.status, 'complete');
+    assert.equal(page.fetch_source, 'browser_run');
+    assert.match(page.fallback_reason ?? '', /siteground|challenge/i);
+    assert.equal(binding.calls.length, 1);
+  });
+
+  it('does not accept a SiteGround verification page returned by Browser Run', async () => {
+    const binding = bindingWith(() => new Response(JSON.stringify({
+      success: true,
+      result: siteGroundChallengeHtml,
+      meta: { status: 202 },
+      errors: [],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    const page = await fetchAuditPage(candidate, () => Promise.resolve(new Response(siteGroundChallengeHtml, {
+      status: 202,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })), {
+      browserFallback: browserOptions({ binding }),
+    });
+
+    assert.equal(page.status, 'error');
+    assert.equal(page.error_code, 'AUDIT_BOT_CHALLENGE');
+    assert.equal(page.browser_fallback?.error?.code, 'BROWSER_RUN_BOT_CHALLENGE');
+    assert.equal(binding.calls.length, 1);
   });
 
   it('shares one attempt state so only the primary page can consume a render', async () => {

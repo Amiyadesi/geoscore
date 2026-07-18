@@ -43,6 +43,8 @@ export interface BotChallengeResult {
 const CHALLENGE_URL_RE =
   /\/(?:captcha|captchaChallenge|challenge|bot[-_]check|security[-_]check|blocked|interstitial|human[-_]check|verify[-_]human|ddos[-_]protection|waf[-_]challenge|access[-_]denied|checkpoint)/i;
 
+const SITEGROUND_CHALLENGE_PATH_RE = /\/\.well-known\/sgcaptcha(?:\/|$)/i;
+
 /**
  * <title> patterns that unambiguously identify WAF challenge pages.
  *
@@ -97,6 +99,7 @@ export function detectBotChallenge(
   finalUrl?: string,
   statusCode?: number,
 ): BotChallengeResult {
+  const htmlSample = html.slice(0, 5000);
 
   // 1. HTTP 403 — explicit block; no content analysis needed.
   //    Cloudflare 5xx error codes (520–530) are also all-Cloudflare error pages
@@ -118,6 +121,12 @@ export function detectBotChallenge(
   if (finalUrl) {
     try {
       const { pathname } = new URL(finalUrl);
+      if (SITEGROUND_CHALLENGE_PATH_RE.test(pathname)) {
+        return {
+          isChallenge: true,
+          reason: `SiteGround verification challenge detected: ${pathname}`,
+        };
+      }
       if (CHALLENGE_URL_RE.test(pathname)) {
         return {
           isChallenge: true,
@@ -125,6 +134,15 @@ export function detectBotChallenge(
         };
       }
     } catch { /* malformed URL — skip this layer */ }
+  }
+
+  // SiteGround commonly serves HTTP 202 with an empty page that immediately
+  // refreshes to this path, so it must be detected from markup before auditing.
+  if (SITEGROUND_CHALLENGE_PATH_RE.test(htmlSample)) {
+    return {
+      isChallenge: true,
+      reason: 'SiteGround verification challenge detected in page markup',
+    };
   }
 
   // 3. <title> tag — cheap, high-signal
@@ -139,10 +157,10 @@ export function detectBotChallenge(
   }
 
   // 4. Body keyword scan — first 5 000 chars only for performance
-  if (html && CHALLENGE_CONTENT_RE.test(html.slice(0, 5000))) {
+  if (CHALLENGE_CONTENT_RE.test(htmlSample)) {
     return {
       isChallenge: true,
-      reason: /ipv6|提醒|访问/i.test(html.slice(0, 5000))
+      reason: /ipv6|提醒|访问/i.test(htmlSample)
         ? 'Access notice interstitial detected in page content'
         : 'Bot-challenge keywords detected in page content',
     };

@@ -63,6 +63,21 @@ const CASES = [
   { domain: 'eff.org', expected: ['nonprofit'], group: 'nonprofit' },
   { domain: 'smashingmagazine.com', expected: ['editorial', 'news_media'], group: 'editorial' },
   { domain: 'openstreetmap.org', expected: ['community', 'nonprofit'], group: 'community' },
+  { domain: 'reuters.com', expected: ['news_media', 'editorial'], group: 'news' },
+  { domain: 'theverge.com', expected: ['news_media', 'editorial'], group: 'news' },
+  { domain: 'daringfireball.net', expected: ['personal_blog', 'editorial'], group: 'personal_blog' },
+  { domain: 'martinfowler.com', expected: ['personal_blog', 'editorial', 'professional_services'], group: 'personal_blog' },
+  { domain: 'docs.docker.com', expected: ['documentation'], group: 'documentation' },
+  { domain: 'docs.djangoproject.com', expected: ['documentation'], group: 'documentation' },
+  { domain: 'amazon.com', expected: ['ecommerce'], group: 'ecommerce' },
+  { domain: 'walmart.com', expected: ['ecommerce'], group: 'ecommerce' },
+  { domain: 'atlassian.com', expected: ['saas'], group: 'saas' },
+  { domain: 'notion.so', expected: ['saas'], group: 'saas' },
+  { domain: 'discuss.python.org', expected: ['community'], group: 'community' },
+  { domain: 'redcross.org', expected: ['nonprofit'], group: 'nonprofit' },
+  { domain: 'ideo.com', expected: ['professional_services'], group: 'professional_services' },
+  { domain: 'paulirish.com', expected: ['portfolio', 'personal_blog'], group: 'portfolio' },
+  { domain: 'bruno-simon.com', expected: ['portfolio'], group: 'portfolio' },
 ];
 
 function argument(name) {

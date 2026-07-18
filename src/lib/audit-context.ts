@@ -103,8 +103,10 @@ function siteHeadlineText(html: string): string {
 function personNameFromTitle(html: string): string | null {
   const candidate = firstElementText(html, 'title').split(/\s*(?:\||—|–)\s*/)[0]?.trim() ?? '';
   const words = candidate.split(/\s+/).filter(Boolean);
+  const organizationWord = /^(?:agency|advisory|association|company|corporation|corp\.?|foundation|group|inc\.?|labs?|llc|ltd\.?|studio|university)$/i;
   return words.length >= 2 && words.length <= 4
     && words.every(word => /^\p{Lu}[\p{L}'’.\-]*$/u.test(word))
+    && !words.some(word => organizationWord.test(word))
     ? candidate
     : null;
 }
@@ -209,7 +211,8 @@ function classifyArchetype(
   const html = visibleMarkup(pages.map(page => page.html).join('\n'));
   const visibleHomeHtml = visibleMarkup(homeHtml);
   const lower = visibleText(html).toLowerCase();
-  const homeLower = visibleText(visibleHomeHtml).toLowerCase();
+  const homeText = visibleText(visibleHomeHtml);
+  const homeLower = homeText.toLowerCase();
   const homeIdentity = siteIdentityText(visibleHomeHtml);
   const homeHeadline = siteHeadlineText(visibleHomeHtml);
   const homeIntro = mainIntroText(visibleHomeHtml);
@@ -277,9 +280,11 @@ function classifyArchetype(
   const localContactAction = hasLinkPath(homeLinks, /(?:^|\/)(?:contact|locations?|hours|book(?:ing)?)(?:\/|$)/i);
   const nonprofitIdentity = /\b(?:nonprofit|non-profit|not[- ]for[- ]profit|not profit|charity|foundation)\b/i.test(homeIdentity);
   const nonprofitAction = hasLinkPath(homeLinks, /(?:^|\/)(?:donate|donation|support-us|membership)(?:\/|$)/i);
-  const professionalServicesNavigation = hasLinkPath(homeLinks, /(?:^|\/)services(?:\/|$)/i);
+  const professionalServicesNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:[^/]+-)?services?(?:\/|$)/i)
+    || hasLinkText(homeNavigation, /\bservices?\b|服务/i);
   const industriesNavigation = hasLinkPath(homeLinks, /(?:^|\/)industries(?:\/|$)/i);
-  const professionalServicesLanguage = /\b(?:consulting|advisory|audit and assurance|professional services|tax services)\b/i.test(homeLower);
+  const clientWorkNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:case-stud(?:y|ies)|work)(?:\/|$)/i);
+  const professionalServicesLanguage = /\b(?:consulting|advisory|audit and assurance|professional services|tax services|design services)\b/i.test(homeLower);
   // A generic organization can mention news in its description without being
   // a publisher. Keep the high-signal identity test to title and h1.
   const newsIdentity = /\b(?:breaking news|latest news|news(?:,| and) analysis|news headlines?|independent journalism)\b|突发新闻|最新新闻|新闻分析/i.test(homeHeadline);
@@ -315,40 +320,47 @@ function classifyArchetype(
     return strong('personal_blog', 'Personal blog or weblog identity in the homepage title or primary heading', pageUrl, 0.82);
   }
   const titledPerson = personNameFromTitle(visibleHomeHtml);
-  const firstName = titledPerson ? normalizedEntityName(titledPerson).split(' ')[0] : '';
-  const personalAboutNavigation = !!firstName && homeLinks.some(link =>
-    /(?:^|\/)about(?:[-/]|$)/i.test(link.target.pathname)
-    && normalizedEntityName(`${link.target.pathname} ${link.text}`).includes(firstName)
-  );
-  const personalEditorialNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:articles?|blog|essays?|posts?|tutorials?)(?:\/|$)/i);
+  const aboutPath = /(?:^|\/)about(?:(?:[-_]?me)|(?:[-_/][^/?#]+))?(?:\.[a-z0-9]+)?(?:\/|$)/i;
+  const aboutNavigation = hasLinkPath(homeLinks, aboutPath) || /\babout me\b|关于我/i.test(homeLower);
+  const personalAboutNavigation = !!titledPerson && aboutNavigation;
+  const personalEditorialPath = /(?:^|\/)(?:articles?|blog|essays?|posts?|tutorials?|writing)(?:\/|$)/i;
+  const personalEditorialLinkCount = homeLinks.filter(link => personalEditorialPath.test(link.target.pathname)).length;
+  const personalEditorialNavigation = personalEditorialLinkCount > 0;
+  const personalProfileLanguage = /\b(?:about me|my name is|i am|i'm|i have|i've|i build|i design|i develop|my work|my projects|my own writing|this is my (?:site|website|portfolio))\b|我是|我是一名|我的作品|关于我/i.test(homeLower);
   if (titledPerson && personalAboutNavigation && personalEditorialNavigation
-    && /\b(?:articles?|blog|essays?|tutorials?|writing)\b/i.test(homeIdentity)) {
+    && (personalProfileLanguage || /\b(?:articles?|blog|essays?|tutorials?|writing)\b/i.test(homeIdentity))) {
     return strong('personal_blog', 'Named author publication with personal About and editorial navigation', pageUrl, 0.78);
+  }
+  if (!organizationBacked && aboutNavigation && personalProfileLanguage && personalEditorialLinkCount >= 3) {
+    return strong('personal_blog', 'First-person profile with a substantial article library', pageUrl, 0.76);
+  }
+  const namedByline = /\bby\s+\p{Lu}[\p{L}'’.\-]+(?:\s+\p{Lu}[\p{L}'’.\-]+){1,3}\b/iu.test(homeText.slice(0, 300));
+  if (!organizationBacked && namedByline && hasLinkPath(homeLinks, /(?:^|\/)archives?(?:\/|$)/i)) {
+    return strong('editorial', 'Named publisher byline with archive navigation', pageUrl, 0.78);
   }
   if (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.78);
+  }
+  const portfolioIdentity = /\b(?:(?:personal|creative)\s+)?portfolio\b|个人作品集|作品集/i.test(`${homeIdentity} ${homeIntro}`);
+  if (!organizationBacked && portfolioIdentity && personalProfileLanguage) {
+    return strong('portfolio', 'First-person portfolio identity', pageUrl, 0.82);
   }
   const portfolioSections = new Set(
     [...homeNavigation.matchAll(/href=["']#(?:about|experience|projects?|work|portfolio)["']/gi)]
       .map(match => match[0].toLowerCase()),
   );
-  const personalProfileLanguage = /\b(?:i am|i'm|i build|i design|i develop|my work|my projects)\b|我是|我是一名|我的作品/i.test(homeLower);
   if (portfolioSections.size >= 2 && personalProfileLanguage) {
     return strong('portfolio', 'Single-page personal profile with portfolio navigation', pageUrl, 0.82);
   }
-  const personalProfilePaths = [
-    /(?:^|\/)about(?:\/|$)/i,
-    /(?:^|\/)(?:projects?|talks?)(?:\/|$)/i,
-  ].filter(pattern => hasLinkPath(homeLinks, pattern)).length;
-  const blogPostLinks = homeLinks.filter(link => /(?:^|\/)(?:blog|posts?)(?:\/|$)/i.test(link.target.pathname)).length;
-  if (!organizationBacked && personalProfilePaths >= 2 && blogPostLinks >= 3) {
+  const personalProjectNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:projects?|talks?)(?:\/|$)/i);
+  if (!organizationBacked && aboutNavigation && personalProjectNavigation && personalEditorialLinkCount >= 3) {
     return strong('personal_blog', 'Personal profile navigation with a substantial blog archive', pageUrl, 0.76);
   }
   if (organizationBacked && productPlatformSignals >= 2) {
     return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
   }
-  if (professionalServicesNavigation && (industriesNavigation || professionalServicesLanguage)) {
-    return strong('professional_services', 'Professional services and industries navigation', pageUrl, 0.8);
+  if (professionalServicesNavigation && (industriesNavigation || clientWorkNavigation || professionalServicesLanguage)) {
+    return strong('professional_services', 'Professional services and client work navigation', pageUrl, 0.8);
   }
   if ((restaurantLanguage && reservationAction) || (localIdentity && localContactAction)) {
     return strong('local_business', 'Local venue identity with menu, booking, or contact actions', pageUrl, 0.82);

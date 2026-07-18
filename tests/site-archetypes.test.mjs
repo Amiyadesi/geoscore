@@ -529,6 +529,68 @@ describe('golden site archetype fixtures', () => {
     assert.match(context.evidence[0]?.value ?? '', /personal|author|publication/i);
   });
 
+  it('recognizes a named personal blog from About and archive navigation', () => {
+    const domain = 'paul.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Paul Example</title></head><body>
+      <header><h1>Paul Example</h1><nav><a href="/">Blog</a><a href="/blog/archives/">Archives</a>
+        <a href="/about/">About</a></nav></header><main><p>Read more about me.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+  });
+
+  it('does not treat an organization title with About and Blog links as a person', () => {
+    const domain = 'company.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Acme Corporation</title>
+      <meta name="description" content="Articles and tutorials from our engineering team."></head><body>
+      <nav><a href="/about/">About</a><a href="/blog/">Blog</a></nav><main><h1>Acme Corporation</h1></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.notEqual(context.site_archetype, 'personal_blog');
+  });
+
+  it('recognizes a first-person article library without a conventional blog title', () => {
+    const domain = 'writer.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>writer.example.com</title></head><body>
+      <nav><a href="/aboutMe.html">About</a><a href="/articles/one.html">One</a>
+        <a href="/articles/two.html">Two</a><a href="/articles/three.html">Three</a></nav>
+      <main><h1>A website on building software effectively</h1><h2>about me</h2>
+        <p>I've been writing on this website about patterns and practices. It began as a place for my own writing.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+  });
+
+  it('recognizes a named independent publication from its byline and archive', () => {
+    const domain = 'publication.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Daring Example</title></head><body>
+      <header>By John Example <a href="/archive/">Archive</a><a href="/contact/">Contact</a></header>
+      <main><h2>Thursday, 16 July 2026</h2><article><h1>Latest analysis</h1></article></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'editorial');
+  });
+
+  it('recognizes a first-person creative portfolio without schema or anchor navigation', () => {
+    const domain = 'creative.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Bruno's</title>
+      <meta name="description" content="Bruno Example's creative portfolio"></head><body>
+      <main><p>My name is Bruno Example, and I'm a creative developer. This is my portfolio.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'portfolio');
+  });
+
   it('recognizes a discussion community from Open Graph identity and discussion navigation', () => {
     const domain = 'links.example.com';
     const html = `<!doctype html><html lang="en"><head><title>Lobsters</title>
@@ -585,6 +647,19 @@ describe('golden site archetype fixtures', () => {
       <nav><a href="/industries/">Industries</a><a href="/services/">Services</a>
         <a href="/services/audit-assurance/">Audit and assurance</a><a href="/services/consulting/">Consulting</a></nav>
       <main><h1>Seize tomorrow's technology to reinvent your business</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'professional_services');
+  });
+
+  it('recognizes professional services from a services hub and client work', () => {
+    const domain = 'design.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Human-centered design</title>
+      <meta name="description" content="We envision new businesses and design the experiences that bring them to life."></head><body>
+      <nav><a href="/design-services">Services</a><a href="/work">Case studies</a><a href="/about">About</a></nav>
+      <main><h1>Human-centered design</h1><p>Learn more about our design services and client partnerships.</p></main>
+    </body></html>`;
 
     const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
 

@@ -587,6 +587,7 @@ describe('GeoScore 2 audit core', () => {
     const checks = core.buildNormalizedChecks(context, [blockedPage], modules);
     const byId = Object.fromEntries(checks.map(item => [item.id, item]));
 
+    assert.equal(byId['seo.page_fetch'].status, 'error');
     for (const id of ['seo.indexability', 'seo.canonical', 'seo.title', 'seo.meta_description', 'seo.h1', 'seo.language', 'seo.schema_presence', 'geo.extractability', 'geo.source_links']) {
       assert.equal(byId[id].status, 'unknown', id);
     }
