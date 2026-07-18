@@ -88,8 +88,8 @@ function baselineModules() {
 
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
-    assert.equal(core.SCORE_VERSION, '2.4.1');
-    assert.match(cache.cacheKey('example.com'), /^recent:v16:/);
+    assert.equal(core.SCORE_VERSION, '2.4.2');
+    assert.match(cache.cacheKey('example.com'), /^recent:v17:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -148,8 +148,8 @@ describe('GEO Evidence v3 contract', () => {
 
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
-    assert.equal(meta.version, '2.4.1');
-    assert.equal(meta.score_version, '2.4.1');
+    assert.equal(meta.version, '2.4.2');
+    assert.equal(meta.score_version, '2.4.2');
     assert.equal(meta.snapshot_version, '1.0.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
@@ -184,12 +184,12 @@ describe('GEO Evidence v3 contract', () => {
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
     const response = await worker.default.fetch(new Request('https://geo-api.example/api/meta'), env, {});
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).score_version, '2.4.1');
+    assert.equal((await response.json()).score_version, '2.4.2');
 
     const openapiResponse = await worker.default.fetch(new Request('https://geo-api.example/openapi.json'), env, {});
     assert.equal(openapiResponse.status, 200);
     const openapi = await openapiResponse.json();
-    assert.equal(openapi.info.version, '2.4.1');
+    assert.equal(openapi.info.version, '2.4.2');
     assert.equal(openapi.paths['/api/audit/{domain}'].get.responses['200'].description.length > 0, true);
     assert.ok(openapi.components.securitySchemes.ProjectToken);
     assert.ok(openapi.components.securitySchemes.RequestApiKey);

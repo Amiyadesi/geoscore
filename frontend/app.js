@@ -2573,17 +2573,18 @@ function renderSection(d) {
       `<li class="text-sm ${i.startsWith('CRITICAL') ? 'text-orange-700 font-semibold' : 'text-blue-600'}">• ${esc(i)}</li>`
     ).join('');
 
+    const transportAvailable = data.transport_evidence_available !== false;
     const sh = data.security_headers ?? {};
-    const secScore = sh.score ?? 0;
-    const secBar = secScore >= 80 ? 'bg-green-400' : secScore >= 50 ? 'bg-yellow-400' : 'bg-orange-400';
-    const secText = secScore >= 80 ? 'text-green-700' : secScore >= 50 ? 'text-yellow-700' : 'text-orange-600';
+    const secScore = transportAvailable ? (sh.score ?? 0) : null;
+    const secBar = secScore === null ? 'bg-slate-300' : secScore >= 80 ? 'bg-green-400' : secScore >= 50 ? 'bg-yellow-400' : 'bg-orange-400';
+    const secText = secScore === null ? 'text-slate-500' : secScore >= 80 ? 'text-green-700' : secScore >= 50 ? 'text-yellow-700' : 'text-orange-600';
     const checksTotal = (data.checks ?? []).length;
     const checksPassed = (data.checks ?? []).filter(c => c.passed).length;
     const scoreNum = data.score ?? 0;
     const scoreBar = scoreNum >= 80 ? 'bg-green-400' : scoreNum >= 60 ? 'bg-yellow-400' : 'bg-orange-400';
     const scoreText = scoreNum >= 80 ? 'text-green-700' : scoreNum >= 60 ? 'text-yellow-700' : 'text-orange-600';
-    const ttfb = data.response_time_ms ?? 0;
-    const ttfbColor = ttfb < 800 ? 'text-green-700' : ttfb < 2000 ? 'text-yellow-700' : 'text-orange-600';
+    const ttfb = transportAvailable && Number.isFinite(Number(data.response_time_ms)) ? Number(data.response_time_ms) : null;
+    const ttfbColor = ttfb === null ? 'text-slate-500' : ttfb < 800 ? 'text-green-700' : ttfb < 2000 ? 'text-yellow-700' : 'text-orange-600';
     const llmsView = REPORT_UI?.llmsTxtView?.(data, reportLanguage) ?? {
       state: data.llms_txt_status === 'error' ? 'unknown' : data.llms_txt_present ? 'present' : 'missing',
       badge: data.llms_txt_status === 'error' ? '⚠ llms.txt could not be verified' : data.llms_txt_present ? '✓ llms.txt' : '✗ No llms.txt',
@@ -2611,13 +2612,13 @@ function renderSection(d) {
         ${checksTotal ? `<span class="text-sm text-slate-400 shrink-0">${checksPassed}/${checksTotal} checks</span>` : ''}
       </div>
       <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="bg-slate-50 rounded-lg p-3">
-          <div class="text-sm font-bold ${ttfbColor}">${ttfb}ms</div>
-          <div class="text-xs text-slate-400 mt-0.5">Response time</div>
-        </div>
-        <div class="bg-slate-50 rounded-lg p-3">
-          <div class="text-sm font-bold text-slate-700">${data.page_weight_kb ?? '—'}KB</div>
-          <div class="text-xs text-slate-400 mt-0.5">Page weight</div>
+         <div class="bg-slate-50 rounded-lg p-3">
+           <div class="text-sm font-bold ${ttfbColor}">${ttfb === null ? (UI_LANGUAGE === 'zh' ? '不可用' : 'Unavailable') : `${ttfb}ms`}</div>
+           <div class="text-xs text-slate-400 mt-0.5">${UI_LANGUAGE === 'zh' ? '响应时间' : 'Response time'}</div>
+         </div>
+         <div class="bg-slate-50 rounded-lg p-3">
+           <div class="text-sm font-bold text-slate-700">${transportAvailable && data.page_weight_kb != null ? `${data.page_weight_kb}KB` : '—'}</div>
+           <div class="text-xs text-slate-400 mt-0.5">${UI_LANGUAGE === 'zh' ? '页面体积' : 'Page weight'}</div>
         </div>
         <div class="bg-slate-50 rounded-lg p-3">
           <div class="text-sm font-bold ${(data.sitemap_url_count ?? 0) > 0 ? 'text-green-700' : 'text-orange-600'}">${(data.sitemap_url_count ?? 0) > 0 ? data.sitemap_url_count : '✗'}</div>
@@ -2627,7 +2628,7 @@ function renderSection(d) {
       <div class="flex flex-wrap gap-1.5">
         <span class="${(data.blocked_ai_bots?.length ?? 0) > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-green-50 text-green-700 border-green-200'} border text-xs px-2.5 py-1 rounded-full font-medium">${(data.blocked_ai_bots?.length ?? 0) > 0 ? '🚫 AI bots blocked' : '✓ AI bots allowed'}</span>
         <span class="${llmsBadgeClass} border text-xs px-2.5 py-1 rounded-full font-medium">${esc(llmsView.badge)}</span>
-        ${data.compression?.enabled ? `<span class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded-full font-medium">${esc(data.compression.encoding)} ✓</span>` : '<span class="bg-orange-50 text-orange-600 border border-orange-200 text-xs px-2.5 py-1 rounded-full font-medium">No compression</span>'}
+         ${!transportAvailable ? `<span class="bg-slate-100 text-slate-600 border border-slate-200 text-xs px-2.5 py-1 rounded-full font-medium">${UI_LANGUAGE === 'zh' ? '传输证据不可用' : 'Transport evidence unavailable'}</span>` : data.compression?.enabled ? `<span class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded-full font-medium">${esc(data.compression.encoding)} ✓</span>` : '<span class="bg-orange-50 text-orange-600 border border-orange-200 text-xs px-2.5 py-1 rounded-full font-medium">No compression</span>'}
         ${(data.render_blocking_scripts ?? 0) > 0 ? `<span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-2.5 py-1 rounded-full font-medium">⚠ ${data.render_blocking_scripts} blocking scripts</span>` : ''}
         ${data.dom_element_count ? `<span class="text-xs text-slate-500 border border-slate-200 px-2.5 py-1 rounded-full">${data.dom_element_count} DOM elements</span>` : ''}
         ${data.http3_supported ? `<span class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded-full font-medium">⚡ HTTP/3</span>` : ''}
@@ -2639,11 +2640,11 @@ function renderSection(d) {
         <div class="flex items-center justify-between mb-2.5">
           <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Security headers</span>
           <div class="flex items-center gap-2">
-            <div class="w-24 bg-slate-200 rounded-full h-1.5"><div class="${secBar} h-1.5 rounded-full" style="width:${secScore}%"></div></div>
-            <span class="text-sm font-semibold ${secText}">${secScore}/100</span>
+             <div class="w-24 bg-slate-200 rounded-full h-1.5"><div class="${secBar} h-1.5 rounded-full" style="width:${secScore ?? 0}%"></div></div>
+             <span class="text-sm font-semibold ${secText}">${secScore === null ? '—' : `${secScore}/100`}</span>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-x-4 gap-y-1.5">${secHeaderItems}</div>
+         ${transportAvailable ? `<div class="grid grid-cols-3 gap-x-4 gap-y-1.5">${secHeaderItems}</div>` : `<div class="text-xs text-slate-500">${UI_LANGUAGE === 'zh' ? 'Browser Run 未提供目标响应头，因此不判定安全响应头' : 'Browser Run did not provide target response headers, so security headers are not scored'}</div>`}
       </div>
       ${issues ? `<ul class="space-y-1">${issues}</ul>` : ''}
     </div>`;
@@ -2662,7 +2663,7 @@ function renderSection(d) {
       return `<div class="p-3 rounded-lg bg-amber-50 border border-amber-200">
         <div class="text-sm font-semibold text-amber-700 mb-1.5">🛒 E-commerce schema audit</div>
         ${ecPresent.length ? `<div class="text-sm text-green-700">✓ Present: ${ecPresent.join(', ')}</div>` : ''}
-        ${ecMissing.length ? `<div class="text-sm text-orange-600 mt-1">✗ Missing: ${ecMissing.join(', ')}</div>` : '<div class="text-sm text-green-600 mt-1">All shopping schemas present ✓</div>'}
+         ${ecMissing.length ? `<div class="text-sm text-slate-600 mt-1">Not detected (optional): ${ecMissing.join(', ')}</div>` : '<div class="text-sm text-green-600 mt-1">All shopping schemas present ✓</div>'}
       </div>`;
     })() : '';
     detail = `<div class="mt-3 space-y-3">

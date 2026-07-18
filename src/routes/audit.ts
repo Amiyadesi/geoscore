@@ -332,7 +332,11 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
         sharedHeaders,
         sharedResponseMs,
         sharedFinalUrl,
-        { fetcher: technicalFetcher, includeAdsTxt: false },
+        {
+          fetcher: technicalFetcher,
+          includeAdsTxt: false,
+          transportEvidenceAvailable: primaryPage.fetch_source !== 'browser_run',
+        },
       ), 22000).then(r => {
         modules.technical_seo = r;
         emit('section', { module: 'technical_seo', ...r });

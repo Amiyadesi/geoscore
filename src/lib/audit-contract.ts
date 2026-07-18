@@ -1,8 +1,9 @@
 import type { FetchedAuditPage } from './audit-pages';
 
-export const SCORE_VERSION = '2.4.1';
+export const SCORE_VERSION = '2.4.2';
 
 export const SCORE_POLICY = {
+  minimum_category_coverage: 0.6,
   minimum_overall_coverage: 0.6,
   minimum_overall_confidence: 0.5,
   severity_caps: { critical: 49, major: 79, minor: 94 },

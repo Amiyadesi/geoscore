@@ -43,8 +43,8 @@ async function mockApi(page) {
     if (url.pathname === '/api/meta') {
       return route.fulfill({
         json: {
-          version: '2.4.1',
-          score_version: '2.4.1',
+          version: '2.4.2',
+          score_version: '2.4.2',
           max_pages: 5,
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },

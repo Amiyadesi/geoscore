@@ -67,10 +67,22 @@ describe('editorial classification and keyword degradation', () => {
 
     assert.equal(audit.site_type, 'editorial');
     assert.equal(audit.coverage.Entity, true);
-    assert.equal(audit.coverage.WebSite, true);
-    assert.equal(audit.coverage.BreadcrumbList, true);
+    assert.equal(audit.coverage.WebSite, undefined);
+    assert.equal(audit.coverage.BreadcrumbList, undefined);
     assert.equal(audit.coverage.FAQPage, undefined);
     assert.ok(audit.schemas_found.includes('FAQPage'));
+  });
+
+  it('accepts WebSite as the minimum entity identity without requiring FAQ or breadcrumb schema', async () => {
+    const websiteOnly = '<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"NodeLoc","url":"https://nodeloc.com/"}</script></head><body><h1>NodeLoc community</h1></body></html>';
+    const community = await runSchemaAudit('nodeloc.com', websiteOnly, [], 'community');
+    const saas = await runSchemaAudit('app.example.com', websiteOnly, [], 'saas');
+
+    for (const audit of [community, saas]) {
+      assert.deepEqual(audit.coverage, { Entity: true });
+      assert.equal(audit.score, 100);
+      assert.doesNotMatch(audit.issues.join(' '), /FAQPage|BreadcrumbList|SoftwareApplication/);
+    }
   });
 
   it('scores only applicable schema coverage and does not reward unrelated schema types', async () => {

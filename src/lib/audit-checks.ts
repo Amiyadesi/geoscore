@@ -3,6 +3,7 @@ import type { ModuleResult } from './types';
 import { contentPagesFor, directAnswerApplicable, geoPageSignals, normalizedEntityName, normalizedSiteLabel, sampledEntitySignals } from './audit-context';
 import type { AuditContext, CheckStatus, NormalizedCheck } from './audit-contract';
 import { check } from './audit-scoring';
+import { isTextLengthGood, textLengthRange } from './metadata-quality';
 
 interface NamedAuditCheck {
   name?: string;
@@ -41,6 +42,7 @@ interface TechnicalAuditData {
     missing_alt_srcs?: string[];
   };
   response_time_ms?: number;
+  transport_evidence_available?: boolean;
   render_blocking_scripts?: number;
   compression?: { enabled?: boolean; encoding?: string };
   page_weight_kb?: number;
@@ -100,6 +102,7 @@ interface MobileAuditData {
   tap_target_issues?: number;
   font_size_ok?: boolean;
   has_responsive_images?: boolean;
+  meaningful_image_count?: number;
 }
 
 interface CruxMetricEvidence {
@@ -371,6 +374,8 @@ export function buildNormalizedChecks(
   const missingAlt = Number(onPage?.images?.missing_alt ?? technical?.image_audit?.missing_alt ?? 0);
   const missingDimensions = Number(onPage?.images?.missing_dimensions ?? 0);
   const responsiveImages = Number(onPage?.images?.responsive ?? 0);
+  const meaningfulImageCount = Number(mobile?.meaningful_image_count ?? imageTotal);
+  const transportEvidenceAvailable = technical?.transport_evidence_available !== false && primary?.fetch_source !== 'browser_run';
 
   output.push(check({
     id: 'seo.https_transport', category: 'seo', weight: 3,
@@ -380,19 +385,19 @@ export function buildNormalizedChecks(
   }));
   output.push(check({
     id: 'seo.response_time', category: 'seo', weight: 2,
-    status: !primaryAvailable ? 'unknown' : techError ?? (responseTime
+    status: !primaryAvailable || !transportEvidenceAvailable ? 'unknown' : techError ?? (responseTime
       ? (responseTime.passed ? 'pass' : 'fail')
       : Number.isFinite(Number(technical?.response_time_ms)) ? (Number(technical?.response_time_ms) < 2000 ? 'pass' : 'fail') : 'unknown'),
     source: 'technical_seo', pageUrl,
-    evidence: responseTime ? [responseTime.detail ?? `${Number(technical?.response_time_ms ?? 0)}ms`] : [],
+    evidence: !transportEvidenceAvailable ? ['Target response timing was not available from the page fetch provider'] : responseTime ? [responseTime.detail ?? `${Number(technical?.response_time_ms ?? 0)}ms`] : [],
   }));
   output.push(check({
     id: 'seo.title_length', category: 'seo', weight: 1,
     status: !primaryAvailable ? 'unknown' : !pageMeta?.title ? 'not_applicable' : techError ?? (titleLength
       ? (titleLength.passed ? 'pass' : 'fail')
-      : String(pageMeta.title).length >= 30 && String(pageMeta.title).length <= 70 ? 'pass' : 'fail'),
+      : isTextLengthGood(String(pageMeta.title), pageMeta.lang ?? context.locale) ? 'pass' : 'fail'),
     source: 'technical_seo', pageUrl,
-    evidence: titleLength ? [titleLength.detail ?? `${String(pageMeta?.title ?? '').length} characters`] : [],
+    evidence: titleLength ? [titleLength.detail ?? `${String(pageMeta?.title ?? '').length} characters`] : pageMeta?.title ? [`${String(pageMeta.title).length} characters; target ${textLengthRange(String(pageMeta.title), pageMeta.lang ?? context.locale).label}`] : [],
   }));
   output.push(check({
     id: 'seo.meta_description_length', category: 'seo', weight: 1,
@@ -451,9 +456,9 @@ export function buildNormalizedChecks(
   }));
   output.push(check({
     id: 'seo.responsive_images', category: 'seo', weight: 1,
-    status: !primaryAvailable ? 'unknown' : imageTotal === 0 ? 'not_applicable' : mobileError ?? onPageError ?? (mobile || onPage?.images ? (mobile?.has_responsive_images || responsiveImages > 0 ? 'pass' : 'fail') : 'unknown'),
+    status: !primaryAvailable ? 'unknown' : meaningfulImageCount === 0 ? 'not_applicable' : mobileError ?? onPageError ?? (mobile || onPage?.images ? (mobile?.has_responsive_images || responsiveImages > 0 ? 'pass' : 'fail') : 'unknown'),
     source: 'mobile_audit', pageUrl,
-    evidence: imageTotal === 0 ? ['No images found'] : [`${responsiveImages}/${imageTotal} images expose srcset/sizes`, `mobile responsive image signal=${mobile?.has_responsive_images === true ? 'present' : 'not detected'}`],
+    evidence: meaningfulImageCount === 0 ? ['No content images found; avatars, logos, icons, and sprites are excluded'] : [`${responsiveImages}/${meaningfulImageCount} content images expose srcset/sizes`, `mobile responsive image signal=${mobile?.has_responsive_images === true ? 'present' : 'not detected'}`],
   }));
   output.push(check({
     id: 'seo.render_blocking', category: 'seo', weight: 1,
@@ -462,14 +467,14 @@ export function buildNormalizedChecks(
   }));
   output.push(check({
     id: 'seo.html_compression', category: 'seo', weight: 1,
-    status: !primaryAvailable ? 'unknown' : techError ?? (compression ? (compression.passed ? 'pass' : 'fail') : technical?.compression ? (technical.compression.enabled ? 'pass' : 'fail') : 'unknown'),
+    status: !primaryAvailable || !transportEvidenceAvailable ? 'unknown' : techError ?? (compression ? (compression.passed ? 'pass' : 'fail') : technical?.compression ? (technical.compression.enabled ? 'pass' : 'fail') : 'unknown'),
     source: 'technical_seo', pageUrl,
-    evidence: compression ? [compression.detail ?? 'Compression checked'] : technical?.compression ? [`encoding=${technical.compression.encoding ?? 'none'}`] : [],
+    evidence: !transportEvidenceAvailable ? ['Target response headers and transfer encoding were not available from the page fetch provider'] : compression ? [compression.detail ?? 'Compression checked'] : technical?.compression ? [`encoding=${technical.compression.encoding ?? 'none'}`] : [],
   }));
   output.push(check({
     id: 'seo.page_weight', category: 'seo', weight: 1,
-    status: !primaryAvailable ? 'unknown' : techError ?? (technical && Number.isFinite(Number(technical.page_weight_kb)) ? (Number(technical.page_weight_kb) <= 500 ? 'pass' : 'fail') : 'unknown'),
-    source: 'technical_seo', pageUrl, evidence: technical ? [`HTML document ${Number(technical.page_weight_kb ?? 0)} KB`] : [],
+    status: !primaryAvailable || !transportEvidenceAvailable ? 'unknown' : techError ?? (technical && Number.isFinite(Number(technical.page_weight_kb)) ? (Number(technical.page_weight_kb) <= 500 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: !transportEvidenceAvailable ? ['Target transfer size was not available from the page fetch provider'] : technical ? [`HTML document ${Number(technical.page_weight_kb ?? 0)} KB`] : [],
   }));
   output.push(check({
     id: 'seo.dom_size', category: 'seo', weight: 1,
@@ -493,8 +498,8 @@ export function buildNormalizedChecks(
   }
   output.push(check({
     id: 'seo.security_headers', category: 'seo', weight: 0,
-    status: !primaryAvailable ? 'unknown' : techError ?? (technical?.security_headers ? (Number(technical.security_headers.score ?? 0) >= 80 ? 'pass' : 'fail') : 'unknown'),
-    source: 'technical_seo', pageUrl, evidence: technical?.security_headers ? [`Header coverage score ${Number(technical.security_headers.score ?? 0)}/100`] : [],
+    status: !primaryAvailable || !transportEvidenceAvailable ? 'unknown' : techError ?? (technical?.security_headers ? (Number(technical.security_headers.score ?? 0) >= 80 ? 'pass' : 'fail') : 'unknown'),
+    source: 'technical_seo', pageUrl, evidence: !transportEvidenceAvailable ? ['Target response headers were not available from the page fetch provider'] : technical?.security_headers ? [`Header coverage score ${Number(technical.security_headers.score ?? 0)}/100`] : [],
   }));
 
   const pushCruxMetric = (id: string, metric: CruxMetric, threshold: number, weight: number) => {

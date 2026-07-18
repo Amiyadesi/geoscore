@@ -44,6 +44,16 @@ test('audit loading state preserves the persistent domain header elements', () =
   assert.doesNotMatch(appSource, /innerHTML\s*=\s*spinnerCard\(domain\)/);
 });
 
+test('Browser Run cards do not present renderer metadata as target transport evidence', () => {
+  assert.match(appSource, /const transportAvailable = data\.transport_evidence_available !== false/);
+  assert.match(appSource, /const secScore = transportAvailable \? \(sh\.score \?\? 0\) : null/);
+  assert.match(appSource, /const ttfb = transportAvailable && Number\.isFinite\(Number\(data\.response_time_ms\)\)/);
+  assert.match(appSource, /transportAvailable && data\.page_weight_kb != null/);
+  assert.match(appSource, /传输证据不可用/);
+  assert.match(appSource, /Browser Run 未提供目标响应头，因此不判定安全响应头/);
+  assert.match(appSource, /!transportAvailable \? `[\s\S]*Transport evidence unavailable[\s\S]*` : data\.compression\?\.enabled/);
+});
+
 test('frontend selects the local Worker only for file and local hosts', () => {
   assert.match(appSource, /const PRODUCTION_API = 'https:\/\/geo-api\.sayori\.org'/);
   assert.match(appSource, /const LOCAL_API = 'http:\/\/127\.0\.0\.1:8787'/);

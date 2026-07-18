@@ -349,6 +349,19 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(binding.calls.length, 0);
   });
 
+  it('rejects a Chinese access notice instead of auditing it as the real homepage', async () => {
+    const noticeHtml = `<!doctype html><html lang="zh-CN"><head><title>提醒，ipv6已关闭 | NodeSeek</title></head>
+      <body><main><img src="/notice.png"><p>提醒：当前 IPv6 入口已关闭，请切换网络后再访问</p></main></body></html>`;
+    const page = await fetchAuditPage(candidate, () => Promise.resolve(new Response(noticeHtml, {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })));
+
+    assert.equal(page.status, 'error');
+    assert.equal(page.error_code, 'AUDIT_BOT_CHALLENGE');
+    assert.match(page.error ?? '', /interstitial|access notice/i);
+  });
+
   it('shares one attempt state so only the primary page can consume a render', async () => {
     const binding = bindingWith(() => successResponse());
     const state = { attempted: false };

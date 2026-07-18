@@ -1,4 +1,5 @@
 import { fetchWithTimeout, type HttpFetcher } from '../lib/http';
+import { isTextLengthGood, textLengthRange } from '../lib/metadata-quality';
 
 export interface RobotsSummary {
   user_agent_count: number;
@@ -17,6 +18,8 @@ export interface TechnicalSeoResult {
   llms_txt_status: 'complete' | 'missing' | 'error';
   sitemap_url_count: number;
   response_time_ms: number;
+  /** False when the page came from Browser Run and target response headers were unavailable. */
+  transport_evidence_available: boolean;
   tech_stack: TechStack;
   security_headers: SecurityHeaders;
   page_meta: PageMeta;
@@ -91,6 +94,7 @@ interface Check {
 export interface TechnicalSeoOptions {
   fetcher?: HttpFetcher;
   includeAdsTxt?: boolean;
+  transportEvidenceAvailable?: boolean;
 }
 
 interface TextProbe {
@@ -739,6 +743,7 @@ export async function runTechnicalSeo(
   options: TechnicalSeoOptions = {},
 ): Promise<TechnicalSeoResult> {
   const fetcher = options.fetcher ?? fetchWithTimeout;
+  const transportEvidenceAvailable = options.transportEvidenceAvailable !== false;
   // Use the pre-resolved final URL (from audit.ts pre-fetch) as the base for file fetches.
   // This avoids redirect-following subrequests: CF Workers counts every redirect hop as a
   // separate subrequest, so fetching https://hubspot.com/robots.txt → redirect to
@@ -783,9 +788,11 @@ export async function runTechnicalSeo(
   const httpsEnabled = (sharedFinalUrl ?? '').startsWith('https://');
   checks.push({ name: 'HTTPS enabled', passed: httpsEnabled, detail: httpsEnabled ? 'Domain resolves over HTTPS' : 'Domain is not serving over HTTPS' });
 
-  const ttfbOk = response_time_ms < 2000;
-  checks.push({ name: 'Response time < 2s', passed: ttfbOk, detail: `${response_time_ms}ms` });
-  if (!ttfbOk) issues.push(`Slow TTFB: ${response_time_ms}ms`);
+  if (transportEvidenceAvailable) {
+    const ttfbOk = response_time_ms < 2000;
+    checks.push({ name: 'Response time < 2s', passed: ttfbOk, detail: `${response_time_ms}ms` });
+    if (!ttfbOk) issues.push(`Slow TTFB: ${response_time_ms}ms`);
+  }
 
   // Robots.txt
   const robotsContent = robotsProbe.text;
@@ -921,9 +928,10 @@ export async function runTechnicalSeo(
 
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const title = titleMatch?.[1] ?? '';
-    const titleOk = title.length >= 30 && title.length <= 70;
-    checks.push({ name: 'Title tag length (30-70 chars)', passed: titleOk, detail: `"${title.slice(0, 60)}" (${title.length} chars)` });
-    if (!titleOk) issues.push(`Title tag length: ${title.length} chars (target 30-70)`);
+    const titleRange = textLengthRange(title, langMatch?.[1]);
+    const titleOk = isTextLengthGood(title, langMatch?.[1]);
+    checks.push({ name: `Title tag length (${titleRange.label} chars)`, passed: titleOk, detail: `"${title.slice(0, 60)}" (${title.length} chars; target ${titleRange.label})` });
+    if (!titleOk) issues.push(`Title tag length: ${title.length} chars (target ${titleRange.label})`);
 
     const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
                    ?? html.match(/content=["']([^"']{80,}?)["'][^>]*name=["']description["']/i);
@@ -1068,7 +1076,7 @@ export async function runTechnicalSeo(
   return {
     checks, score, issues,
     blocked_ai_bots, crawler_policy_v2, llms_txt_present, llms_txt_status, sitemap_url_count,
-    response_time_ms, tech_stack, security_headers, page_meta,
+    response_time_ms, transport_evidence_available: transportEvidenceAvailable, tech_stack, security_headers, page_meta,
     robots_summary, page_weight_kb, render_blocking_scripts,
     h1_tags, h2_tags, dom_element_count, compression,
     image_audit, has_media_queries, ads_txt,

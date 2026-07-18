@@ -15,50 +15,12 @@ export interface SchemaAuditResult {
 
 export type SchemaSiteType = 'local_business' | 'saas' | 'ecommerce' | 'media' | 'editorial' | 'general' | 'unknown';
 
-// Schemas required for local businesses and generic sites
-const REQUIRED_SCHEMAS_LOCAL = [
-  'LocalBusiness',
-  'Service',
-  'FAQPage',
-  'BreadcrumbList',
-  'Organization',
-];
-
-// Schemas required for SaaS / tech / digital products
-const REQUIRED_SCHEMAS_SAAS = [
-  'Organization',
-  'SoftwareApplication',
-  'FAQPage',
-  'BreadcrumbList',
-  'WebSite',
-];
-
-// Schemas for media, news, and high-link-density portal/editorial sites
-// These sites don't need LocalBusiness or SoftwareApplication — just identity + navigation schema
-const REQUIRED_SCHEMAS_MEDIA = [
-  'Organization',
-  'WebSite',
-  'BreadcrumbList',
-];
-
-// Personal sites and editorial blogs need an identifiable author/site entity plus
-// clear site and navigation structure. FAQPage is a bonus, not a requirement.
-const REQUIRED_SCHEMAS_EDITORIAL = [
-  'Entity',
-  'WebSite',
-  'BreadcrumbList',
-];
-
-const REQUIRED_SCHEMAS_NEUTRAL = [
-  'Entity',
-  'WebSite',
-  'BreadcrumbList',
-];
+// The fit checklist deliberately has one minimum requirement: a typed entity
+// that can be tied to the audited site. Breadcrumbs, FAQ, software and offer
+// markup are page- or feature-specific opportunities, not universal failures.
+const REQUIRED_ENTITY_CHECK = ['Entity'] as const;
 
 const ECOMMERCE_SCHEMAS = ['Product', 'Offer', 'Review', 'AggregateRating', 'ItemList'];
-// Core Product fields — sku removed; digital subscriptions, software, and tickets
-// are all sold via schema.org/Product but rarely have a stock-keeping unit.
-const ECOMMERCE_PRODUCT_FIELDS = ['name', 'description', 'image', 'offers'];
 
 const LOCAL_BUSINESS_FIELDS = ['name', 'address', 'telephone', 'openingHours', 'sameAs', 'url'];
 
@@ -97,11 +59,6 @@ export async function runSchemaAudit(
   const jsonLdBlocks = [...new Set(extractJsonLd(allHtml))];
   const allTypes: string[] = [];
   const schemasRaw: object[] = [];
-  // Product completeness issues are deferred — only added to main issues[] when is_ecommerce is
-  // confirmed (after the loop). This prevents false positives on news/media sites that use Product
-  // schema for subscriptions (The Guardian, NYT) without being e-commerce sites.
-  const pendingProductIssues: string[] = [];
-
   for (const block of jsonLdBlocks) {
     try {
       const parsed = JSON.parse(block);
@@ -118,13 +75,6 @@ export async function runSchemaAudit(
         }
       }
 
-      // Collect Product completeness issues — deferred until is_ecommerce is known
-      if (types.includes('Product')) {
-        const missingProdFields = ECOMMERCE_PRODUCT_FIELDS.filter(f => !block.includes(`"${f}"`));
-        if (missingProdFields.length > 0) {
-          pendingProductIssues.push(`Product schema missing fields: ${missingProdFields.join(', ')} — affects Shopping rich results`);
-        }
-      }
     } catch {
       issues.push('Malformed JSON-LD block found');
     }
@@ -221,47 +171,31 @@ export async function runSchemaAudit(
     : hasLocalBizSubtype ? 'local_business'
     : 'general');
 
-  // Pick the schema checklist appropriate to this site type.
-  const REQUIRED_SCHEMAS = site_type === 'saas' ? REQUIRED_SCHEMAS_SAAS
-    : site_type === 'editorial' ? REQUIRED_SCHEMAS_EDITORIAL
-    : site_type === 'media' ? REQUIRED_SCHEMAS_MEDIA
-    : site_type === 'local_business' ? REQUIRED_SCHEMAS_LOCAL
-    : REQUIRED_SCHEMAS_NEUTRAL;
-  const hasEntity = hasOrgOrLocal || uniqueTypes.some(t => ['Person', 'ProfilePage'].includes(t));
+  const hasEntity = hasOrgOrLocal || uniqueTypes.some(t => [
+    'Person', 'ProfilePage', 'WebSite', 'Blog', 'Product', 'SoftwareApplication',
+    'WebApplication', 'CreativeWork', 'Article', 'NewsArticle', 'DiscussionForumPosting',
+  ].includes(t));
 
-  for (const schema of REQUIRED_SCHEMAS) {
-    let present = uniqueTypes.some((t) => t.includes(schema));
-    if (schema === 'Entity') present = hasEntity;
-    // Map LocalBusiness subtypes to LocalBusiness coverage
-    if (schema === 'LocalBusiness' && hasLocalBizSubtype) present = true;
-    // Corporation is schema.org's corporate-entity type — treat it as satisfying Organization coverage.
-    // Shopify, Microsoft, etc. use Corporation; without this mapping their org coverage shows false.
-    if (schema === 'Organization' && (uniqueTypes.includes('Corporation') || hasLocalBizSubtype)) present = true;
+  for (const schema of REQUIRED_ENTITY_CHECK) {
+    const present = schema === 'Entity' && hasEntity;
     coverage[schema] = present;
-    // LocalBusiness only flagged as missing for sites without Organization-level schema
-    if (!present && !(schema === 'LocalBusiness' && hasOrgOrLocal)) {
+    if (!present) {
       issues.push(`Missing ${schema} schema`);
     }
   }
 
   const ecommerce_coverage: Record<string, boolean> = {};
   if (is_ecommerce) {
-    // Now that we know the site is genuinely e-commerce, add deferred Product completeness issues
-    issues.push(...pendingProductIssues);
+    // These are descriptive discovery fields. Missing optional rich-result
+    // properties are not universal site-type failures.
     for (const s of ECOMMERCE_SCHEMAS) {
       ecommerce_coverage[s] = uniqueTypes.includes(s);
-      if (!uniqueTypes.includes(s)) {
-        issues.push(`E-commerce: Missing ${s} schema — needed for Google Shopping rich results`);
-      }
     }
   }
 
   // Compatibility score: only known, applicable coverage participates. Optional or
   // unrelated types (for example FAQPage on a personal blog) must not inflate it.
-  const applicableCoverage = [
-    ...Object.values(coverage),
-    ...Object.values(ecommerce_coverage),
-  ];
+  const applicableCoverage = Object.values(coverage);
   const passedCoverage = applicableCoverage.filter(Boolean).length;
   const score = applicableCoverage.length > 0
     ? Math.round(passedCoverage / applicableCoverage.length * 100)

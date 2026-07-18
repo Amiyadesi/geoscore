@@ -65,6 +65,28 @@ const LOCAL_TYPES = new Set([
   'LodgingBusiness', 'Veterinary', 'ChildCare', 'ProfessionalService', 'HealthClub',
 ]);
 
+function visibleMarkup(html: string): string {
+  return html
+    .replace(/<!--[^]*?-->/g, ' ')
+    .replace(/<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+}
+
+function visibleText(html: string): string {
+  return visibleMarkup(html)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function titleHeadingText(html: string): string {
+  return [...html.matchAll(/<(?:title|h1)\b[^>]*>([\s\S]*?)<\/(?:title|h1)>/gi)]
+    .map(match => visibleText(match[1]))
+    .filter(Boolean)
+    .join(' ');
+}
+
 function classifyArchetype(
   nodes: JsonLdNode[],
   pages: BuildAuditContextInput['pages'],
@@ -80,9 +102,11 @@ function classifyArchetype(
   const homeTypes = schemaTypes(homeNodes);
   const nonArticleNodes = nodes.filter(node => !['article', 'documentation', 'product'].includes(node.pageType));
   const nonArticleTypes = schemaTypes(nonArticleNodes);
-  const html = pages.map(page => page.html).join('\n');
-  const lower = html.toLowerCase();
-  const homeLower = homeHtml.toLowerCase();
+  const html = visibleMarkup(pages.map(page => page.html).join('\n'));
+  const visibleHomeHtml = visibleMarkup(homeHtml);
+  const lower = visibleText(html).toLowerCase();
+  const homeLower = visibleText(visibleHomeHtml).toLowerCase();
+  const homeIdentity = titleHeadingText(visibleHomeHtml);
   const pageTypes = new Set(pages.map(page => page.page_type));
   const hasType = (...values: string[]) => values.some(value => types.has(value));
   const hasHomeType = (...values: string[]) => values.some(value => homeTypes.has(value));
@@ -105,12 +129,17 @@ function classifyArchetype(
   if (hasHomeType('Blog') && hasHomeType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
   if (hasHomeType('ProfilePage') && hasHomeType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
 
-  const pricingNavigation = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(homeHtml);
-  const productAccountNavigation = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(homeHtml);
-  const developerNavigation = /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(homeHtml)
+  const pricingNavigation = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  const productAccountNavigation = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  const developerNavigation = /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(visibleHomeHtml)
     || pageTypes.has('documentation');
   const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i.test(homeLower);
   const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
+  const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeIdentity);
+  const discussionNavigation = /href=["'][^"']*\/(?:categories|latest|topics?|discussions?|forum)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  if (communityIdentity || (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation)) {
+    return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.88);
+  }
   const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
     .filter(Boolean).length;
   if (organizationBacked && productPlatformSignals >= 2) {
@@ -136,8 +165,8 @@ function classifyArchetype(
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
   if (hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
 
-  const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(homeHtml);
-  const productActions = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(homeHtml);
+  const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  const productActions = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
   if (sameSitePricing && productActions) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
   if (/href=["'][^"']*\/(cart|checkout|collections|products)(?:[\/?#"'])/i.test(html)) {
     return strong('ecommerce', 'Commerce navigation', pageUrl, 0.68);

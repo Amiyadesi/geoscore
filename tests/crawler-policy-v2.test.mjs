@@ -92,6 +92,21 @@ describe('Crawler Policy v2', () => {
     assert.equal(result.render_blocking_scripts, 1);
   });
 
+  it('uses a language-aware title range for Chinese pages', async () => {
+    const html = `<!doctype html><html lang="zh-CN"><head>
+      <title>LINUX DO - 新的理想型社区</title>
+      <meta name="description" content="一个开放、友好并持续讨论技术与生活的新型社区空间，欢迎认真交流与分享。">
+    </head><body><main><h1>LINUX DO</h1><p>${'社区内容'.repeat(40)}</p></main></body></html>`;
+    const result = await technical.runTechnicalSeo(
+      'linux.do', html, new Headers(), 10, 'https://linux.do/',
+      { fetcher: async () => new Response('', { status: 404 }) },
+    );
+    const titleCheck = result.checks.find(item => item.name.startsWith('Title tag length'));
+
+    assert.equal(titleCheck?.passed, true);
+    assert.match(titleCheck?.detail ?? '', /target 8-35/);
+  });
+
   it('separates search, training, and user-triggered bot groups', () => {
     const policy = technical.buildCrawlerPolicyV2(`User-agent: GPTBot\nDisallow: /\n\nUser-agent: ChatGPT-User\nDisallow: /\n\nUser-agent: OAI-SearchBot\nAllow: /`);
 

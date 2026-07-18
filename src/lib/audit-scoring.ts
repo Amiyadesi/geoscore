@@ -78,8 +78,11 @@ function categoryScore(checks: NormalizedCheck[]): CategoryScore {
   const normalizedConfidence = clamp01(confidence);
   const capReasons = scoreCapReasons(applicable, normalizedCoverage, normalizedConfidence);
   const cap = capReasons.reduce((value, reason) => Math.min(value, reason.cap), 100);
+  const score = rawScore === null || normalizedCoverage < SCORE_POLICY.minimum_category_coverage
+    ? null
+    : Math.min(rawScore, cap);
   return {
-    score: rawScore === null ? null : Math.min(rawScore, cap),
+    score,
     raw_score: rawScore,
     coverage: normalizedCoverage,
     confidence: normalizedConfidence,

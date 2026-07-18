@@ -3,6 +3,7 @@ export interface MobileAuditResult {
   viewport_content: string | null;
   has_touch_icons: boolean;
   has_responsive_images: boolean; // any img with srcset or sizes attr
+  meaningful_image_count: number;
   tap_target_issues: number;      // approximate count of very small linked elements
   font_size_ok: boolean;          // no inline style with font-size < 12px on body/p
   issues: string[];
@@ -75,10 +76,7 @@ export function runMobileAudit(_domain: string, html: string): MobileAuditResult
 
   for (const match of html.matchAll(IMG_RE)) {
     const attrs = match[1] ?? '';
-    if (hasAttr(attrs, 'srcset') || hasAttr(attrs, 'sizes')) {
-      has_responsive_images = true;
-      break;
-    }
+    const responsive = hasAttr(attrs, 'srcset') || hasAttr(attrs, 'sizes');
     // Count images that are wide enough to benefit from srcset
     const widthStr = extractAttr(attrs, 'width');
     const widthPx = widthStr ? parseInt(widthStr, 10) : NaN;
@@ -86,8 +84,11 @@ export function runMobileAudit(_domain: string, html: string): MobileAuditResult
     if (!isNaN(widthPx) && widthPx < 150) continue;
     // If src contains logo/icon/avatar/favicon patterns, skip
     const src = extractAttr(attrs, 'src') ?? '';
-    if (/logo|icon|avatar|favicon|sprite/i.test(src)) continue;
+    const alt = extractAttr(attrs, 'alt') ?? '';
+    const className = extractAttr(attrs, 'class') ?? '';
+    if (/logo|icon|avatar|favicon|sprite|emoji|gravatar/i.test(`${src} ${alt} ${className}`)) continue;
     meaningfulImgCount++;
+    if (responsive) has_responsive_images = true;
   }
 
   // ── 4. Tap target issues ───────────────────────────────────────────────────
@@ -155,6 +156,7 @@ export function runMobileAudit(_domain: string, html: string): MobileAuditResult
     viewport_content,
     has_touch_icons,
     has_responsive_images,
+    meaningful_image_count: meaningfulImgCount,
     tap_target_issues,
     font_size_ok,
     issues,

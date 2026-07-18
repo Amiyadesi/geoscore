@@ -145,4 +145,23 @@ describe('golden site archetype fixtures', () => {
     assert.equal(context.industry_vertical, 'finance');
     assert.match(context.evidence[0]?.value ?? '', /product|platform|pricing|application/i);
   });
+
+  it('keeps an explicit forum identity ahead of weak product words embedded in scripts', () => {
+    const domain = 'nodeloc.example.com';
+    const html = `<!doctype html><html lang="zh-CN"><head>
+      <title>NodeLoc - 自由、平等、友好、开放、有趣的交流社区</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"NodeLoc"}</script>
+      <script>window.__APP__ = { html: '<a href="/docs">API platform software</a>' };</script>
+    </head><body>
+      <header><h1>NodeLoc 交流社区</h1></header>
+      <nav><a href="/login">登录</a><a href="/categories">分类</a><a href="/latest">最新主题</a></nav>
+      <main><p>自由、平等、友好、开放、有趣的交流社区</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'community');
+    assert.equal(context.business_model, 'community');
+    assert.match(context.evidence[0]?.value ?? '', /community|forum/i);
+  });
 });

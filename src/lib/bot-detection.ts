@@ -60,7 +60,7 @@ const CHALLENGE_URL_RE =
  *   "521 Web server is down | Cloudflare"
  */
 const CHALLENGE_TITLE_RE =
-  /\b(?:captcha|attention required|just a moment|access denied|security check|ddos protection|bot check|are you human|verify you are human|human verification|you(?:'ve| have) been blocked|please wait|checking your browser|ray id|almost there|invalid ssl certificate|ssl handshake failed|web server is down|origin is unreachable|error 52[0-9]|cloudflare error)\b/i;
+  /\b(?:captcha|attention required|just a moment|access denied|security check|ddos protection|bot check|are you human|verify you are human|human verification|you(?:'ve| have) been blocked|please wait|checking your browser|ray id|almost there|invalid ssl certificate|ssl handshake failed|web server is down|origin is unreachable|error 52[0-9]|cloudflare error)\b|(?:提醒[^<]{0,80}(?:ipv6|访问)|ipv6[^<]{0,40}(?:关闭|不可用|disabled))/i;
 
 /**
  * Visible-text keyword patterns present in WAF / bot-challenge page bodies.
@@ -74,7 +74,7 @@ const CHALLENGE_TITLE_RE =
  * These patterns catch Cloudflare origin errors that serve no real content.
  */
 const CHALLENGE_CONTENT_RE =
-  /\b(?:captcha|captcha\s+challenge|security\s+check|enable\s+javascript|javascript[^.]{0,40}disabl|security\s+service|checking\s+your\s+browser|attention\s+required|just\s+a\s+moment|access\s+denied|please\s+enable|ddos\s+protection|human\s+verification|are\s+you[^.]{0,20}human|verify[^.]{0,20}human|verify\s+you\s+are\s+human|blocked[^.]{0,20}request|unsupported\s+client|please\s+update\s+your\s+browser|update\s+your\s+browser|browser\s+not\s+supported|browser\s+is\s+not\s+supported|this\s+browser[^.]{0,20}not\s+supported|your\s+browser[^.]{0,20}not\s+supported|not\s+supported[^.]{0,20}browser|ray\s+id\b|invalid\s+ssl\s+certificate|ssl\s+handshake\s+failed|web\s+server\s+(?:is\s+)?down|origin\s+(?:is\s+)?unreachable|error\s+52[0-9])\b/i;
+  /\b(?:captcha|captcha\s+challenge|security\s+check|enable\s+javascript|javascript[^.]{0,40}disabl|security\s+service|checking\s+your\s+browser|attention\s+required|just\s+a\s+moment|access\s+denied|please\s+enable|ddos\s+protection|human\s+verification|are\s+you[^.]{0,20}human|verify[^.]{0,20}human|verify\s+you\s+are\s+human|blocked[^.]{0,20}request|unsupported\s+client|please\s+update\s+your\s+browser|update\s+your\s+browser|browser\s+not\s+supported|browser\s+is\s+not\s+supported|this\s+browser[^.]{0,20}not\s+supported|your\s+browser[^.]{0,20}not\s+supported|not\s+supported[^.]{0,20}browser|ray\s+id\b|invalid\s+ssl\s+certificate|ssl\s+handshake\s+failed|web\s+server\s+(?:is\s+)?down|origin\s+(?:is\s+)?unreachable|error\s+52[0-9])\b|(?:提醒[^。\n]{0,80}(?:ipv6|访问)|ipv6[^。\n]{0,40}(?:关闭|不可用|disabled))/i;
 
 // ── Public API ─────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,9 @@ export function detectBotChallenge(
   if (title && CHALLENGE_TITLE_RE.test(title)) {
     return {
       isChallenge: true,
-      reason: `Bot-challenge page title: "${title.trim()}"`,
+      reason: /ipv6|提醒|访问/i.test(title)
+        ? `Access notice interstitial title: "${title.trim()}"`
+        : `Bot-challenge page title: "${title.trim()}"`,
     };
   }
 
@@ -140,7 +142,9 @@ export function detectBotChallenge(
   if (html && CHALLENGE_CONTENT_RE.test(html.slice(0, 5000))) {
     return {
       isChallenge: true,
-      reason: 'Bot-challenge keywords detected in page content',
+      reason: /ipv6|提醒|访问/i.test(html.slice(0, 5000))
+        ? 'Access notice interstitial detected in page content'
+        : 'Bot-challenge keywords detected in page content',
     };
   }
 

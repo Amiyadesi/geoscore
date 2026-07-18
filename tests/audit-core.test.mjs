@@ -29,6 +29,7 @@ execFileSync(
     'src/lib/cache.ts',
     'src/modules/content_quality.ts',
     'src/modules/authority.ts',
+    'src/modules/mobile_audit.ts',
   ],
   { stdio: 'inherit' },
 );
@@ -39,6 +40,7 @@ const pages = require(path.join(tmpDir, 'lib', 'audit-pages.js'));
 const cache = require(path.join(tmpDir, 'lib', 'cache.js'));
 const { runContentQuality } = require(path.join(tmpDir, 'modules', 'content_quality.js'));
 const { runAuthority } = require(path.join(tmpDir, 'modules', 'authority.js'));
+const { runMobileAudit } = require(path.join(tmpDir, 'modules', 'mobile_audit.js'));
 
 const PERSONAL_BLOG_HTML = `<!doctype html>
 <html lang="zh-CN"><head><title>纱世里的个人博客</title>
@@ -130,10 +132,27 @@ describe('GeoScore 2 audit core', () => {
       core.check({ id: 'na', category: 'seo', status: 'not_applicable', weight: 100 }),
     ]);
 
-    assert.equal(scored.seo.score, 67);
+    assert.equal(scored.seo.score, null);
+    assert.equal(scored.seo.raw_score, 67);
     assert.equal(scored.seo.coverage, 0.3);
     assert.equal(scored.status, 'insufficient_evidence');
     assert.equal(scored.overall.score, null);
+  });
+
+  it('returns no category score when only six percent of its evidence is known', () => {
+    const scored = core.scoreChecks([
+      core.check({ id: 'known-pass', category: 'seo', status: 'pass', weight: 1 }),
+      ...Array.from({ length: 15 }, (_, index) => core.check({
+        id: `unknown-${index}`,
+        category: 'seo',
+        status: 'unknown',
+        weight: 1,
+      })),
+    ]);
+
+    assert.equal(scored.seo.coverage, 0.06);
+    assert.equal(scored.seo.raw_score, 100);
+    assert.equal(scored.seo.score, null);
   });
 
   it('prevents a major failure from receiving an A-range category score', () => {
@@ -222,7 +241,7 @@ describe('GeoScore 2 audit core', () => {
       content_quality: { status: 'ok', data: { has_noindex: false, word_count: 180, external_links: 1 } },
       schema_audit: { status: 'ok', data: {
         schemas_found: ['WebSite', 'Person', 'FAQPage'],
-        coverage: { Entity: true, WebSite: true, BreadcrumbList: false },
+        coverage: { Entity: true },
       } },
       robots_sitemap: { status: 'ok', data: {
         robots_txt: { exists: true, fetch_status: 'ok', blocks_all: false, blocks_googlebot: false },
@@ -233,15 +252,79 @@ describe('GeoScore 2 audit core', () => {
     const checks = core.buildNormalizedChecks(context, [page('https://blog.sayori.org/', PERSONAL_BLOG_HTML)], modules);
     const byId = Object.fromEntries(checks.map(item => [item.id, item]));
     assert.equal(byId['seo.schema_presence'].status, 'pass');
-    assert.equal(byId['seo.schema_fit'].status, 'fail');
-    assert.match(byId['seo.schema_fit'].evidence.join(' '), /BreadcrumbList/);
+    assert.equal(byId['seo.schema_fit'].status, 'pass');
+    assert.doesNotMatch(byId['seo.schema_fit'].evidence.join(' '), /BreadcrumbList|FAQPage/);
 
     const schemaRecommendation = core.buildRecommendations(context, checks)
       .find(item => item.id === 'seo.schema_fit');
-    assert.ok(schemaRecommendation);
-    const output = JSON.stringify(schemaRecommendation).toLowerCase();
-    assert.match(output, /breadcrumblist/);
-    assert.doesNotMatch(output, /faqpage|service|pricing|price|package|localbusiness/);
+    assert.equal(schemaRecommendation, undefined);
+  });
+
+  it('keeps target transport checks unknown for Browser Run evidence', () => {
+    const browserPage = {
+      ...page('https://nodeloc.com/', PERSONAL_BLOG_HTML),
+      fetch_source: 'browser_run',
+      headers: new Headers(),
+      response_ms: 15339,
+      status_code: 200,
+      final_url: 'https://nodeloc.com/',
+    };
+    const context = core.buildAuditContext({ domain: 'nodeloc.com', pages: [browserPage] });
+    const checks = core.buildNormalizedChecks(context, [browserPage], {
+      technical_seo: { status: 'ok', data: {
+        transport_evidence_available: false,
+        response_time_ms: 15339,
+        page_weight_kb: 656,
+        compression: { enabled: false, encoding: null },
+        security_headers: { score: 0 },
+        page_meta: { title: 'NodeLoc community', lang: 'zh-CN' },
+        h1_tags: ['NodeLoc community'],
+        checks: [],
+      } },
+    });
+    const byId = Object.fromEntries(checks.map(item => [item.id, item]));
+
+    for (const id of ['seo.response_time', 'seo.html_compression', 'seo.page_weight', 'seo.security_headers']) {
+      assert.equal(byId[id].status, 'unknown', id);
+      assert.doesNotMatch(byId[id].evidence.join(' '), /15339|656|score 0/i);
+    }
+  });
+
+  it('does not require responsive variants when all sampled images are avatars', () => {
+    const context = core.buildAuditContext({
+      domain: 'linux.do',
+      pages: [page('https://linux.do/', PERSONAL_BLOG_HTML)],
+      archetypeHint: 'community',
+    });
+    const checks = core.buildNormalizedChecks(context, [page('https://linux.do/', PERSONAL_BLOG_HTML)], {
+      on_page_seo: { status: 'ok', data: {
+        images: { total: 130, missing_alt: 130, missing_dimensions: 0, responsive: 0 },
+      } },
+      mobile_audit: { status: 'ok', data: {
+        has_viewport_meta: true,
+        has_responsive_images: false,
+        meaningful_image_count: 0,
+        tap_target_issues: 0,
+        font_size_ok: true,
+      } },
+    });
+    const responsive = checks.find(item => item.id === 'seo.responsive_images');
+
+    assert.equal(responsive?.status, 'not_applicable');
+    assert.match(responsive?.evidence.join(' ') ?? '', /No content images/i);
+  });
+
+  it('does not let a responsive avatar hide unresponsive content images', () => {
+    const result = runMobileAudit('example.com', `
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <img class="avatar" src="/avatar.png" srcset="/avatar@2x.png 2x" alt="Author avatar">
+      <img src="/article-cover.jpg" width="1200" alt="Article cover">
+      <img src="/diagram.jpg" width="900" alt="Architecture diagram">
+    `);
+
+    assert.equal(result.meaningful_image_count, 2);
+    assert.equal(result.has_responsive_images, false);
+    assert.match(result.issues.join(' '), /No responsive images/);
   });
 
   it('projects retained technical, mobile, accessibility and CrUX facts into the normalized registry', () => {
