@@ -1,10 +1,26 @@
 import { parseHTML } from 'linkedom';
-import { getDomain } from 'tldts';
-import { detectBotChallenge } from './bot-detection';
-import { fetchWithTimeout, type HttpFetcher } from './http';
+import { challengeReason, detectJavaScriptShell, pageLocale, titleFromHtml } from './audit-html';
+import {
+  attemptBrowserRun,
+  BROWSER_RUN_PROVIDER,
+  type BrowserRunFallbackEvidence,
+  type BrowserRunFallbackOptions,
+} from './browser-run';
+import { fetchWithTimeout, isRetryableHttpStatus, type HttpFetcher } from './http';
+import { cancelResponseBody, readBoundedText, ResponseTooLargeError } from './response-body';
 import { isValidPublicHostname } from './security';
-import { SubrequestBudgetExceeded, type SubrequestBudgetLike } from './subrequest-budget';
-import type { BrowserRunBinding, BrowserRunContentRequest, BrowserRunResourceType } from './types';
+import { registrableRoot } from './domain';
+import { SubrequestBudgetExceeded } from './subrequest-budget';
+
+export { buildBrowserAllowRequestPattern } from './browser-run';
+export { detectJavaScriptShell } from './audit-html';
+export type {
+  BrowserRunAttemptState,
+  BrowserRunFallbackError,
+  BrowserRunFallbackEvidence,
+  BrowserRunFallbackOptions,
+} from './browser-run';
+export { registrableRoot } from './domain';
 
 export type AuditMode = 'site' | 'url';
 export type AuditPageType = 'home' | 'about' | 'article' | 'documentation' | 'product' | 'category' | 'contact' | 'other';
@@ -12,25 +28,9 @@ export type AuditPageSource = 'requested' | 'homepage' | 'internal_link' | 'site
 
 const MAX_AUDIT_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_SITEMAP_BYTES = 1 * 1024 * 1024;
-const MAX_BROWSER_ENVELOPE_BYTES = MAX_AUDIT_HTML_BYTES + 256 * 1024;
-const BROWSER_RUN_RESERVED_SECONDS = 20;
-const BROWSER_RUN_FREE_SECONDS = 600;
-const BROWSER_RUN_HEADROOM_SECONDS = 60;
-const DEFAULT_BROWSER_DAILY_BUDGET_SECONDS = BROWSER_RUN_FREE_SECONDS - BROWSER_RUN_HEADROOM_SECONDS;
-const BROWSER_RUN_PROVIDER = 'Cloudflare Browser Run' as const;
-const BROWSER_RUN_SOURCE = 'browser_binding_quick_action' as const;
 const DIRECT_HTTP_PROVIDER = 'Direct HTTP' as const;
 const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|markdown|md|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
 const INFRASTRUCTURE_PATH = /(?:^|\/)(?:cdn-cgi|_next|_nuxt|_astro|wp-content|wp-includes)(?:\/|$)/i;
-const BROWSER_REJECTED_RESOURCE_TYPES: BrowserRunResourceType[] = [
-  'image',
-  'media',
-  'font',
-  'websocket',
-  'eventsource',
-  'ping',
-  'prefetch',
-];
 
 export interface AuditPageCandidate {
   url: string;
@@ -62,40 +62,6 @@ export interface AuditPageSummary extends Omit<FetchedAuditPage, 'html' | 'heade
   final_url?: string;
 }
 
-export interface BrowserRunFallbackError {
-  code: string;
-  message: string;
-  retryable: boolean;
-  upstream_code?: string;
-  target_status?: number;
-}
-
-export interface BrowserRunFallbackEvidence {
-  status: 'complete' | 'error' | 'skipped';
-  provider: typeof BROWSER_RUN_PROVIDER;
-  source: typeof BROWSER_RUN_SOURCE;
-  reason: string;
-  reserved_seconds: number;
-  browser_ms_used?: number;
-  error?: BrowserRunFallbackError;
-}
-
-export interface BrowserRunAttemptState {
-  attempted: boolean;
-}
-
-export interface BrowserRunFallbackOptions {
-  binding?: BrowserRunBinding;
-  budgetKv?: KVNamespace;
-  dailyBudgetSeconds?: string | number;
-  subrequestBudget?: SubrequestBudgetLike;
-  attemptState?: BrowserRunAttemptState;
-  /** Test hook. Production calls are always capped at 20 seconds. */
-  attemptTimeoutMs?: number;
-  /** Test hook for the UTC budget key. */
-  now?: number;
-}
-
 export interface FetchAuditPageOptions {
   httpFallbackUrl?: string;
   browserFallback?: BrowserRunFallbackOptions;
@@ -105,26 +71,6 @@ interface HttpAuditPageOutcome {
   page: FetchedAuditPage;
   browserEligible: boolean;
   fallbackReason?: string;
-}
-
-interface BrowserRunEnvelope {
-  success?: boolean;
-  result?: string;
-  meta?: {
-    status?: number;
-    title?: string;
-  };
-  errors?: Array<{
-    code?: number | string;
-    message?: string;
-  }>;
-}
-
-class ResponseTooLargeError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ResponseTooLargeError';
-  }
 }
 
 class AuditPageFetchError extends Error {
@@ -139,53 +85,6 @@ class AuditPageFetchError extends Error {
     super(message);
     this.name = 'AuditPageFetchError';
   }
-}
-
-class BrowserRunAttemptTimeout extends Error {
-  constructor() {
-    super('Cloudflare Browser Run exceeded the 20-second attempt limit');
-    this.name = 'BrowserRunAttemptTimeout';
-  }
-}
-
-async function cancelResponseBody(response: Response): Promise<void> {
-  try { await response.body?.cancel(); } catch { /* best-effort connection cleanup */ }
-}
-
-async function readBoundedText(response: Response, maxBytes: number, label: string): Promise<string> {
-  const contentLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    await cancelResponseBody(response);
-    throw new ResponseTooLargeError(`${label} exceeds the ${Math.round(maxBytes / 1024)} KB response limit`);
-  }
-  if (!response.body) return '';
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new ResponseTooLargeError(`${label} exceeds the ${Math.round(maxBytes / 1024)} KB response limit`);
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
 }
 
 async function fetchWithinRegistrableRoot(
@@ -235,12 +134,6 @@ async function fetchWithinRegistrableRoot(
     0,
     currentUrl,
   );
-}
-
-export function registrableRoot(hostname: string): string | null {
-  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
-  if (!isValidPublicHostname(normalized)) return null;
-  return getDomain(normalized, { allowPrivateDomains: false }) ?? null;
 }
 
 export function validateAuditTargetUrl(raw: string, submittedDomain: string): string | null {
@@ -443,62 +336,6 @@ export async function discoverSitemapPageUrls(
     } catch { /* try next conventional sitemap URL */ }
   }
   return [];
-}
-
-function visiblePageText(html: string): string {
-  if (!html) return '';
-  try {
-    const { document } = parseHTML(html);
-    for (const element of document.querySelectorAll('script,style,noscript,template,svg')) {
-      element.remove();
-    }
-    return (document.body?.textContent ?? document.documentElement?.textContent ?? '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  } catch {
-    return html
-      .replace(/<(?:script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|template|svg)>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-}
-
-/** Conservative heuristic for an app shell that has scripts but no useful rendered text. */
-export function detectJavaScriptShell(html: string): boolean {
-  if (!html || !/<script\b/i.test(html)) return false;
-  const visibleText = visiblePageText(html);
-  if (visibleText.length >= 120) return false;
-
-  const scriptCount = (html.match(/<script\b/gi) ?? []).length;
-  const shellMarker = /<(?:div|main|section)\b[^>]*(?:id|data-reactroot)=["'](?:root|app|__next|__nuxt|svelte|gatsby-focus-wrapper)["'][^>]*>\s*<\/(?:div|main|section)>/i.test(html)
-    || /<(?:div|main)\b[^>]*id=["'](?:root|app|__next|__nuxt)["'][^>]*>/i.test(html)
-    || /\b(?:__NEXT_DATA__|__NUXT__|hydrateRoot|createRoot\s*\(|webpackChunk)\b/.test(html);
-  return shellMarker || (visibleText.length < 40 && scriptCount >= 2);
-}
-
-function titleFromHtml(html: string): string | undefined {
-  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
-    ?.replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
-  return title || undefined;
-}
-
-function isRetryableHttpStatus(status: number): boolean {
-  return status === 408 || status === 425 || status === 429 || status >= 500;
-}
-
-function challengeReason(html: string, finalUrl: string, statusCode: number): string | undefined {
-  const challenge = detectBotChallenge(html, finalUrl, statusCode);
-  if (!challenge.isChallenge) return undefined;
-  // A rendered SPA can retain a harmless <noscript>Please enable JavaScript</noscript>
-  // alongside real content. Do not reject rich rendered pages on that weak body-only signal.
-  if (challenge.reason === 'Bot-challenge keywords detected in page content' && visiblePageText(html).length >= 300) {
-    return undefined;
-  }
-  return challenge.reason ?? 'Bot challenge detected';
 }
 
 function normalizeDirectFetchError(error: unknown): AuditPageFetchError {
@@ -737,462 +574,6 @@ async function fetchDirectAuditPage(
       fallbackReason: normalized.message,
     };
   }
-}
-
-function clampBrowserDailyBudget(value: string | number | undefined): number {
-  if (value === undefined || value === '') return DEFAULT_BROWSER_DAILY_BUDGET_SECONDS;
-  const parsed = Math.floor(Number(value));
-  if (!Number.isFinite(parsed)) return DEFAULT_BROWSER_DAILY_BUDGET_SECONDS;
-  return Math.max(0, Math.min(DEFAULT_BROWSER_DAILY_BUDGET_SECONDS, parsed));
-}
-
-function browserBudgetKey(now = Date.now()): string {
-  return `browser:${new Date(now).toISOString().slice(0, 10)}`;
-}
-
-type BrowserBudgetReservation =
-  | { status: 'reserved'; key: string }
-  | { status: 'exhausted'; key: string }
-  | { status: 'unavailable'; key: string; message: string };
-
-async function reserveBrowserBudget(options: BrowserRunFallbackOptions): Promise<BrowserBudgetReservation> {
-  const key = browserBudgetKey(options.now);
-  if (!options.budgetKv) {
-    return { status: 'unavailable', key, message: 'Browser Run daily budget storage is unavailable' };
-  }
-
-  const limit = clampBrowserDailyBudget(options.dailyBudgetSeconds);
-  try {
-    const raw = await options.budgetKv.get(key);
-    const used = raw === null ? 0 : Number(raw);
-    if (!Number.isFinite(used) || used < 0) {
-      return { status: 'unavailable', key, message: 'Browser Run daily budget counter is invalid' };
-    }
-    if (used + BROWSER_RUN_RESERVED_SECONDS > limit) return { status: 'exhausted', key };
-
-    // KV is eventually consistent, so each attempt conservatively reserves the full
-    // 20-second maximum. The 60-second free-tier headroom covers three concurrent races.
-    await options.budgetKv.put(key, String(Math.floor(used) + BROWSER_RUN_RESERVED_SECONDS), {
-      expirationTtl: 60 * 60 * 48,
-    });
-    return { status: 'reserved', key };
-  } catch (error) {
-    return {
-      status: 'unavailable',
-      key,
-      message: error instanceof Error ? error.message : 'Browser Run daily budget could not be reserved',
-    };
-  }
-}
-
-export function buildBrowserAllowRequestPattern(root: string): string[] {
-  const normalizedRoot = registrableRoot(root);
-  if (!normalizedRoot) return [];
-  const escaped = normalizedRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return [`^https?:\\/\\/(?:[a-z0-9-]+\\.)*${escaped}(?::(?:80|443))?(?:[\\/?#]|$)`];
-}
-
-function sanitizeBrowserMessage(value: unknown): string {
-  return String(value ?? 'Cloudflare Browser Run failed')
-    .replace(/((?:api[-_ ]?key|token|authorization))\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 300);
-}
-
-function browserError(
-  code: string,
-  message: string,
-  retryable: boolean,
-  upstreamCode?: string,
-  targetStatus?: number,
-): BrowserRunFallbackError {
-  return {
-    code,
-    message: sanitizeBrowserMessage(message),
-    retryable,
-    ...(upstreamCode ? { upstream_code: upstreamCode } : {}),
-    ...(targetStatus === undefined ? {} : { target_status: targetStatus }),
-  };
-}
-
-function skippedBrowserFallback(
-  reason: string,
-  error: BrowserRunFallbackError,
-): BrowserRunFallbackEvidence {
-  return {
-    status: 'skipped',
-    provider: BROWSER_RUN_PROVIDER,
-    source: BROWSER_RUN_SOURCE,
-    reason,
-    reserved_seconds: 0,
-    error,
-  };
-}
-
-function browserMsUsed(response: Response): number | undefined {
-  const raw = response.headers.get('X-Browser-Ms-Used');
-  if (raw === null || raw.trim() === '') return undefined;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : undefined;
-}
-
-function upstreamEnvelopeError(envelope: BrowserRunEnvelope): BrowserRunFallbackError {
-  const upstream = envelope.errors?.[0];
-  const upstreamCode = upstream?.code === undefined ? undefined : String(upstream.code);
-  const message = upstream?.message || 'Cloudflare Browser Run returned an unsuccessful response';
-  if (upstreamCode === '6002') {
-    return browserError('BROWSER_RUN_TIMEOUT', message, true, upstreamCode);
-  }
-  if (upstreamCode === '429') {
-    return browserError('BROWSER_RUN_RATE_LIMITED', message, true, upstreamCode);
-  }
-  return browserError('BROWSER_RUN_UPSTREAM_ERROR', message, true, upstreamCode);
-}
-
-function providerHttpError(response: Response, envelope?: BrowserRunEnvelope): BrowserRunFallbackError {
-  const upstream = envelope?.errors?.[0];
-  const upstreamCode = upstream?.code === undefined ? undefined : String(upstream.code);
-  const message = upstream?.message || `Cloudflare Browser Run returned HTTP ${response.status}`;
-  if (response.status === 408 || response.status === 504 || upstreamCode === '6002') {
-    return browserError('BROWSER_RUN_TIMEOUT', message, true, upstreamCode);
-  }
-  if (response.status === 429) {
-    return browserError('BROWSER_RUN_RATE_LIMITED', message, true, upstreamCode);
-  }
-  return browserError('BROWSER_RUN_UPSTREAM_ERROR', message, response.status >= 500, upstreamCode);
-}
-
-async function quickActionWithTimeout(
-  binding: BrowserRunBinding,
-  request: BrowserRunContentRequest,
-  timeoutMs: number,
-): Promise<Response> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      binding.quickAction('content', request),
-      new Promise<Response>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new BrowserRunAttemptTimeout()), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
-
-interface BrowserRunAttemptResult {
-  page?: FetchedAuditPage;
-  evidence: BrowserRunFallbackEvidence;
-}
-
-async function attemptBrowserRun(
-  candidate: AuditPageCandidate,
-  reason: string,
-  options: BrowserRunFallbackOptions,
-  overallStarted: number,
-): Promise<BrowserRunAttemptResult> {
-  if (!options.binding) {
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_UNAVAILABLE', 'Cloudflare Browser Run binding is not configured', false),
-      ),
-    };
-  }
-  if (options.attemptState?.attempted) {
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_UNAVAILABLE', 'Browser Run was already attempted for this audit', false),
-      ),
-    };
-  }
-
-  const target = new URL(candidate.url);
-  const root = registrableRoot(target.hostname);
-  const allowRequestPattern = root ? buildBrowserAllowRequestPattern(root) : [];
-  if (target.username || target.password || target.port || !root || allowRequestPattern.length === 0) {
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_UNAVAILABLE', 'Browser Run target is not a valid public registrable domain', false),
-      ),
-    };
-  }
-
-  try {
-    options.subrequestBudget?.consume('browser-run:content');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Browser Run subrequest budget is exhausted';
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_SUBREQUEST_BUDGET_EXCEEDED', message, true),
-      ),
-    };
-  }
-
-  const reservation = await reserveBrowserBudget(options);
-  if (reservation.status === 'exhausted') {
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_BUDGET_EXHAUSTED', 'Cloudflare Browser Run daily budget is exhausted', true),
-      ),
-    };
-  }
-  if (reservation.status === 'unavailable') {
-    return {
-      evidence: skippedBrowserFallback(
-        reason,
-        browserError('BROWSER_RUN_BUDGET_UNAVAILABLE', reservation.message, true),
-      ),
-    };
-  }
-
-  if (options.attemptState) options.attemptState.attempted = true;
-  const timeoutMs = Math.max(1, Math.min(20_000, Math.floor(options.attemptTimeoutMs ?? 20_000)));
-  const request: BrowserRunContentRequest = {
-    url: candidate.url,
-    actionTimeout: timeoutMs,
-    allowRequestPattern,
-    rejectResourceTypes: BROWSER_REJECTED_RESOURCE_TYPES,
-    gotoOptions: {
-      timeout: timeoutMs,
-      waitUntil: 'networkidle2',
-    },
-  };
-
-  let response: Response;
-  try {
-    response = await quickActionWithTimeout(options.binding, request, timeoutMs);
-  } catch (error) {
-    const timedOut = error instanceof BrowserRunAttemptTimeout
-      || (error instanceof Error && /timed?\s*out|timeout/i.test(error.message));
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        error: browserError(
-          timedOut ? 'BROWSER_RUN_TIMEOUT' : 'BROWSER_RUN_UPSTREAM_ERROR',
-          error instanceof Error ? error.message : 'Cloudflare Browser Run request failed',
-          true,
-        ),
-      },
-    };
-  }
-
-  const measuredBrowserMs = browserMsUsed(response);
-  let rawEnvelope: string;
-  try {
-    rawEnvelope = await readBoundedText(response, MAX_BROWSER_ENVELOPE_BYTES, 'Browser Run response');
-  } catch (error) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError(
-          error instanceof ResponseTooLargeError ? 'BROWSER_RUN_RESPONSE_TOO_LARGE' : 'BROWSER_RUN_UPSTREAM_ERROR',
-          error instanceof Error ? error.message : 'Cloudflare Browser Run response could not be read',
-          true,
-        ),
-      },
-    };
-  }
-
-  let envelope: BrowserRunEnvelope;
-  try {
-    const parsed = JSON.parse(rawEnvelope) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid envelope');
-    envelope = parsed as BrowserRunEnvelope;
-  } catch {
-    if (!response.ok) {
-      return {
-        evidence: {
-          status: 'error',
-          provider: BROWSER_RUN_PROVIDER,
-          source: BROWSER_RUN_SOURCE,
-          reason,
-          reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-          ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-          error: providerHttpError(response),
-        },
-      };
-    }
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_INVALID_RESPONSE', 'Cloudflare Browser Run returned malformed JSON', true),
-      },
-    };
-  }
-
-  if (!response.ok) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: providerHttpError(response, envelope),
-      },
-    };
-  }
-  if (envelope.success !== true) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: upstreamEnvelopeError(envelope),
-      },
-    };
-  }
-  if (typeof envelope.result !== 'string') {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_INVALID_RESPONSE', 'Cloudflare Browser Run response did not contain HTML content', true),
-      },
-    };
-  }
-
-  const html = envelope.result;
-  if (!html.trim()) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_EMPTY_CONTENT', 'Cloudflare Browser Run returned empty HTML content', true),
-      },
-    };
-  }
-  if (new TextEncoder().encode(html).byteLength > MAX_AUDIT_HTML_BYTES) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_RESPONSE_TOO_LARGE', 'Rendered HTML exceeds the 2048 KB response limit', false),
-      },
-    };
-  }
-
-  const renderedStatus = Number(envelope.meta?.status);
-  const statusCode = Number.isFinite(renderedStatus) && renderedStatus > 0 ? renderedStatus : 200;
-  const renderedChallenge = challengeReason(html, candidate.url, statusCode);
-  if (renderedChallenge) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_BOT_CHALLENGE', renderedChallenge, true),
-      },
-    };
-  }
-  if (statusCode >= 400) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError(
-          'BROWSER_RUN_TARGET_HTTP_ERROR',
-          `Rendered target returned HTTP ${statusCode}`,
-          isRetryableHttpStatus(statusCode),
-          undefined,
-          statusCode,
-        ),
-      },
-    };
-  }
-  if (detectJavaScriptShell(html)) {
-    return {
-      evidence: {
-        status: 'error',
-        provider: BROWSER_RUN_PROVIDER,
-        source: BROWSER_RUN_SOURCE,
-        reason,
-        reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-        ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-        error: browserError('BROWSER_RUN_JS_SHELL', 'Browser Run still returned a JavaScript shell without extractable content', true),
-      },
-    };
-  }
-
-  const evidence: BrowserRunFallbackEvidence = {
-    status: 'complete',
-    provider: BROWSER_RUN_PROVIDER,
-    source: BROWSER_RUN_SOURCE,
-    reason,
-    reserved_seconds: BROWSER_RUN_RESERVED_SECONDS,
-    ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-  };
-  return {
-    evidence,
-    page: {
-      ...candidate,
-      status: 'complete',
-      title: titleFromHtml(html) ?? envelope.meta?.title,
-      locale: pageLocale(html),
-      html,
-      // Quick Action response headers describe the Browser Run API response, not
-      // the target page. Keep target header evidence unknown instead of fabricating it.
-      headers: new Headers(),
-      response_ms: Date.now() - overallStarted,
-      status_code: statusCode,
-      final_url: candidate.url,
-      fetch_source: 'browser_run',
-      provider: BROWSER_RUN_PROVIDER,
-      fallback_reason: reason,
-      ...(measuredBrowserMs === undefined ? {} : { browser_ms_used: measuredBrowserMs }),
-      browser_fallback: evidence,
-    },
-  };
-}
-
-function pageLocale(html: string): string | undefined {
-  const explicit = html.match(/<html[^>]+lang=["']([^"']+)["']/i)?.[1]?.trim();
-  if (explicit) return explicit;
-  const text = html.replace(/<[^>]+>/g, ' ').slice(0, 3000);
-  return /[\u3400-\u9fff]/.test(text) ? 'zh-CN' : undefined;
 }
 
 export async function fetchAuditPage(

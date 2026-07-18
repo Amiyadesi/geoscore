@@ -13,7 +13,7 @@ test('standalone release metadata is public MIT with upstream attribution', () =
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const deployWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'deploy.yml'), 'utf8');
 
-  assert.equal(pkg.version, '2.4.4');
+  assert.equal(pkg.version, '2.4.5');
   assert.equal(pkg.private, false);
   assert.equal(pkg.license, 'MIT');
   assert.equal(pkg.repository?.url, 'git+https://github.com/Amiyadesi/geoscore.git');

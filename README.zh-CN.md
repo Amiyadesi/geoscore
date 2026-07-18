@@ -24,7 +24,7 @@ GeoScore 感谢 [LINUX DO 社区](https://linux.do/) 对开源讨论、实践反
 
 ## GeoScore 审计什么
 
-GeoScore 2.4.1 有两种模式：
+GeoScore 2.4.5 有两种模式：
 
 - `site` 模式建立站点画像，并确定性抽样最多五个 HTML 页面：首页、可发现的 About 页面，以及代表性页面类型。
 - `url` 模式审计指定 URL；目标不是首页时，必要时额外读取首页建立上下文。
@@ -79,7 +79,7 @@ Overview 的真实引用结果，也不影响 SEO、GEO 或 overall 主分。
 ### 保留但不进入匿名热路径的模块
 
 仓库仍保留关键词生成、AI 内容洞察、站外 SEO/反链、完整站点情报、重定向链、安全审计、SSL/域名情报和坏链扫描等上游或旧模块。
-GeoScore 2.4.1 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
+GeoScore 2.4.5 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
 
 ## 架构
 
@@ -165,6 +165,7 @@ Playwright 使用固定 API fixture，覆盖中英文桌面端和移动端流程
 
 普通 HTTP 抓取遇到 bot challenge、JS 空壳或可重试网络错误时，Worker 可以进行一次受预算限制的 Browser Run 尝试。
 它使用 `wrangler.jsonc` 中的 `BROWSER` binding，不需要把 Browser Rendering REST token 放进 Worker secret。
+20 秒尝试预算会分配给页面导航、加载后的短暂渲染等待和 HTML 捕获。GeoScore 等待 `load` 事件，不再等待后台网络完全空闲，避免分析脚本和持续请求拖满整次尝试，同时仍给普通 hydration 留出确定的完成时间。
 
 ### Search Gateway / SearXNG
 

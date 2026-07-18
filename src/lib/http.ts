@@ -14,6 +14,10 @@ export type HttpFetchOptions = RequestInit & {
 
 export type HttpFetcher = (url: string, options?: HttpFetchOptions) => Promise<Response>;
 
+export function isRetryableHttpStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 export function isValidHttpUrl(url: string): boolean {
   try {
     const parsed = new URL(url);

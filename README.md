@@ -25,7 +25,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.4.4 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.4.5 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -38,7 +38,7 @@ an A-range result.
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.4.4 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.4.5 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -89,7 +89,7 @@ upstream failures. Rejected message parameters are not blindly retried.
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.4.4 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.4.5 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected.
@@ -277,6 +277,12 @@ The Worker binding is configured directly in `wrangler.jsonc`:
 The deployment generator copies `wrangler.jsonc` to `wrangler.generated.jsonc`
 while replacing only resource IDs, so the binding is preserved automatically.
 The binding does not require a Browser Rendering REST API token or Worker secret.
+
+The 20-second fallback budget is divided between page navigation, a short
+post-load render settle, and HTML capture. GeoScore waits for the page `load`
+event instead of background network idleness, so analytics polling and long-lived
+requests cannot consume the entire attempt while ordinary hydration still gets a
+bounded window to finish.
 
 GeoScore applies its own configurable daily budget below the account allowance.
 Each eligible audit reserves a bounded attempt in `BUDGET_KV` before invoking

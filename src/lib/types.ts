@@ -22,6 +22,7 @@ export type BrowserRunResourceType =
 export interface BrowserRunContentRequest {
   url: string;
   actionTimeout?: number;
+  waitForTimeout?: number;
   allowRequestPattern?: string[];
   rejectResourceTypes?: BrowserRunResourceType[];
   gotoOptions?: {

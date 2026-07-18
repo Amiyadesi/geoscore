@@ -196,10 +196,34 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(kv.calls.value, '20');
     assert.equal(binding.calls.length, 1);
     assert.equal(binding.calls[0].action, 'content');
-    assert.equal(binding.calls[0].options.actionTimeout, 20_000);
-    assert.equal(binding.calls[0].options.gotoOptions.waitUntil, 'networkidle2');
+    assert.equal(binding.calls[0].options.actionTimeout, 2_000);
+    assert.equal(binding.calls[0].options.gotoOptions.timeout, 16_500);
+    assert.equal(binding.calls[0].options.gotoOptions.waitUntil, 'load');
+    assert.equal(binding.calls[0].options.waitForTimeout, 1500);
+    assert.equal(
+      binding.calls[0].options.actionTimeout
+        + binding.calls[0].options.gotoOptions.timeout
+        + binding.calls[0].options.waitForTimeout,
+      20_000,
+    );
     assert.ok(binding.calls[0].options.rejectResourceTypes.includes('image'));
     assert.ok(binding.calls[0].options.rejectResourceTypes.includes('websocket'));
+  });
+
+  it('does not wait for background network activity before capturing rendered HTML', async () => {
+    const binding = bindingWith((_action, options) => {
+      if (options.gotoOptions?.waitUntil === 'networkidle2') {
+        return Promise.reject(new Error('background network never became idle'));
+      }
+      return successResponse();
+    });
+    const page = await fetchAuditPage(candidate, challengeFetcher, {
+      browserFallback: browserOptions({ binding }),
+    });
+
+    assert.equal(page.status, 'complete');
+    assert.equal(binding.calls[0].options.gotoOptions.waitUntil, 'load');
+    assert.equal(binding.calls[0].options.waitForTimeout, 1500);
   });
 
   it('renders non-HTML 403 and Cloudflare 52x responses after challenge detection', async () => {
