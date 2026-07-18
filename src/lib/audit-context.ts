@@ -84,7 +84,24 @@ function visibleText(html: string): string {
 function siteIdentityText(html: string): string {
   const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
   const firstHeading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '';
+  const descriptionTag = [...html.matchAll(/<meta\b[^>]*>/gi)]
+    .find(match => /(?:^|\s)name\s*=\s*(?:["']description["']|description(?:\s|\/?>))/i.test(match[0]))?.[0] ?? '';
+  const description = descriptionTag.match(/(?:^|\s)content\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+  return [title, firstHeading, description?.[1] ?? description?.[2] ?? description?.[3] ?? '']
+    .map(visibleText)
+    .filter(Boolean)
+    .join(' ');
+}
+
+function siteHeadlineText(html: string): string {
+  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
+  const firstHeading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '';
   return [title, firstHeading].map(visibleText).filter(Boolean).join(' ');
+}
+
+function mainIntroText(html: string): string {
+  const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? '';
+  return visibleText(main).slice(0, 800);
 }
 
 function navigationMarkup(html: string): string {
@@ -154,6 +171,8 @@ function classifyArchetype(
   const lower = visibleText(html).toLowerCase();
   const homeLower = visibleText(visibleHomeHtml).toLowerCase();
   const homeIdentity = siteIdentityText(visibleHomeHtml);
+  const homeHeadline = siteHeadlineText(visibleHomeHtml);
+  const homeIntro = mainIntroText(visibleHomeHtml);
   const homeNavigation = navigationMarkup(visibleHomeHtml);
   const homeLinks = internalLinkSignals(visibleHomeHtml, pageUrl);
   const navigationLinks = internalLinkSignals(homeNavigation, pageUrl);
@@ -193,18 +212,24 @@ function classifyArchetype(
     || pageTypes.has('documentation');
   const commerceNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:cart|checkout|collections?|shop|store)(?:\/|$)/i)
     || homeLinks.some(link => /^(?:cart|shop|store)\./i.test(link.target.hostname));
-  const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i.test(homeLower);
+  const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i
+    .test(`${homeIdentity} ${homeIntro}`);
   const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
   const homeHostname = (() => {
     try { return new URL(pageUrl ?? '').hostname.toLowerCase(); } catch { return ''; }
   })();
   const documentationHost = /^(?:docs?|developer|developers|reference|manual)\./i.test(homeHostname);
   const documentationIdentity = /\b(?:documentation|developer docs?|api reference|language reference|user manual)\b|开发文档|接口文档|参考手册/i.test(homeIdentity);
-  const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeIdentity);
-  const discussionNavigation = hasLinkPath(navigationLinks, /(?:^|\/)(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i);
-  const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i.test(homeLower);
-  const reservationAction = hasLinkPath(homeLinks, /(?:^|\/)(?:reservations?|book(?:ing)?)(?:\/|$)/i)
-    || hasLinkText(visibleHomeHtml, /\b(?:reservations?|reserve|book(?:ing)?)\b|预订|预约/i);
+  const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeHeadline);
+  const discussionNavigation = hasLinkPathAndText(
+    navigationLinks,
+    /(?:^|\/)(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i,
+    /\b(?:categories|latest|topics?|questions?|discussions?|forum)\b|分类|最新主题|主题|问题|讨论|论坛/i,
+  );
+  const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i
+    .test(`${homeIdentity} ${homeIntro}`);
+  const reservationAction = hasLinkPath(homeLinks, /(?:^|\/)(?:reservations?|bookings?|book-a-table|book-table)(?:\/|$)/i)
+    || hasLinkText(visibleHomeHtml, /\b(?:reservations?|booking|reserve(?: a| your)? table|book (?:a|your) table)\b|预订|预约/i);
   const localIdentity = /\b(?:hotel|clinic|dental|dentist|physician|pharmacy|salon|attorney|law firm|accountant|real estate|veterinary)\b|酒店|诊所|牙科|律师事务所|美容院/i.test(homeIdentity);
   const localContactAction = hasLinkPath(homeLinks, /(?:^|\/)(?:contact|locations?|hours|book(?:ing)?)(?:\/|$)/i);
   const nonprofitIdentity = /\b(?:nonprofit|non-profit|not[- ]for[- ]profit|not profit|charity|foundation)\b/i.test(homeIdentity);
@@ -212,10 +237,35 @@ function classifyArchetype(
   const professionalServicesNavigation = hasLinkPath(homeLinks, /(?:^|\/)services(?:\/|$)/i);
   const industriesNavigation = hasLinkPath(homeLinks, /(?:^|\/)industries(?:\/|$)/i);
   const professionalServicesLanguage = /\b(?:consulting|advisory|audit and assurance|professional services|tax services)\b/i.test(homeLower);
+  // A generic organization can mention news in its description without being
+  // a publisher. Keep the high-signal identity test to title and h1.
+  const newsIdentity = /\b(?:breaking news|latest news|news(?:,| and) analysis|news headlines?|independent journalism)\b|突发新闻|最新新闻|新闻分析/i.test(homeHeadline);
+  const newsNavigation = hasLinkPathAndText(
+    navigationLinks,
+    /(?:^|\/)(?:news|sections?\/news|world|politics|national)(?:\/|$)/i,
+    /\b(?:news|world|politics|national)\b|新闻|国际|政治|国内/i,
+  );
+
+  const documentationMatch = documentationHost || documentationIdentity
+    || (directDocumentationNavigation && !communityIdentity && !pricingNavigation && !productAccountNavigation);
+  const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
+    .filter(Boolean).length;
+  const commercialPlatformMatch = organizationBacked && pricingNavigation
+    && (developerNavigation || productLanguage || productAccountNavigation);
+
+  if (documentationMatch) {
+    return strong('documentation', 'Documentation hostname or primary site identity', pageUrl, 0.86);
+  }
+  if (commercialPlatformMatch) {
+    return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
+  }
+  if (newsIdentity && newsNavigation) {
+    return strong('news_media', 'News identity and primary news navigation', pageUrl, 0.88);
+  }
   if (communityIdentity && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.88);
   }
-  if (/\b(?:personal blog|my blog|weblog)\b|个人博客|个人网站|网络日志|个人空间|随笔/i.test(homeIdentity)) {
+  if (/\b(?:personal blog|my blog|weblog|(?:a )?blog by|blog of)\b|个人博客|个人网站|网络日志|个人空间|随笔/i.test(homeIdentity)) {
     return strong('personal_blog', 'Personal blog or weblog identity in the homepage title or primary heading', pageUrl, 0.82);
   }
   if (communityIdentity || (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation)) {
@@ -229,12 +279,14 @@ function classifyArchetype(
   if (portfolioSections.size >= 2 && personalProfileLanguage) {
     return strong('portfolio', 'Single-page personal profile with portfolio navigation', pageUrl, 0.82);
   }
-  if (documentationHost || documentationIdentity
-    || (directDocumentationNavigation && !pricingNavigation && !productAccountNavigation)) {
-    return strong('documentation', 'Documentation hostname or primary site identity', pageUrl, 0.86);
+  const personalProfilePaths = [
+    /(?:^|\/)about(?:\/|$)/i,
+    /(?:^|\/)(?:projects?|talks?)(?:\/|$)/i,
+  ].filter(pattern => hasLinkPath(homeLinks, pattern)).length;
+  const blogPostLinks = homeLinks.filter(link => /(?:^|\/)(?:blog|posts?)(?:\/|$)/i.test(link.target.pathname)).length;
+  if (!organizationBacked && personalProfilePaths >= 2 && blogPostLinks >= 3) {
+    return strong('personal_blog', 'Personal profile navigation with a substantial blog archive', pageUrl, 0.76);
   }
-  const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
-    .filter(Boolean).length;
   if (organizationBacked && productPlatformSignals >= 2) {
     return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
   }
@@ -251,7 +303,7 @@ function classifyArchetype(
     return strong('ecommerce', 'Commerce navigation', pageUrl, 0.78);
   }
 
-  const editorialIdentity = /\b(?:blog|news|magazine|journal|publication)\b|博客|新闻|杂志|期刊/i.test(homeIdentity);
+  const editorialIdentity = /\b(?:blog|news|magazine|journal|publication)\b|博客|新闻|杂志|期刊/i.test(homeHeadline);
   if (hasHomeType('Blog') || (hasHomeType('BlogPosting', 'Article', 'TechArticle') && editorialIdentity)) {
     return strong('editorial', 'Homepage editorial JSON-LD and site identity', pageUrl, 0.9);
   }

@@ -21,6 +21,7 @@ let evidenceMapController = null;
 let monitoringController = null;
 let assistantController = null;
 let auditRunner = null;
+let competitorController = null;
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
 function applyUiLanguage() {
@@ -595,6 +596,14 @@ assistantController = window.GeoScoreAssistantUi.create({
   getRecommendation: key => recMap.get(key),
 });
 
+competitorController = window.GeoScoreCompetitor.create({
+  apiBase: API,
+  reportUi: REPORT_UI,
+  getCurrentDomain: () => currentDomain,
+  language: UI_LANGUAGE,
+  escapeHtml: esc,
+});
+
 auditRunner = window.GeoScoreAuditRunner.create({
   buildEndpoint: (request, options) => REPORT_UI?.buildAuditEndpoint(API, request, options),
   onProgress: d => updateModuleProgress(d.module, d.status, d.detail),
@@ -706,9 +715,7 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  // Competitor compare button — replaces onclick="runCompetitorComparison()"
-  const compareBtn = e.target.closest('[data-action="compare"]');
-  if (compareBtn) { runCompetitorComparison(); return; }
+  if (competitorController.handleClick(e)) return;
 
   // llms.txt generator
   if (e.target.id === 'llms-gen-btn') {
@@ -4971,148 +4978,8 @@ function renderComputedSections(data) {
     <div id="competitor-results" class="mt-4 hidden"></div>
   `);
 
-  // wire Enter key on competitor input
-  setTimeout(() => {
-    const ci = document.getElementById('competitor-input');
-    if (ci) ci.addEventListener('keydown', e => { if (e.key === 'Enter') runCompetitorComparison(); });
-  }, 0);
+  setTimeout(() => competitorController.bindInput(), 0);
 
-}
-
-// ── Competitor Comparison ─────────────────────────────────────────────────────
-async function runCompetitorComparison() {
-  const input   = document.getElementById('competitor-input');
-  const results = document.getElementById('competitor-results');
-  const btn     = document.getElementById('competitor-btn');
-  if (!input || !results || !btn || !currentDomain) return;
-
-  const raw = input.value.trim().replace(/^https?:\/\//i, '').split(/[/?#]/)[0].toLowerCase();
-  if (!raw || !raw.includes('.')) {
-    input.classList.add('border-orange-300', 'ring-1', 'ring-orange-300');
-    input.focus();
-    return;
-  }
-  input.classList.remove('border-orange-300', 'ring-1', 'ring-orange-300');
-
-  btn.disabled = true;
-  btn.textContent = 'Comparing…';
-  results.classList.remove('hidden');
-  results.innerHTML = `
-    <div class="flex items-center gap-2 text-xs text-slate-400 py-2">
-      <svg class="spinner w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-      </svg>
-      Running comparison audit — typically 10–20s…
-    </div>`;
-
-  try {
-    const res = await fetch(`${API}/api/compare?domains=${encodeURIComponent(currentDomain)},${encodeURIComponent(raw)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    const mine   = data[currentDomain] ?? {};
-    const theirs = data[raw]           ?? {};
-    const mineSummary = REPORT_UI?.normalizeScoreSummary(mine) ?? {};
-    const theirSummary = REPORT_UI?.normalizeScoreSummary(theirs) ?? {};
-    const comparable = REPORT_UI?.sameScoreVersion(mineSummary, theirSummary)
-      && [mineSummary.overall, mineSummary.seo, mineSummary.geo, theirSummary.overall, theirSummary.seo, theirSummary.geo].every(Number.isFinite);
-    if (!comparable) {
-      results.innerHTML = `<div class="text-xs text-slate-600 border border-slate-200 bg-slate-50 rounded-xl p-3"><strong>${UI_LANGUAGE === 'zh' ? '暂不可比较' : 'Not comparable yet'}</strong><div class="mt-1 text-slate-500">${UI_LANGUAGE === 'zh' ? '两个站点需要相同评分版本且都有充分证据。' : 'Both sites need the same score version and sufficient evidence.'}</div></div>`;
-      return;
-    }
-
-    const s = (n) => Math.round(n);
-    const bar = (n, color) =>
-      `<div class="w-full bg-slate-100 rounded-full h-1.5 mt-1">
-        <div class="${color} h-1.5 rounded-full transition-all" style="width:${n}%"></div>
-      </div>`;
-    const scoreColor = (n) => n >= 70 ? 'text-green-700' : n >= 50 ? 'text-yellow-600' : 'text-orange-600';
-    const barColor   = (n) => n >= 70 ? 'bg-green-500'   : n >= 50 ? 'bg-yellow-400'  : 'bg-orange-400';
-
-    const row = (icon, label, myVal, theirVal) => {
-      const delta = myVal - theirVal;
-      const winning = delta >= 0;
-      const sign = delta > 0 ? '+' : '';
-      return `
-        <div class="grid grid-cols-[1fr_80px_80px_60px] gap-2 items-center py-2.5 border-b border-slate-100 last:border-0">
-          <div class="text-xs font-medium text-slate-600">${icon} ${label}</div>
-          <div class="text-center">
-            <div class="text-base font-bold ${scoreColor(myVal)}">${myVal}</div>
-            ${bar(myVal, barColor(myVal))}
-          </div>
-          <div class="text-center">
-            <div class="text-base font-bold ${scoreColor(theirVal)}">${theirVal}</div>
-            ${bar(theirVal, barColor(theirVal))}
-          </div>
-          <div class="text-center">
-            <span class="text-xs font-bold px-2 py-0.5 rounded-full ${winning ? 'text-green-700 bg-green-50' : 'text-orange-600 bg-orange-50'}">
-              ${winning ? '▲' : '▼'} ${sign}${delta}
-            </span>
-          </div>
-        </div>`;
-    };
-
-    const overall  = s(mineSummary.overall);  const theirOverall  = s(theirSummary.overall);
-    const seo      = s(mineSummary.seo);      const theirSeo      = s(theirSummary.seo);
-    const geo      = s(mineSummary.geo);      const theirGeo      = s(theirSummary.geo);
-    const delta    = overall - theirOverall;
-
-    const insight = delta <= -15
-      ? `<div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs">
-           <div class="font-semibold text-amber-700 mb-1">⚠ ${esc(raw)} is significantly ahead</div>
-           <div class="text-amber-600">
-             ${geo < theirGeo - 10 ? `The biggest gap is AI Visibility (+${theirGeo - geo} pts) — the recommendations above will close this.` : `Focus on the highest-impact fixes in the recommendations above to close this gap.`}
-           </div>
-         </div>`
-      : delta >= 15
-      ? `<div class="mt-3 p-3 bg-green-50 border border-green-200 rounded-xl text-xs">
-           <div class="font-semibold text-green-700 mb-1">✓ You're leading ${esc(raw)} by ${delta} points</div>
-           <div class="text-green-600">Strong position. Extending your AI Visibility lead will make this gap even harder to close.</div>
-         </div>`
-      : `<div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs">
-           <div class="font-semibold text-blue-700 mb-1">📊 Neck and neck with ${esc(raw)}</div>
-           <div class="text-blue-600">Scores are close — even a few targeted fixes could give you the decisive edge.</div>
-         </div>`;
-
-    const shareText = `I just compared ${currentDomain} vs ${raw} on GeoScore:\n• My overall: ${overall}/100 vs their ${theirOverall}/100\n• My AI Visibility: ${geo}/100 vs their ${theirGeo}/100\n\nFree audit ↗ geo.sayori.org`;
-
-    results.innerHTML = `
-      <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-        <div class="grid grid-cols-[1fr_80px_80px_60px] gap-2 px-4 py-2 bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-          <div>Metric</div>
-          <div class="text-center truncate" title="${esc(currentDomain)}">${esc(abbrevDomain(currentDomain))}</div>
-          <div class="text-center truncate" title="${esc(raw)}">${esc(abbrevDomain(raw))}</div>
-          <div class="text-center">Δ</div>
-        </div>
-        <div class="px-4">
-          ${row('🏆', 'Overall', overall, theirOverall)}
-          ${row('🔍', 'SEO', seo, theirSeo)}
-          ${row('🤖', 'AI Visibility', geo, theirGeo)}
-        </div>
-      </div>
-      ${insight}
-      <button data-copy="${esc(shareText)}"
-        class="mt-3 w-full text-xs bg-slate-900 hover:bg-slate-700 text-white py-2.5 rounded-lg font-semibold transition-colors">
-        📋 Copy comparison
-      </button>`;
-
-  } catch (err) {
-    results.innerHTML = `<div class="text-xs text-orange-500 py-1">Comparison failed — ${esc(err.message || 'please try again')}.</div>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Compare →';
-  }
-}
-
-// Abbreviate a domain for display in a narrow column, preserving the TLD suffix so that
-// domains sharing a long common prefix (e.g. "wedohalal.com" vs "wedohalal.pages.dev")
-// are still distinguishable at a glance. Up to 15 chars pass through unchanged; longer
-// domains get "firstN…lastM" treatment so the TLD region remains visible.
-function abbrevDomain(d, maxLen = 15) {
-  if (d.length <= maxLen) return d;
-  const keep = Math.floor((maxLen - 1) / 2);   // chars to keep on each side of "…"
-  return d.slice(0, keep) + '…' + d.slice(-(maxLen - keep - 1));
 }
 
 function generousScale(raw) {

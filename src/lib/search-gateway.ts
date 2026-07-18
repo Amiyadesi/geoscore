@@ -50,7 +50,9 @@ export interface EvidenceGatewayFailure {
     | 'ANSWER_API_CONFIG_INVALID'
     | 'ANSWER_API_KEY_REQUIRED'
     | 'ANSWER_API_UNAVAILABLE'
-    | 'ANSWER_API_MALFORMED_RESPONSE';
+    | 'ANSWER_API_MALFORMED_RESPONSE'
+    | 'ANSWER_API_NO_FINAL_CONTENT'
+    | 'ANSWER_API_REDIRECT_BLOCKED';
   retryable: boolean;
   message: string;
   retry_after_seconds?: number;
@@ -248,6 +250,8 @@ const SAFE_ANSWER_ERROR_CODES = new Set<EvidenceGatewayFailure['code']>([
   'ANSWER_API_KEY_REQUIRED',
   'ANSWER_API_UNAVAILABLE',
   'ANSWER_API_MALFORMED_RESPONSE',
+  'ANSWER_API_NO_FINAL_CONTENT',
+  'ANSWER_API_REDIRECT_BLOCKED',
 ]);
 
 function answerFailureMessage(code: EvidenceGatewayFailure['code']): string {
@@ -259,6 +263,10 @@ function answerFailureMessage(code: EvidenceGatewayFailure['code']): string {
   }
   if (code === 'ANSWER_API_KEY_REQUIRED') return 'A request-scoped API key is required.';
   if (code === 'ANSWER_API_MALFORMED_RESPONSE') return 'The custom API returned an invalid response.';
+  if (code === 'ANSWER_API_NO_FINAL_CONTENT') {
+    return 'The custom API used its output budget without producing a final answer. Retry or choose another model.';
+  }
+  if (code === 'ANSWER_API_REDIRECT_BLOCKED') return 'The custom API redirected to an endpoint that could not be verified.';
   return 'The custom API is temporarily unavailable.';
 }
 
@@ -300,12 +308,21 @@ async function gatewayFailureFromResponse(
   const fallback = gatewayFailure(response);
   const parsed = object(await readBoundedJson(response));
   const detail = object(parsed?.detail);
-  const candidate = sensitiveString(parsed?.code, 100, secrets) || sensitiveString(detail?.code, 100, secrets);
+  const nestedError = Array.isArray(parsed?.errors)
+    ? parsed.errors.map(object).find(item => SAFE_ANSWER_ERROR_CODES.has(
+        sensitiveString(item?.code, 100, secrets) as EvidenceGatewayFailure['code'],
+      )) ?? null
+    : null;
+  const candidate = sensitiveString(parsed?.code, 100, secrets)
+    || sensitiveString(detail?.code, 100, secrets)
+    || sensitiveString(nestedError?.code, 100, secrets);
   if (!SAFE_ANSWER_ERROR_CODES.has(candidate as EvidenceGatewayFailure['code'])) return fallback;
   const code = candidate as EvidenceGatewayFailure['code'];
   const retryable = typeof parsed?.retryable === 'boolean'
     ? parsed.retryable
-    : typeof detail?.retryable === 'boolean' ? detail.retryable : fallback.retryable;
+    : typeof detail?.retryable === 'boolean'
+      ? detail.retryable
+      : typeof nestedError?.retryable === 'boolean' ? nestedError.retryable : fallback.retryable;
   return {
     code,
     retryable,

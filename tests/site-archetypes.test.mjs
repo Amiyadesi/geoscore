@@ -162,6 +162,102 @@ describe('golden site archetype fixtures', () => {
     assert.match(context.evidence[0]?.value ?? '', /weblog|personal blog/i);
   });
 
+  it('recognizes a news publisher without letting article words imply a restaurant', () => {
+    const domain = 'npr.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>NPR - Breaking News, Analysis, Music &amp; Podcasts</title>
+      <meta name="description" content="Independent journalism and the latest news.">
+    </head><body><nav>
+      <a href="/sections/news/">News</a><a href="/sections/world/">World</a>
+      <a href="/sections/book-reviews/">Book Reviews</a>
+    </nav><main><h1>Top stories</h1>
+      <p>A report about a restaurant appears in today's headlines.</p>
+    </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'news_media');
+    assert.match(context.evidence[0]?.value ?? '', /news identity/i);
+  });
+
+  it('does not classify an organization as news media from description copy alone', () => {
+    const domain = 'nasa.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>NASA</title>
+      <meta name="description" content="The latest news, images and videos from America's space agency.">
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+        {"@type":"Organization","name":"NASA"},
+        {"@type":"Article","headline":"Mission update"}
+      ]}</script>
+    </head><body><nav>
+      <a href="/news/">News &amp; Events</a><a href="/about/">About NASA</a>
+    </nav><main><h1>Exploring the universe</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'other');
+    assert.equal(context.entity?.name, 'NASA');
+  });
+
+  it('keeps a documentation product ahead of a community navigation link', () => {
+    const domain = 'kubernetes.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Kubernetes</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Kubernetes"}</script>
+    </head><body><nav>
+      <a href="/docs/">Documentation</a><a href="/blog/">Blog</a>
+      <a href="/community/">Community</a><a href="/versions/">Versions</a>
+    </nav><main><h1>Production-Grade Container Orchestration</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'documentation');
+  });
+
+  it('keeps a community product with pricing ahead of generic community wording', () => {
+    const domain = 'discourse.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Discourse | Where Tech Companies Build Communities</title>
+      <meta name="description" content="The customizable community platform powering thousands of communities.">
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Discourse"}</script>
+    </head><body><nav>
+      <a href="/features">Features</a><a href="/pricing">Pricing</a>
+      <a href="/enterprise">Enterprise</a><a href="https://meta.example.net/">Join the community</a>
+    </nav><main><h1>Where tech companies build communities</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'saas');
+  });
+
+  it('recognizes a blog identified as written by a named author', () => {
+    const domain = 'overreacted.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>overreacted — A blog by Dan Abramov</title>
+      <meta name="description" content="A blog by Dan Abramov">
+    </head><body><main><h1>Things I Don’t Know</h1>
+      <p>Notes about software and learning.</p>
+    </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+  });
+
+  it('does not mistake a personal blog archive category for a community forum', () => {
+    const domain = 'jvns.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Julia Evans</title></head><body>
+      <nav><a href="/about">About</a><a href="/talks">Talks</a><a href="/projects/">Projects</a>
+        <a href="/categories/favorite/">Favorites</a><a href="/til/">TIL</a><a href="/atom.xml">RSS</a></nav>
+      <main><h1>Julia Evans</h1><p>Notes and blog posts about programming.</p>
+        <a href="/blog/2026/one/">One post</a><a href="/blog/2025/two/">Two posts</a><a href="/blog/2024/three/">Three posts</a>
+        <p>The wider community is welcome to read along.</p>
+      </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+    assert.match(context.evidence[0]?.value ?? '', /blog archive/i);
+  });
+
   it('keeps commerce navigation ahead of community wording in footer copy', () => {
     const domain = 'shoes.example.com';
     const html = `<!doctype html><html lang="en"><head><title>Northwind Shoes</title></head><body>

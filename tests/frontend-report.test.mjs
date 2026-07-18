@@ -32,6 +32,7 @@ test('evidence summary and report adapter load before legacy score rendering', (
   assert.ok(indexHtml.indexOf('src="monitoring.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="assistant-ui.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="audit-runner.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="competitor-ui.js"') < indexHtml.indexOf('src="app.js"'));
 });
 
 test('audit header stacks and wraps actions on a 390px viewport', () => {
@@ -46,7 +47,7 @@ test('audit loading state preserves the persistent domain header elements', () =
 });
 
 test('legacy unreachable report paths are deleted from the main frontend module', () => {
-  assert.doesNotMatch(appSource, /function (?:wireCopyReport|renderSummaryBullets|submitModuleFeedback)\b/);
+  assert.doesNotMatch(appSource, /function (?:wireCopyReport|renderSummaryBullets|submitModuleFeedback|runCompetitorComparison|abbrevDomain)\b/);
 });
 
 test('Browser Run cards do not present renderer metadata as target transport evidence', () => {
@@ -597,6 +598,64 @@ test('Evidence Map keeps source provenance and provider runs in a closed native 
   assert.ok(html.indexOf('data-disclosure="evidence-provenance"') < html.indexOf('search-api-a'));
 });
 
+test('Evidence Map explains a missing custom API answer without hiding the search snapshot', () => {
+  const html = report.renderEvidenceMap(
+    { audit_id: '01JGEOSCORE23EVIDENCEMAP', domain: 'example.com' },
+    'en',
+    {
+      busy: false,
+      snapshot: {
+        status: 'partial',
+        affects_score: false,
+        target: { appearances: 0, observed_queries: [] },
+        query_plan: { queries: [{ query: 'Example docs', intent: 'branded' }] },
+        opportunities: [],
+        diagnosis: [],
+        sources: [],
+        search_snapshot: { provider_runs: [] },
+        answer_snapshot: null,
+        answer_gateway_error: {
+          code: 'ANSWER_API_NO_FINAL_CONTENT',
+          retryable: false,
+          message: 'The custom API used its output budget without producing a final answer.',
+        },
+        limitations: [],
+      },
+    },
+  );
+
+  assert.match(html, /API answer unavailable/);
+  assert.match(html, /ANSWER_API_NO_FINAL_CONTENT/);
+  assert.match(html, /without producing a final answer/);
+  assert.match(html, /data-action="run-evidence-map"/);
+  assert.match(html, /Query Evidence Map/);
+
+  const zhHtml = report.renderEvidenceMap(
+    { audit_id: '01JGEOSCORE23EVIDENCEMAP', domain: 'example.com' },
+    'zh',
+    {
+      busy: false,
+      snapshot: {
+        status: 'partial',
+        affects_score: false,
+        target: { appearances: 0, observed_queries: [] },
+        query_plan: { queries: [] },
+        opportunities: [],
+        diagnosis: [],
+        sources: [],
+        answer_gateway_error: {
+          code: 'ANSWER_API_NO_FINAL_CONTENT',
+          retryable: false,
+          message: 'The custom API used its output budget without producing a final answer.',
+        },
+        limitations: [],
+      },
+    },
+  );
+  assert.match(zhHtml, /API 回答未生成/);
+  assert.match(zhHtml, /输出预算/);
+});
+
 test('monitoring UI shows the management token once, folds history and never re-renders a BYOK value', () => {
   const html = report.renderMonitoring({ audit_id: '01JGEOSCORE23MONITOR', domain: 'example.com' }, 'en', {
     project: {
@@ -659,7 +718,7 @@ test('full Markdown download includes Evidence Map, limitations, monitoring hist
     checks: [{ id: 'seo.title', title: 'Title', status: 'fail', severity: 'major', weight: 2, source: 'html', evidence: ['missing title'] }],
     recommendations_v2: [{ id: 'seo.title', title: 'Add title', severity: 'major', evidence: 'missing title', why: 'missing', fix: 'add title', verify: 're-audit' }],
     repair_groups: [{ id: 'repair-parse-a', stage: 'parse', severity: 'major', check_ids: ['seo.title'], evidence_items: [{ check_id: 'seo.title', observed: ['missing title'] }], tasks: [{ check_id: 'seo.title', title: 'Add title', fix: 'add title', verify: 're-audit' }], verification_steps: ['re-audit'] }],
-    evidence_map: { status: 'complete', observed_at: '2026-07-15T00:00:00Z', affects_score: false, target: { appearances: 1 }, query_plan: { queries: [{ query: 'Example docs', intent: 'branded' }] }, opportunities: [], diagnosis: [], sources: [{ title: 'Example', canonical_url: 'https://example.com/', provider: 'search-api-a', provider_rank: 1 }], search_snapshot: { provider_runs: [{ provider: 'search-api-a', status: 'complete', result_count: 1, latency_ms: 10 }] }, limitations: ['Search is a dated snapshot.'] },
+    evidence_map: { status: 'partial', observed_at: '2026-07-15T00:00:00Z', affects_score: false, target: { appearances: 1 }, query_plan: { queries: [{ query: 'Example docs', intent: 'branded' }] }, opportunities: [], diagnosis: [], sources: [{ title: 'Example', canonical_url: 'https://example.com/', provider: 'search-api-a', provider_rank: 1 }], search_snapshot: { provider_runs: [{ provider: 'search-api-a', status: 'complete', result_count: 1, latency_ms: 10 }] }, answer_gateway_error: { code: 'ANSWER_API_NO_FINAL_CONTENT', retryable: false, message: 'The custom API used its output budget without producing a final answer.' }, limitations: ['Search is a dated snapshot.'] },
     monitoring_history: [{ created_at: 1784073600, run_type: 'default', status: 'complete', factual_score: 70, score_delta: null, baseline_action: 'established' }],
   };
   const markdown = report.generateFullRepairMarkdown(data, 'en');
@@ -668,6 +727,8 @@ test('full Markdown download includes Evidence Map, limitations, monitoring hist
   assert.match(markdown, /Query Evidence Map/);
   assert.match(markdown, /search-api-a/);
   assert.match(markdown, /API answer snapshots/);
+  assert.match(markdown, /ANSWER_API_NO_FINAL_CONTENT/);
+  assert.match(markdown, /without producing a final answer/);
   assert.match(markdown, /Monitoring history/);
   assert.match(markdown, /Search is a dated snapshot/);
   assert.doesNotMatch(markdown, /\/api\/fix/);

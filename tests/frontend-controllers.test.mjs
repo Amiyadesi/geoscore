@@ -113,6 +113,53 @@ test('audit runner cancels an active connection and ignores its stale events', (
   assert.equal(completed, 0);
 });
 
+test('competitor controller owns domain normalization and factual score comparison', async () => {
+  const feature = loadController('competitor-ui.js', 'GeoScoreCompetitor');
+  assert.equal(feature.normalizeDomain(' https://Stripe.COM/pricing?q=1 '), 'stripe.com');
+  assert.equal(feature.normalizeDomain('localhost'), '');
+  assert.equal(feature.abbrevDomain('very-long-subdomain.example.com'), 'very-lo…ple.com');
+
+  const elements = {
+    'competitor-input': {
+      value: 'stripe.com/pricing',
+      dataset: {},
+      classList: fakeClassList(),
+      focus() {},
+      addEventListener() {},
+    },
+    'competitor-results': { innerHTML: '', classList: fakeClassList(['hidden']) },
+    'competitor-btn': { disabled: false, textContent: '' },
+  };
+  let requestedUrl = '';
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    reportUi: {
+      normalizeScoreSummary: value => value,
+      sameScoreVersion: (left, right) => left.scoreVersion === right.scoreVersion,
+    },
+    getCurrentDomain: () => 'example.com',
+    language: 'en',
+    escapeHtml: value => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;'),
+    document: { getElementById: id => elements[id] ?? null },
+    fetch: async url => {
+      requestedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          'example.com': { scoreVersion: '2.4.2', overall: 70, seo: 72, geo: 68 },
+          'stripe.com': { scoreVersion: '2.4.2', overall: 79, seo: 80, geo: 78 },
+        }),
+      };
+    },
+  });
+
+  assert.equal(await controller.compare(), true);
+  assert.match(requestedUrl, /domains=example\.com,stripe\.com/);
+  assert.match(elements['competitor-results'].innerHTML, /GEO/);
+  assert.doesNotMatch(elements['competitor-results'].innerHTML, /AI Visibility/);
+  assert.equal(elements['competitor-btn'].disabled, false);
+});
+
 test('custom API controller stages one-use config and bounds model discovery', async () => {
   const feature = loadController('custom-api.js', 'GeoScoreCustomApi');
   const modelOptions = [];

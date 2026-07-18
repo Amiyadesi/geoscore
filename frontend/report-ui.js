@@ -101,6 +101,7 @@
       answerLatency: 'Latency',
       answerCitations: 'Citations',
       noAnswer: 'No API answer snapshot is available.',
+      answerUnavailable: 'API answer unavailable',
       monitoring: 'Weekly evidence monitoring',
       monitoringBody: 'Keep up to twelve dated search/API snapshots. They do not prove consumer AI citations and remain separate from the factual readiness score.',
       createMonitor: 'Create monitoring project',
@@ -238,6 +239,7 @@
       answerLatency: '耗时',
       answerCitations: '引用',
       noAnswer: '当前没有可用的 API 回答快照。',
+      answerUnavailable: 'API 回答未生成',
       monitoring: '每周证据监控',
       monitoringBody: '最多保留十二次带日期的搜索/API 快照；它们不能证明消费端 AI 引用，并始终与事实就绪度评分分离。',
       createMonitor: '创建监控项目',
@@ -749,6 +751,67 @@
     return '';
   }
 
+  // Gateway errors are stable product states. Prefer their code over provider
+  // wording so the UI and exported report stay bilingual and never echo
+  // private upstream details.
+  const ANSWER_ERROR_COPY = {
+    ANSWER_API_AUTH_ERROR: {
+      en: 'The custom API rejected the submitted key.',
+      zh: '自定义 API 拒绝了这次提交的 API Key。',
+    },
+    ANSWER_API_RATE_LIMITED: {
+      en: 'The custom API is temporarily rate limited.',
+      zh: '自定义 API 暂时触发了限流。',
+    },
+    ANSWER_API_TIMEOUT: {
+      en: 'The custom API request timed out.',
+      zh: '自定义 API 请求超时。',
+    },
+    ANSWER_API_INVALID_REQUEST: {
+      en: 'The custom API configuration was rejected.',
+      zh: '自定义 API 配置未被接受。',
+    },
+    ANSWER_API_CONFIG_INVALID: {
+      en: 'The custom API configuration was rejected.',
+      zh: '自定义 API 配置未被接受。',
+    },
+    ANSWER_API_KEY_REQUIRED: {
+      en: 'A request-scoped API key is required.',
+      zh: '这次请求需要提供一次性 API Key。',
+    },
+    ANSWER_API_MALFORMED_RESPONSE: {
+      en: 'The custom API returned an invalid response.',
+      zh: '自定义 API 返回了无法解析的响应。',
+    },
+    ANSWER_API_NO_FINAL_CONTENT: {
+      en: 'The custom API used its output budget without producing a final answer. Retry or choose another model.',
+      zh: '自定义 API 已用尽输出预算，但没有生成最终回答。请重试或更换模型。',
+    },
+    ANSWER_API_REDIRECT_BLOCKED: {
+      en: 'The custom API redirected to an endpoint that could not be verified.',
+      zh: '自定义 API 重定向到了无法验证的地址。',
+    },
+    ANSWER_API_NETWORK_ERROR: {
+      en: 'The custom API could not be reached.',
+      zh: '无法连接到自定义 API。',
+    },
+    ANSWER_API_UPSTREAM_ERROR: {
+      en: 'The custom API returned a temporary upstream error.',
+      zh: '自定义 API 返回了临时上游错误。',
+    },
+    ANSWER_API_UNAVAILABLE: {
+      en: 'The custom API is temporarily unavailable.',
+      zh: '自定义 API 暂时不可用。',
+    },
+  };
+
+  function answerErrorMessage(error, lang) {
+    const code = String(error?.code ?? '');
+    const copy = ANSWER_ERROR_COPY[code];
+    if (copy) return copy[language(lang)];
+    return localized(error?.message, lang);
+  }
+
   function generateFullRepairMarkdown(data, lang) {
     const selected = language(lang);
     const zh = selected === 'zh';
@@ -791,7 +854,7 @@
       notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', handoff: '交给开发 AI 的统一 Handoff Prompt',
       noInvent: '不得虚构价格、套餐、服务、地址、实体、作者、统计来源或站点未公开的业务事实。不得自动发布。',
       severity: '严重度', status: '状态', check: '检查', recommendation: '修复任务', unknown: '未知', none: '无',
-      repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', answerSnapshots: 'API 回答快照', answer: '回答', model: '模型', latency: '耗时', citations: '引用', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
+      repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', answerSnapshots: 'API 回答快照', answerError: 'API 回答错误', answer: '回答', model: '模型', latency: '耗时', citations: '引用', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
     } : {
       title: 'GeoScore full repair report', audit: 'Audit identity', generated: 'Generated', version: 'Score version', mode: 'Audit mode', target: 'Target',
       profile: 'Site profile', archetype: 'Site archetype', entity: 'Entity', industry: 'Industry vertical', business: 'Business model', locale: 'Page locale', root: 'Root domain', classification: 'Classification evidence',
@@ -801,7 +864,7 @@
       notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', handoff: 'Unified handoff prompt for a developer AI',
       noInvent: 'Do not invent prices, plans, services, addresses, entities, authors, statistical sources, or business facts not published by the site. Do not publish automatically.',
       severity: 'Severity', status: 'Status', check: 'Check', recommendation: 'Repair task', unknown: 'Unknown', none: 'None',
-      repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', answerSnapshots: 'API answer snapshots', answer: 'Answer', model: 'Model', latency: 'Latency', citations: 'Citations', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
+      repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', answerSnapshots: 'API answer snapshots', answerError: 'API answer error', answer: 'Answer', model: 'Model', latency: 'Latency', citations: 'Citations', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
     };
     const oneLine = value => String(value ?? '').replace(/\s+/g, ' ').trim();
     const percent = value => value === null || value === undefined ? labels.unknown : `${Math.round(value)}%`;
@@ -885,11 +948,13 @@
       const diagnosis = Array.isArray(evidenceMap?.diagnosis) ? evidenceMap.diagnosis : [];
       const sources = Array.isArray(evidenceMap?.sources) ? evidenceMap.sources : [];
       const providerRuns = Array.isArray(evidenceMap?.search_snapshot?.provider_runs) ? evidenceMap.search_snapshot.provider_runs : [];
+      const answerError = evidenceMap?.answer_gateway_error;
       return [
         `- ${labels.status}: ${oneLine(evidenceMap.status ?? labels.unknown)}`,
         `- ${labels.observedAt}: ${oneLine(evidenceMap.observed_at ?? labels.unknown)}`,
         `- ${labels.affectsScore}: ${evidenceMap.affects_score === false ? 'false' : oneLine(evidenceMap.affects_score ?? labels.unknown)}`,
         `- ${labels.appearances}: ${oneLine(evidenceMap?.target?.appearances ?? 0)}`,
+        ...(answerError ? [`- ${labels.answerError}: ${oneLine(answerError.code ?? labels.unknown)} — ${oneLine(answerErrorMessage(answerError, selected) || labels.unknown)}`] : []),
         `### ${labels.queries}`,
         ...(queries.length ? queries.map(item => `- ${oneLine(item?.query ?? item)}${item?.intent ? ` — ${oneLine(item.intent)}` : ''}`) : [`- ${labels.none}`]),
         `### ${labels.opportunities}`,
@@ -1376,6 +1441,13 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
     const observedQueries = Array.isArray(target?.observed_queries) ? target.observed_queries : [];
     const runLabel = snapshot ? t.evidenceMapRefresh : t.evidenceMapRun;
     const answerPanel = renderAnswerSnapshot(snapshot?.answer_snapshot, lang);
+    const answerError = !answerPanel && snapshot?.answer_gateway_error
+      ? `<div role="alert" data-answer-error class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          <div class="font-semibold">${escapeHtml(t.answerUnavailable)}</div>
+          <div class="mt-1 font-mono text-[10px]">${escapeHtml(snapshot.answer_gateway_error.code ?? t.unknown)}</div>
+          <p class="mt-1 leading-relaxed">${escapeHtml(answerErrorMessage(snapshot.answer_gateway_error, lang) || t.noAnswer)}</p>
+        </div>`
+      : '';
     const metrics = snapshot ? `<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
       <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(target.appearances ?? 0)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.appearances)}</div></div>
       <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(observedQueries.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.observedQueries)}</div></div>
@@ -1400,7 +1472,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
         <button type="button" data-action="run-evidence-map" ${busy ? 'disabled' : ''} class="shrink-0 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60 print:hidden">${escapeHtml(busy ? t.evidenceMapRunning : runLabel)}</button>
       </div>
       ${error ? `<div role="alert" class="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">${escapeHtml(error)}</div>` : ''}
-      ${snapshot ? `<div class="mt-4 space-y-4">${answerPanel}${metrics}${opportunityRows ? `<div><h3 class="text-xs font-semibold text-slate-700 mb-1.5">${escapeHtml(t.contentOpportunities)}</h3><ul class="space-y-1.5">${opportunityRows}</ul></div>` : ''}
+      ${snapshot ? `<div class="mt-4 space-y-4">${answerPanel}${answerError}${metrics}${opportunityRows ? `<div><h3 class="text-xs font-semibold text-slate-700 mb-1.5">${escapeHtml(t.contentOpportunities)}</h3><ul class="space-y-1.5">${opportunityRows}</ul></div>` : ''}
         <details class="rounded-lg border border-slate-200" data-disclosure="evidence-provenance"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-700">${escapeHtml(t.provenance)}</summary><div class="px-3 pb-3 space-y-3">
           ${queryRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.querySettings)}</div><ul class="space-y-1">${queryRows}</ul></div>` : ''}
           ${diagnosisRows ? `<div><div class="text-[10px] font-semibold uppercase text-slate-400 mb-1">${escapeHtml(t.diagnosis)}</div><ul>${diagnosisRows}</ul></div>` : ''}
@@ -1601,6 +1673,7 @@ ${handoffPrompt.replace(/\`\`\`/g, "'''")}
 
   global.GeoScoreReport = {
     archetypeLabel,
+    answerErrorMessage,
     buildAuditEndpoint,
     buildAuditPageQuery,
     copy,

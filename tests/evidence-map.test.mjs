@@ -355,6 +355,56 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
     }
   });
 
+  it('preserves a safe custom-answer failure from the gateway response', async () => {
+    const db = database();
+    const apiKey = 'request-scoped-evidence-key-value';
+    const apiBaseUrl = 'https://api.example.com/v1';
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async url => String(url).endsWith('/v1/evidence-search')
+      ? Response.json(gatewayBody())
+      : Response.json({
+          success: false,
+          observations: [{
+            query: 'Sayori blog articles',
+            status: 'error',
+            error: {
+              code: 'ANSWER_API_NO_FINAL_CONTENT',
+              scope: 'answer_api',
+              retryable: false,
+              message: 'private upstream detail',
+            },
+          }],
+          errors: [{
+            code: 'ANSWER_API_NO_FINAL_CONTENT',
+            scope: 'answer_api',
+            retryable: false,
+            message: 'private upstream detail',
+          }],
+        }, { status: 502 });
+    try {
+      const response = await handleEvidenceMap(new Request(
+        `https://geo-api.sayori.org/api/audits/${AUDIT_ID}/evidence-map`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+          body: JSON.stringify({ api_base_url: apiBaseUrl, api_model: 'reasoning-model' }),
+        },
+      ), AUDIT_ID, env(db));
+      const responseText = await response.text();
+      const body = JSON.parse(responseText);
+
+      assert.equal(response.status, 200);
+      assert.equal(body.data.answer_gateway_error.code, 'ANSWER_API_NO_FINAL_CONTENT');
+      assert.equal(body.data.answer_gateway_error.retryable, false);
+      assert.match(body.data.answer_gateway_error.message, /final answer/i);
+      assert.doesNotMatch(responseText, /private upstream detail/);
+      assert.doesNotMatch(responseText, new RegExp(apiKey));
+      assert.doesNotMatch(responseText, /api\.example\.com/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('rejects missing or partial custom answer config before calling providers', async () => {
     const originalFetch = globalThis.fetch;
     let calls = 0;
