@@ -89,7 +89,7 @@ function baselineModules() {
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
     assert.equal(core.SCORE_VERSION, '2.4.2');
-    assert.match(cache.cacheKey('example.com'), /^recent:v19:/);
+    assert.match(cache.cacheKey('example.com'), /^recent:v20:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
