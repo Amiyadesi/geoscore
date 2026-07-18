@@ -53,6 +53,16 @@ const CASES = [
   { domain: 'wikipedia.org', expected: ['nonprofit', 'community', 'other', 'unknown'], group: 'multilingual' },
   { domain: 'zhihu.com', expected: ['community'], group: 'multilingual' },
   { domain: 'linux.do', expected: ['community'], group: 'community' },
+  { domain: 'brittanychiang.com', expected: ['portfolio'], group: 'portfolio' },
+  { domain: 'leerob.io', expected: ['portfolio', 'personal_blog'], group: 'portfolio' },
+  { domain: 'joshwcomeau.com', expected: ['personal_blog', 'editorial'], group: 'personal_blog' },
+  { domain: 'docs.astro.build', expected: ['documentation'], group: 'documentation' },
+  { domain: 'fastapi.tiangolo.com', expected: ['documentation'], group: 'documentation' },
+  { domain: 'ghost.org', expected: ['saas'], group: 'saas' },
+  { domain: 'lobste.rs', expected: ['community'], group: 'community' },
+  { domain: 'eff.org', expected: ['nonprofit'], group: 'nonprofit' },
+  { domain: 'smashingmagazine.com', expected: ['editorial', 'news_media'], group: 'editorial' },
+  { domain: 'openstreetmap.org', expected: ['community', 'nonprofit'], group: 'community' },
 ];
 
 function argument(name) {

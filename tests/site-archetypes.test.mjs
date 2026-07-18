@@ -202,6 +202,7 @@ describe('golden site archetype fixtures', () => {
   it('keeps a documentation product ahead of a community navigation link', () => {
     const domain = 'kubernetes.example.com';
     const html = `<!doctype html><html lang="en"><head><title>Kubernetes</title>
+      <meta property="og:description" content="Kubernetes is built by a worldwide open-source community.">
       <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Kubernetes"}</script>
     </head><body><nav>
       <a href="/docs/">Documentation</a><a href="/blog/">Blog</a>
@@ -476,7 +477,8 @@ describe('golden site archetype fixtures', () => {
       <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
         {"@type":"Organization","name":"Space Agency","url":"https://${domain}/"},
         {"@type":"WebSite","name":"Space Agency","url":"https://${domain}/"},
-        {"@type":"Article","headline":"Mission update","author":{"@type":"Person","name":"Feature Author"}}
+        {"@type":"Person","@id":"https://${domain}/#author","name":"Feature Author","worksFor":{"@id":"https://${domain}/#organization"}},
+        {"@type":"Article","headline":"Mission update","author":{"@id":"https://${domain}/#author","name":"Feature Author"}}
       ]}</script></head><body><main><h1>Space Agency</h1></main></body></html>`;
 
     const context = core.buildAuditContext({
@@ -490,6 +492,68 @@ describe('golden site archetype fixtures', () => {
     assert.equal(context.site_archetype, 'other');
     assert.equal(context.entity?.name, 'Space Agency');
     assert.equal(context.entity?.type, 'Organization');
+  });
+
+  it('recognizes a schema-backed personal portfolio even when the person also uses Organization', () => {
+    const domain = 'designer.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>Adham Example | Product designer &amp; front end developer</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+        {"@type":"WebSite","@id":"https://${domain}/#website","url":"https://${domain}/","name":"Adham Example"},
+        {"@type":["Person","Organization"],"@id":"https://${domain}/#/schema/person/profile-id","name":"Adham Example"}
+      ]}</script></head><body>
+      <nav><a href="/about/">About</a><a href="/portfolio/">Portfolio</a><a href="/blog/">Blog</a></nav>
+      <main><h1>designer &lt; coder &gt;</h1><p>Selected projects and product design work.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'portfolio');
+    assert.equal(context.entity?.name, 'Adham Example');
+    assert.equal(context.entity?.type, 'Person');
+    assert.match(context.evidence[0]?.value ?? '', /portfolio/i);
+  });
+
+  it('recognizes a named personal publication from its about and blog structure', () => {
+    const domain = 'author.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>Josh W. Example</title>
+      <meta name="description" content="Friendly articles and tutorials for front-end developers.">
+    </head><body><nav><a href="/about-josh/">About Josh</a><a href="/blog/">Blog</a></nav>
+      <main><h1>Josh W Example homepage</h1><a href="/blog/an-article/">Read the latest article</a></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+    assert.match(context.evidence[0]?.value ?? '', /personal|author|publication/i);
+  });
+
+  it('recognizes a discussion community from Open Graph identity and discussion navigation', () => {
+    const domain = 'links.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Lobsters</title>
+      <meta property="og:description" content="A computing-focused community centered around link aggregation and discussion.">
+    </head><body><nav><a href="/active">Active</a><a href="/recent">Recent</a><a href="/comments">Comments</a></nav>
+      <main><h1>Stories</h1><a href="/s/example/story">12 comments</a></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'community');
+    assert.match(context.evidence[0]?.value ?? '', /community|forum/i);
+  });
+
+  it('recognizes a visible magazine identity with primary article navigation', () => {
+    const domain = 'magazine.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>Smashing Magazine - For Web Designers And Developers</title>
+    </head><body><nav><a href="/articles/">Articles</a><a href="/topics/">Topics</a>
+      <a href="/newsletter/">Newsletter</a></nav><main><h1>Smashing Magazine</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'editorial');
+    assert.match(context.evidence[0]?.value ?? '', /editorial|publication|magazine/i);
   });
 
   it('does not treat a single product catalogue link as ecommerce when nonprofit identity is explicit', () => {

@@ -81,22 +81,32 @@ function visibleText(html: string): string {
     .trim();
 }
 
+function firstElementText(html: string, tag: 'title' | 'h1'): string {
+  const match = html.match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return visibleText(match?.[1] ?? '');
+}
+
 function siteIdentityText(html: string): string {
-  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
-  const firstHeading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '';
   const descriptionTag = [...html.matchAll(/<meta\b[^>]*>/gi)]
-    .find(match => /(?:^|\s)name\s*=\s*(?:["']description["']|description(?:\s|\/?>))/i.test(match[0]))?.[0] ?? '';
+    .find(match => /(?:^|\s)(?:name\s*=\s*["']?description|property\s*=\s*["']og:description)["'\s/>]/i.test(match[0]))?.[0] ?? '';
   const description = descriptionTag.match(/(?:^|\s)content\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
-  return [title, firstHeading, description?.[1] ?? description?.[2] ?? description?.[3] ?? '']
-    .map(visibleText)
+  return [firstElementText(html, 'title'), firstElementText(html, 'h1'), description?.[1] ?? description?.[2] ?? description?.[3] ?? '']
+    .map(value => visibleText(value))
     .filter(Boolean)
     .join(' ');
 }
 
 function siteHeadlineText(html: string): string {
-  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
-  const firstHeading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '';
-  return [title, firstHeading].map(visibleText).filter(Boolean).join(' ');
+  return [firstElementText(html, 'title'), firstElementText(html, 'h1')].filter(Boolean).join(' ');
+}
+
+function personNameFromTitle(html: string): string | null {
+  const candidate = firstElementText(html, 'title').split(/\s*(?:\||—|–)\s*/)[0]?.trim() ?? '';
+  const words = candidate.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && words.length <= 4
+    && words.every(word => /^\p{Lu}[\p{L}'’.\-]*$/u.test(word))
+    ? candidate
+    : null;
 }
 
 function mainIntroText(html: string): string {
@@ -151,6 +161,36 @@ function hasLinkText(html: string, textPattern: RegExp): boolean {
     .some(match => textPattern.test(visibleText(match[0])));
 }
 
+function isLikelyAuthorPerson(node: JsonObject): boolean {
+  if (!nodeTypes(node).includes('Person')) return false;
+  return [node['@id'], node.url]
+    .filter((value): value is string => typeof value === 'string')
+    .some(value => /(?:#\/?|\/)(?:authors?)(?:[\/#?]|$)/i.test(value));
+}
+
+function isHomeIdentityPerson(node: JsonObject, identityText: string, pageUrl?: string): boolean {
+  if (!nodeTypes(node).includes('Person') || isLikelyAuthorPerson(node)) return false;
+  const name = typeof node.name === 'string' ? normalizedEntityName(node.name) : '';
+  const identity = normalizedEntityName(identityText);
+  const namedInIdentity = name.length >= 2 && identity.includes(name);
+  const id = typeof node['@id'] === 'string' ? node['@id'] : '';
+  const profileId = /(?:#\/?|\/)(?:schema\/)?(?:person|profile)(?:[\/#?]|$)/i.test(id);
+  const rootIdentityUrl = [node.url, node['@id']]
+    .filter((value): value is string => typeof value === 'string')
+    .some(value => {
+      if (!pageUrl) return false;
+      try {
+        const target = new URL(value, pageUrl);
+        const page = new URL(pageUrl);
+        return registrableRoot(target.hostname) === registrableRoot(page.hostname)
+          && /^\/?$/.test(target.pathname);
+      } catch {
+        return false;
+      }
+    });
+  return namedInIdentity || profileId || rootIdentityUrl;
+}
+
 function classifyArchetype(
   nodes: JsonLdNode[],
   pages: BuildAuditContextInput['pages'],
@@ -181,6 +221,7 @@ function classifyArchetype(
   const hasHomeType = (...values: string[]) => values.some(value => homeTypes.has(value));
   const hasNonArticleType = (...values: string[]) => values.some(value => nonArticleTypes.has(value));
   const hasHomeLocal = [...homeTypes].some(type => LOCAL_TYPES.has(type) || type.endsWith('Store'));
+  const hasHomeIdentityPerson = homeNodes.some(({ node }) => isHomeIdentityPerson(node, homeIdentity, pageUrl));
 
   if (isSiteArchetype(hint)) {
     return {
@@ -195,8 +236,8 @@ function classifyArchetype(
   if (hasType('DiscussionForumPosting')) return strong('community', 'Discussion forum JSON-LD', pageUrl);
   if (hasType('NGO', 'Nonprofit501c3')) return strong('nonprofit', 'Nonprofit JSON-LD', pageUrl);
   if (hasHomeType('Product') && !hasType('SoftwareApplication', 'WebApplication')) return strong('ecommerce', 'Homepage Product JSON-LD', pageUrl);
-  if (hasHomeType('Blog') && hasHomeType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
-  if (hasHomeType('ProfilePage') && hasHomeType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
+  if (hasHomeType('Blog') && hasHomeIdentityPerson) return strong('personal_blog', 'Blog and Person JSON-LD with site identity evidence', pageUrl);
+  if (hasHomeType('ProfilePage') && hasHomeIdentityPerson) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
 
   const pricingNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:pricing|plans)(?:\/|$)/i);
   const productAccountNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:signup|sign-up|register|login|dashboard|app)(?:\/|$)/i);
@@ -220,11 +261,13 @@ function classifyArchetype(
   })();
   const documentationHost = /^(?:docs?|developer|developers|reference|manual)\./i.test(homeHostname);
   const documentationIdentity = /\b(?:documentation|developer docs?|api reference|language reference|user manual)\b|开发文档|接口文档|参考手册/i.test(homeIdentity);
-  const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeHeadline);
+  const communityPattern = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i;
+  const communityHeadlineIdentity = communityPattern.test(homeHeadline);
+  const communityIdentity = communityHeadlineIdentity || communityPattern.test(homeIdentity);
   const discussionNavigation = hasLinkPathAndText(
     navigationLinks,
-    /(?:^|\/)(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i,
-    /\b(?:categories|latest|topics?|questions?|discussions?|forum)\b|分类|最新主题|主题|问题|讨论|论坛/i,
+    /(?:^|\/)(?:active|categories|comments|latest|recent|topics?|questions?|discussions?|forum)(?:\/|$)/i,
+    /\b(?:active|categories|comments|latest|recent|topics?|questions?|discussions?|forum)\b|活跃|分类|评论|最新主题|主题|问题|讨论|论坛/i,
   );
   const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i
     .test(`${homeIdentity} ${homeIntro}`);
@@ -247,7 +290,10 @@ function classifyArchetype(
   );
 
   const documentationMatch = documentationHost || documentationIdentity
-    || (directDocumentationNavigation && !communityIdentity && !pricingNavigation && !productAccountNavigation);
+    || (directDocumentationNavigation
+      && !(communityHeadlineIdentity && discussionNavigation)
+      && !pricingNavigation
+      && !productAccountNavigation);
   const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
     .filter(Boolean).length;
   const commercialPlatformMatch = organizationBacked && pricingNavigation
@@ -268,7 +314,18 @@ function classifyArchetype(
   if (/\b(?:personal blog|my blog|weblog|(?:a )?blog by|blog of)\b|个人博客|个人网站|网络日志|个人空间|随笔/i.test(homeIdentity)) {
     return strong('personal_blog', 'Personal blog or weblog identity in the homepage title or primary heading', pageUrl, 0.82);
   }
-  if (communityIdentity || (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation)) {
+  const titledPerson = personNameFromTitle(visibleHomeHtml);
+  const firstName = titledPerson ? normalizedEntityName(titledPerson).split(' ')[0] : '';
+  const personalAboutNavigation = !!firstName && homeLinks.some(link =>
+    /(?:^|\/)about(?:[-/]|$)/i.test(link.target.pathname)
+    && normalizedEntityName(`${link.target.pathname} ${link.text}`).includes(firstName)
+  );
+  const personalEditorialNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:articles?|blog|essays?|posts?|tutorials?)(?:\/|$)/i);
+  if (titledPerson && personalAboutNavigation && personalEditorialNavigation
+    && /\b(?:articles?|blog|essays?|tutorials?|writing)\b/i.test(homeIdentity)) {
+    return strong('personal_blog', 'Named author publication with personal About and editorial navigation', pageUrl, 0.78);
+  }
+  if (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.78);
   }
   const portfolioSections = new Set(
@@ -304,6 +361,14 @@ function classifyArchetype(
   }
 
   const editorialIdentity = /\b(?:blog|news|magazine|journal|publication)\b|博客|新闻|杂志|期刊/i.test(homeHeadline);
+  const editorialNavigation = hasLinkPathAndText(
+    navigationLinks,
+    /(?:^|\/)(?:articles?|magazine|posts?|stories|topics?)(?:\/|$)/i,
+    /\b(?:articles?|magazine|posts?|stories|topics?)\b|文章|杂志|主题/i,
+  );
+  if (editorialIdentity && editorialNavigation) {
+    return strong('editorial', 'Visible publication identity with primary article navigation', pageUrl, 0.82);
+  }
   if (hasHomeType('Blog') || (hasHomeType('BlogPosting', 'Article', 'TechArticle') && editorialIdentity)) {
     return strong('editorial', 'Homepage editorial JSON-LD and site identity', pageUrl, 0.9);
   }
@@ -322,7 +387,7 @@ function classifyArchetype(
     return strong('documentation', 'Documentation paths and navigation', pageUrl, 0.78);
   }
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
-  if (!organizationBacked && hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) {
+  if (hasHomeIdentityPerson && /\b(portfolio|projects|作品集)\b/i.test(lower)) {
     return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
   }
 
@@ -366,6 +431,7 @@ function entityForArchetype(
         nodeTypes(node).includes(type)
         && typeof node.name === 'string'
         && node.name.trim()
+        && !(type === 'Person' && isLikelyAuthorPerson(node))
         && !(type === 'Person' && ['article', 'documentation', 'product'].includes(pageType))
       );
       if (!match) continue;
