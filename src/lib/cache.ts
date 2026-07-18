@@ -6,7 +6,7 @@ import type { Env } from './types';
  * every cached key becomes a different string so old entries are ignored
  * and expire naturally (KV TTL) without needing a manual flush.
  */
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v21';
 
 export interface AuditCacheScope {
   mode?: 'site' | 'url';

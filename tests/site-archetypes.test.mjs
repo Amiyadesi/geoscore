@@ -479,7 +479,13 @@ describe('golden site archetype fixtures', () => {
         {"@type":"Article","headline":"Mission update","author":{"@type":"Person","name":"Feature Author"}}
       ]}</script></head><body><main><h1>Space Agency</h1></main></body></html>`;
 
-    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+    const context = core.buildAuditContext({
+      domain,
+      pages: [
+        page(domain, html),
+        page(domain, '<html><body><main><h1>Projects</h1><p>Research projects and mission updates.</p></main></body></html>', '/projects/', 'other'),
+      ],
+    });
 
     assert.equal(context.site_archetype, 'other');
     assert.equal(context.entity?.name, 'Space Agency');

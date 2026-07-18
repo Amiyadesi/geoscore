@@ -322,7 +322,9 @@ function classifyArchetype(
     return strong('documentation', 'Documentation paths and navigation', pageUrl, 0.78);
   }
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
-  if (hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
+  if (!organizationBacked && hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) {
+    return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
+  }
 
   if (pricingNavigation && productAccountNavigation) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
   if (/\b(personal blog|my blog|个人博客|个人空间|随笔)\b/i.test(lower)) {
