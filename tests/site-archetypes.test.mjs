@@ -146,6 +146,202 @@ describe('golden site archetype fixtures', () => {
     assert.match(context.evidence[0]?.value ?? '', /product|platform|pricing|application/i);
   });
 
+  it('does not turn a personal weblog into a community because an article mentions one', () => {
+    const domain = 'writer.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Sam Rivera's Weblog</title></head><body>
+      <header><h1>Sam Rivera's Weblog</h1><nav><a href="/about/">About</a></nav></header>
+      <main><article><h2>Notes from a community migration</h2>
+        <p>I reviewed a community project and its moderation model.</p>
+        <a href="/topics/sqlite/">Read the related topic</a>
+      </article></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+    assert.match(context.evidence[0]?.value ?? '', /weblog|personal blog/i);
+  });
+
+  it('keeps commerce navigation ahead of community wording in footer copy', () => {
+    const domain = 'shoes.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northwind Shoes</title></head><body>
+      <nav><a href="/collections/new/">New arrivals</a><a href="/products/runner/">Runner</a></nav>
+      <main><h1>Comfortable shoes</h1><a href="/topics/materials/">Materials story</a></main>
+      <footer><a href="/pages/community-offers/">Community offers</a></footer>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'ecommerce');
+    assert.match(context.evidence[0]?.value ?? '', /commerce navigation/i);
+  });
+
+  it('keeps commerce navigation ahead of sampled editorial schema', () => {
+    const domain = 'allbirds.example.com';
+    const home = `<!doctype html><html lang="en"><head><title>Allbirds Shoes and Apparel</title></head><body>
+      <nav><a href="/collections/new-arrivals">New arrivals</a><a href="/collections/shop-all">Shop all</a></nav>
+      <main><h1>Comfortable shoes and apparel</h1></main></body></html>`;
+    const article = `<!doctype html><html><head><script type="application/ld+json">{
+      "@context":"https://schema.org","@type":"Article","headline":"Materials journal"
+    }</script></head><body><article><h1>Materials journal</h1></article></body></html>`;
+
+    const context = core.buildAuditContext({
+      domain,
+      pages: [page(domain, home), page(domain, article, '/blogs/materials/', 'article')],
+    });
+
+    assert.equal(context.site_archetype, 'ecommerce');
+    assert.match(context.evidence[0]?.value ?? '', /commerce navigation/i);
+  });
+
+  it('does not let Store schema on a sampled page override site-level commerce identity', () => {
+    const domain = 'retail.example.com';
+    const home = `<!doctype html><html lang="en"><head><title>Northwind Home Furnishings</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Northwind"}</script>
+      </head><body><nav><a href="/products/chair">Products</a><a href="/collections/new">Collections</a></nav>
+      <main><h1>Furniture for every home</h1></main></body></html>`;
+    const store = `<!doctype html><html><head><script type="application/ld+json">{
+      "@context":"https://schema.org","@type":"FurnitureStore","name":"Northwind City Store"
+    }</script></head><body><h1>City store</h1></body></html>`;
+
+    const context = core.buildAuditContext({
+      domain,
+      pages: [page(domain, home), page(domain, store, '/city-store/', 'other')],
+    });
+
+    assert.equal(context.site_archetype, 'ecommerce');
+  });
+
+  it('recognizes a restaurant from menu and reservation structure without schema', () => {
+    const domain = 'restaurant.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northwind Restaurant</title></head><body>
+      <nav><a href="/menu/">Menu</a><a href="/reservations/">Reservations</a><a href="/contact/">Contact</a>
+        <a href="/shop/">Gift shop</a></nav>
+      <main><h1>Northwind</h1><p>Seasonal restaurant dining.</p>
+        <p>Our unrelated research project is a non-profit initiative.</p></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'local_business');
+    assert.match(context.evidence[0]?.value ?? '', /restaurant|reservation|local/i);
+  });
+
+  it('recognizes a restaurant with an external reservation provider before an external shop', () => {
+    const domain = 'restaurant.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northern Table</title></head><body>
+      <nav><a href="https://booking.example.net/northern-table">Reservations</a>
+        <a href="https://shop.example.net/products/sauce">Shop flavors</a></nav>
+      <main><h1>Northern Table</h1><p>Our restaurant is rooted in the seasons and local landscape.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'local_business');
+    assert.match(context.evidence[0]?.value ?? '', /local venue|booking|reservation/i);
+  });
+
+  it('keeps homepage local-business schema ahead of product schema on a sampled shop page', () => {
+    const domain = 'restaurant.example.com';
+    const home = `<!doctype html><html><head><title>Northwind Restaurant</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Restaurant","name":"Northwind"}</script>
+      </head><body><h1>Northwind Restaurant</h1></body></html>`;
+    const shop = `<!doctype html><html><head><title>Northwind Gift Shop</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Cookbook"}</script>
+      </head><body><h1>Cookbook</h1></body></html>`;
+
+    const context = core.buildAuditContext({
+      domain,
+      pages: [page(domain, home), page(domain, shop, '/shop/cookbook/', 'product')],
+    });
+
+    assert.equal(context.site_archetype, 'local_business');
+  });
+
+  it('keeps a documentation site ahead of nonprofit footer wording', () => {
+    const domain = 'docs.python.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Python 3 Documentation</title></head><body>
+      <nav><a href="/3/reference/">Language reference</a><a href="/3/library/">Library</a></nav>
+      <main><h1>Python documentation</h1><p>Technical reference and guides.</p></main>
+      <footer>The Python Software Foundation is a non-profit organization. <a href="/donate/">Donate</a></footer>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'documentation');
+  });
+
+  it('keeps direct documentation navigation ahead of external community links', () => {
+    const domain = 'framework.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northwind - The Progressive JavaScript Framework</title></head><body>
+      <nav><a href="/guide/introduction">Guide</a><a href="/api/">API</a>
+        <a href="https://github.com/northwind/core/discussions">GitHub Discussions</a>
+        <a href="/about/community-guide">Community Guide</a></nav>
+      <main><h1>The Progressive JavaScript Framework</h1><p>Learn from the community and build applications.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'documentation');
+  });
+
+  it('keeps a question-and-answer community ahead of its commercial product links', () => {
+    const domain = 'questions.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Newest Questions - Northwind Overflow</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":["Organization","WebSite"],"name":"Northwind Overflow"}</script>
+      </head><body><nav><a href="/questions">Questions</a><a href="/tags">Tags</a>
+        <a href="/users/signup">Sign up</a><a href="https://company.example.net/platform">Enterprise platform</a></nav>
+      <main><h1>Newest Questions</h1><p>A community for developers to ask and answer technical questions.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'community');
+  });
+
+  it('does not classify a generic page from one documentation word in body copy', () => {
+    const domain = 'example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Example Domain</title></head><body>
+      <h1>Example Domain</h1><p>This domain is for use in documentation examples without needing permission.</p>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'unknown');
+  });
+
+  it('does not turn a nonprofit into a community because it is member-supported', () => {
+    const domain = 'rights.example.com';
+    const html = `<!doctype html><html lang="en"><head>
+      <title>Digital Rights Foundation</title></head><body>
+      <main><h1>Defending rights in the digital world</h1>
+        <p>We are a nonprofit powered by members and the wider community.</p>
+        <a href="/donate/">Donate</a><a href="/shop/">Supporter shop</a>
+      </main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'nonprofit');
+    assert.match(context.evidence[0]?.value ?? '', /nonprofit/i);
+  });
+
+  it('recognizes a single-page personal portfolio without requiring JSON-LD', () => {
+    const domain = 'designer.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Britt Rivera</title></head><body>
+      <header><h1>Britt Rivera</h1><nav>
+        <a href="#about">About</a><a href="#experience">Experience</a><a href="#projects">Projects</a>
+      </nav></header>
+      <main><section id="about"><p>I build accessible digital products.</p></section>
+        <section id="projects"><h2>Selected projects</h2><p>A community website and design system.</p></section>
+      </main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'portfolio');
+    assert.match(context.evidence[0]?.value ?? '', /portfolio|profile/i);
+  });
+
   it('keeps an explicit forum identity ahead of weak product words embedded in scripts', () => {
     const domain = 'nodeloc.example.com';
     const html = `<!doctype html><html lang="zh-CN"><head>

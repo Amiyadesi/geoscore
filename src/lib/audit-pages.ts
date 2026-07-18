@@ -20,7 +20,7 @@ const DEFAULT_BROWSER_DAILY_BUDGET_SECONDS = BROWSER_RUN_FREE_SECONDS - BROWSER_
 const BROWSER_RUN_PROVIDER = 'Cloudflare Browser Run' as const;
 const BROWSER_RUN_SOURCE = 'browser_binding_quick_action' as const;
 const DIRECT_HTTP_PROVIDER = 'Direct HTTP' as const;
-const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
+const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|markdown|md|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
 const INFRASTRUCTURE_PATH = /(?:^|\/)(?:cdn-cgi|_next|_nuxt|_astro|wp-content|wp-includes)(?:\/|$)/i;
 const BROWSER_REJECTED_RESOURCE_TYPES: BrowserRunResourceType[] = [
   'image',
@@ -521,10 +521,45 @@ function normalizeDirectFetchError(error: unknown): AuditPageFetchError {
   return new AuditPageFetchError('AUDIT_FETCH_FAILED', message, false);
 }
 
+function immediateMetaRefreshTarget(html: string, currentUrl: string): string | null {
+  try {
+    const { document } = parseHTML(html);
+    const current = new URL(currentUrl);
+    const currentRoot = registrableRoot(current.hostname);
+    if (!currentRoot) return null;
+    for (const meta of document.querySelectorAll('meta[http-equiv][content]')) {
+      if (meta.getAttribute('http-equiv')?.trim().toLowerCase() !== 'refresh') continue;
+      const content = meta.getAttribute('content')?.trim() ?? '';
+      const match = content.match(/^([0-9]+(?:\.[0-9]+)?)\s*;\s*url\s*=\s*(.+)$/i);
+      if (!match || Number(match[1]) > 1) continue;
+      const rawTarget = match[2].trim().replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, '$1$2');
+      const target = new URL(rawTarget, current);
+      target.hash = '';
+      if (!['http:', 'https:'].includes(target.protocol)) continue;
+      if (registrableRoot(target.hostname) !== currentRoot) continue;
+      if (!isAuditableHtmlCandidate(target.toString())) continue;
+      if (target.toString() === current.toString()) continue;
+      return target.toString();
+    }
+  } catch { /* malformed refresh markup remains ordinary page evidence */ }
+  return null;
+}
+
+function isSoftNotFoundDocument(html: string): boolean {
+  const marker = /^\s*(?:404\b|(?:page|resource|content)\s+(?:was\s+)?not\s+found\b|not\s+found\b|页面不存在|找不到页面|网页不存在)/i;
+  const title = titleFromHtml(html) ?? '';
+  const heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
+    ?.replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() ?? '';
+  return marker.test(title) || marker.test(heading);
+}
+
 async function fetchDirectAuditPage(
   candidate: AuditPageCandidate,
   requestedUrl: string,
   fetcher: HttpFetcher,
+  allowMetaRefresh = true,
 ): Promise<HttpAuditPageOutcome> {
   const started = Date.now();
   try {
@@ -598,6 +633,32 @@ async function fetchDirectAuditPage(
         'AUDIT_EMPTY_HTML',
         'Target returned an empty HTML document',
         true,
+        response.status,
+        finalUrl,
+        response.headers,
+      );
+    }
+    if (allowMetaRefresh) {
+      const refreshTarget = immediateMetaRefreshTarget(html, finalUrl);
+      if (refreshTarget) {
+        const refreshed = await fetchDirectAuditPage(candidate, refreshTarget, fetcher, false);
+        if (refreshed.page.status === 'complete') {
+          return {
+            ...refreshed,
+            page: {
+              ...refreshed.page,
+              response_ms: Date.now() - started,
+              fallback_reason: `Followed same-site meta refresh from ${finalUrl}`,
+            },
+          };
+        }
+      }
+    }
+    if (isSoftNotFoundDocument(html)) {
+      throw new AuditPageFetchError(
+        'AUDIT_SOFT_404',
+        'Target returned a soft not-found document with HTTP 200',
+        false,
         response.status,
         finalUrl,
         response.headers,

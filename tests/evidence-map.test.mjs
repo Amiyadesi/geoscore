@@ -333,12 +333,15 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       ), AUDIT_ID, env(db));
       const responseText = await response.text();
       const body = JSON.parse(responseText);
+      const searchCall = captured.find(call => call.url.endsWith('/v1/evidence-search'));
       const answerCall = captured.find(call => call.url.endsWith('/v1/answer-snapshots'));
 
       assert.equal(response.status, 200);
+      assert.equal(searchCall.body.queries.length, 3);
       assert.equal(answerCall.headers.get('X-Answer-API-Key'), apiKey);
       assert.equal(answerCall.body.api_base_url, apiBaseUrl);
       assert.equal(answerCall.body.api_model, apiModel);
+      assert.deepEqual(answerCall.body.queries, ['Sayori blog articles']);
       assert.equal('budget' in answerCall.body, false);
       assert.equal(body.data.affects_score, false);
       assert.equal(body.data.answer_snapshot.observations[0].model, apiModel);

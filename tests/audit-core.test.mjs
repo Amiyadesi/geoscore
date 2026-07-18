@@ -109,6 +109,72 @@ describe('GeoScore 2 audit core', () => {
     }
   });
 
+  it('follows an immediate same-root meta refresh before auditing the page', async () => {
+    const requested = [];
+    const fetcher = async url => {
+      requested.push(String(url));
+      if (String(url) === 'https://docs.example.com/') {
+        return new Response('<meta http-equiv="refresh" content="0;url=/en/getting-started/">', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      return new Response('<html><head><title>Example Docs</title></head><body><h1>Getting started</h1></body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      });
+    };
+
+    const result = await pages.fetchAuditPage(
+      { url: 'https://docs.example.com/', page_type: 'home', source: 'requested' },
+      fetcher,
+    );
+
+    assert.equal(result.status, 'complete');
+    assert.equal(result.final_url, 'https://docs.example.com/en/getting-started/');
+    assert.equal(result.title, 'Example Docs');
+    assert.deepEqual(requested, ['https://docs.example.com/', 'https://docs.example.com/en/getting-started/']);
+  });
+
+  it('does not follow a meta refresh outside the submitted registrable root', async () => {
+    const requested = [];
+    const fetcher = async url => {
+      requested.push(String(url));
+      return new Response('<html><head><meta http-equiv="refresh" content="0;url=https://evil.example.net/"></head><body>Moved</body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      });
+    };
+
+    const result = await pages.fetchAuditPage(
+      { url: 'https://docs.example.com/', page_type: 'home', source: 'requested' },
+      fetcher,
+    );
+
+    assert.equal(result.status, 'complete');
+    assert.equal(result.final_url, 'https://docs.example.com/');
+    assert.deepEqual(requested, ['https://docs.example.com/']);
+  });
+
+  it('rejects HTTP 200 soft-not-found documents', async () => {
+    const result = await pages.fetchAuditPage(
+      { url: 'https://example.com/missing', page_type: 'other', source: 'internal_link' },
+      async () => new Response('<html><head><title>404 - Page not found</title></head><body><h1>Page not found</h1></body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    );
+
+    assert.equal(result.status, 'error');
+    assert.equal(result.error_code, 'AUDIT_SOFT_404');
+  });
+
+  it('excludes Markdown documents from representative HTML samples', () => {
+    assert.equal(pages.isAuditableHtmlCandidate('https://example.com/agents.md'), false);
+    assert.equal(pages.isAuditableHtmlCandidate('https://example.com/readme.markdown'), false);
+    assert.equal(pages.isAuditableHtmlCandidate('https://example.com/docs/guide'), true);
+  });
+
   it('classifies schema-backed personal blogs before link density and industry words', () => {
     const context = core.buildAuditContext({
       domain: 'blog.sayori.org',

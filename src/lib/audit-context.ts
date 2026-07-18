@@ -80,11 +80,40 @@ function visibleText(html: string): string {
     .trim();
 }
 
-function titleHeadingText(html: string): string {
-  return [...html.matchAll(/<(?:title|h1)\b[^>]*>([\s\S]*?)<\/(?:title|h1)>/gi)]
-    .map(match => visibleText(match[1]))
-    .filter(Boolean)
-    .join(' ');
+function siteIdentityText(html: string): string {
+  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
+  const firstHeading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '';
+  return [title, firstHeading].map(visibleText).filter(Boolean).join(' ');
+}
+
+function navigationMarkup(html: string): string {
+  return [...html.matchAll(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi)]
+    .map(match => match[0])
+    .join('\n');
+}
+
+function hasSameRootPathLink(html: string, pageUrl: string | undefined, pathPattern: RegExp): boolean {
+  if (!pageUrl) return false;
+  try {
+    const base = new URL(pageUrl);
+    const root = registrableRoot(base.hostname);
+    if (!root) return false;
+    return [...html.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].some(match => {
+      try {
+        const target = new URL(match[1], base);
+        return registrableRoot(target.hostname) === root && pathPattern.test(target.pathname);
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
+  }
+}
+
+function hasLinkText(html: string, textPattern: RegExp): boolean {
+  return [...html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/gi)]
+    .some(match => textPattern.test(visibleText(match[0])));
 }
 
 function classifyArchetype(
@@ -106,12 +135,13 @@ function classifyArchetype(
   const visibleHomeHtml = visibleMarkup(homeHtml);
   const lower = visibleText(html).toLowerCase();
   const homeLower = visibleText(visibleHomeHtml).toLowerCase();
-  const homeIdentity = titleHeadingText(visibleHomeHtml);
+  const homeIdentity = siteIdentityText(visibleHomeHtml);
+  const homeNavigation = navigationMarkup(visibleHomeHtml);
   const pageTypes = new Set(pages.map(page => page.page_type));
   const hasType = (...values: string[]) => values.some(value => types.has(value));
   const hasHomeType = (...values: string[]) => values.some(value => homeTypes.has(value));
   const hasNonArticleType = (...values: string[]) => values.some(value => nonArticleTypes.has(value));
-  const hasLocal = [...nonArticleTypes].some(type => LOCAL_TYPES.has(type) || type.endsWith('Store'));
+  const hasHomeLocal = [...homeTypes].some(type => LOCAL_TYPES.has(type) || type.endsWith('Store'));
 
   if (isSiteArchetype(hint)) {
     return {
@@ -120,30 +150,84 @@ function classifyArchetype(
       evidence: [{ source: 'request_hint', page_url: pageUrl, value: `archetype_hint=${hint}`, confidence: 0.98 }],
     };
   }
-  if (hasLocal) return strong('local_business', 'LocalBusiness-compatible JSON-LD', pageUrl);
   if (hasType('SoftwareApplication', 'WebApplication')) return strong('saas', 'Software application JSON-LD', pageUrl);
   if (hasNonArticleType('NewsMediaOrganization', 'Newspaper') || hasHomeType('NewsArticle')) return strong('news_media', 'News-specific site JSON-LD', pageUrl);
-  if (hasType('Product') && !hasType('SoftwareApplication', 'WebApplication')) return strong('ecommerce', 'Product JSON-LD', pageUrl);
+  if (hasHomeLocal) return strong('local_business', 'Homepage LocalBusiness-compatible JSON-LD', pageUrl);
   if (hasType('DiscussionForumPosting')) return strong('community', 'Discussion forum JSON-LD', pageUrl);
   if (hasType('NGO', 'Nonprofit501c3')) return strong('nonprofit', 'Nonprofit JSON-LD', pageUrl);
+  if (hasHomeType('Product') && !hasType('SoftwareApplication', 'WebApplication')) return strong('ecommerce', 'Homepage Product JSON-LD', pageUrl);
   if (hasHomeType('Blog') && hasHomeType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
   if (hasHomeType('ProfilePage') && hasHomeType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
 
   const pricingNavigation = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
   const productAccountNavigation = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  const developerNavigation = /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(visibleHomeHtml)
+  const directDocumentationNavigation = hasSameRootPathLink(
+    homeNavigation,
+    pageUrl,
+    /^\/(?:docs?|guide|api|reference|manual)(?:\/|$)/i,
+  );
+  const developerNavigation = directDocumentationNavigation
+    || /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(visibleHomeHtml)
     || pageTypes.has('documentation');
+  const commerceNavigation = hasSameRootPathLink(
+    visibleHomeHtml,
+    pageUrl,
+    /\/(?:cart|checkout|collections?|products?|shop|store)(?:\/|$)/i,
+  );
   const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i.test(homeLower);
   const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
+  const homeHostname = (() => {
+    try { return new URL(pageUrl ?? '').hostname.toLowerCase(); } catch { return ''; }
+  })();
+  const documentationHost = /^(?:docs?|developer|developers|reference|manual)\./i.test(homeHostname);
+  const documentationIdentity = /\b(?:documentation|developer docs?|api reference|language reference|user manual)\b|开发文档|接口文档|参考手册/i.test(homeIdentity);
   const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeIdentity);
-  const discussionNavigation = /href=["'][^"']*\/(?:categories|latest|topics?|discussions?|forum)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  if (communityIdentity || (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation)) {
+  const discussionNavigation = hasSameRootPathLink(
+    homeNavigation,
+    pageUrl,
+    /\/(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i,
+  );
+  const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i.test(homeLower);
+  const reservationAction = /href=["'][^"']*\/(?:reservations?|book(?:ing)?)(?:[\/?#"'])/i.test(visibleHomeHtml)
+    || hasLinkText(visibleHomeHtml, /\b(?:reservations?|reserve|book(?:ing)?)\b|预订|预约/i);
+  const localIdentity = /\b(?:hotel|clinic|dental|dentist|physician|pharmacy|salon|attorney|law firm|accountant|real estate|veterinary)\b|酒店|诊所|牙科|律师事务所|美容院/i.test(homeIdentity);
+  const localContactAction = /href=["'][^"']*\/(?:contact|locations?|hours|book(?:ing)?)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  const nonprofitIdentity = /\b(?:nonprofit|non-profit|charity|foundation)\b/i.test(homeIdentity);
+  const nonprofitAction = /href=["'][^"']*\/(?:donate|donation|support-us|membership)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  if (communityIdentity && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.88);
+  }
+  if (/\b(?:personal blog|my blog|weblog)\b|个人博客|个人网站|网络日志|个人空间|随笔/i.test(homeIdentity)) {
+    return strong('personal_blog', 'Personal blog or weblog identity in the homepage title or primary heading', pageUrl, 0.82);
+  }
+  if (communityIdentity || (/\b(?:community|forum)\b|社区|论坛/i.test(homeLower) && discussionNavigation)) {
+    return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.78);
+  }
+  const portfolioSections = new Set(
+    [...homeNavigation.matchAll(/href=["']#(?:about|experience|projects?|work|portfolio)["']/gi)]
+      .map(match => match[0].toLowerCase()),
+  );
+  const personalProfileLanguage = /\b(?:i am|i'm|i build|i design|i develop|my work|my projects)\b|我是|我是一名|我的作品/i.test(homeLower);
+  if (portfolioSections.size >= 2 && personalProfileLanguage) {
+    return strong('portfolio', 'Single-page personal profile with portfolio navigation', pageUrl, 0.82);
+  }
+  if (documentationHost || documentationIdentity
+    || (directDocumentationNavigation && !pricingNavigation && !productAccountNavigation)) {
+    return strong('documentation', 'Documentation hostname or primary site identity', pageUrl, 0.86);
   }
   const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
     .filter(Boolean).length;
   if (organizationBacked && productPlatformSignals >= 2) {
     return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
+  }
+  if ((restaurantLanguage && reservationAction) || (localIdentity && localContactAction)) {
+    return strong('local_business', 'Local venue identity with menu, booking, or contact actions', pageUrl, 0.82);
+  }
+  if (nonprofitIdentity || (/\b(?:nonprofit|non-profit|charity)\b/i.test(homeLower) && nonprofitAction)) {
+    return strong('nonprofit', 'Nonprofit page copy', pageUrl, 0.66);
+  }
+  if (commerceNavigation) {
+    return strong('ecommerce', 'Commerce navigation', pageUrl, 0.78);
   }
 
   if (hasHomeType('Blog', 'BlogPosting', 'Article', 'TechArticle')) return strong('editorial', 'Homepage editorial JSON-LD', pageUrl, 0.9);
@@ -152,14 +236,13 @@ function classifyArchetype(
   }
   // Text collected from representative articles and archive pages is only a
   // weak site-level signal. It must not override schema-backed homepage identity.
-  if (hasType('OnlineBusiness') && /\b(forum|community)\b/i.test(lower)) {
+  if (hasType('OnlineBusiness') && discussionNavigation && /\b(forum|community)\b/i.test(lower)) {
     return strong('community', 'Online business schema with community structure', pageUrl, 0.78);
   }
-  if (/\b(forum|community)\b/i.test(lower)) return strong('community', 'Community/forum page copy', pageUrl, 0.66);
-  if (/\b(nonprofit|non-profit|charity|foundation)\b/i.test(lower)) {
-    return strong('nonprofit', 'Nonprofit page copy', pageUrl, 0.66);
+  if (discussionNavigation && /\b(forum|community)\b|社区|论坛/i.test(lower)) {
+    return strong('community', 'Community/forum copy with discussion navigation', pageUrl, 0.7);
   }
-  if (pageTypes.has('documentation') || /\b(documentation|developer docs|api reference)\b/i.test(homeLower)) {
+  if (pageTypes.has('documentation') && developerNavigation) {
     return strong('documentation', 'Documentation paths and navigation', pageUrl, 0.78);
   }
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
@@ -168,9 +251,6 @@ function classifyArchetype(
   const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
   const productActions = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
   if (sameSitePricing && productActions) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
-  if (/href=["'][^"']*\/(cart|checkout|collections|products)(?:[\/?#"'])/i.test(html)) {
-    return strong('ecommerce', 'Commerce navigation', pageUrl, 0.68);
-  }
   if (/\b(personal blog|my blog|个人博客|个人空间|随笔)\b/i.test(lower)) {
     return strong('personal_blog', 'Personal blog title or page copy', pageUrl, 0.66);
   }

@@ -662,7 +662,7 @@ export async function requestAnswerSnapshots(
   env: Env,
   plan: EvidenceQueryPlan,
   requestConfig: RequestScopedAnswerConfig | null = null,
-  timeoutMs = 12_000,
+  timeoutMs = 31_000,
 ): Promise<AnswerGatewayResult> {
   const base = (env.SEARCH_GATEWAY_URL || '').trim().replace(/\/+$/, '');
   const gatewayKey = (env.SEARCH_GATEWAY_API_KEY || '').trim();
@@ -689,8 +689,8 @@ export async function requestAnswerSnapshots(
       },
     };
   }
-  const queries = plan.queries.map(item => item.query).slice(0, 3);
-  const boundedTimeout = Math.min(15_000, Math.max(1_000, timeoutMs));
+  const queries = plan.queries.map(item => item.query).slice(0, 1);
+  const boundedTimeout = Math.min(32_000, Math.max(1_000, timeoutMs));
   let response: Response;
   try {
     response = await fetchWithTimeout(new URL('/v1/answer-snapshots', base).toString(), {

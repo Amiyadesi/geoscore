@@ -89,7 +89,7 @@ function baselineModules() {
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
     assert.equal(core.SCORE_VERSION, '2.4.2');
-    assert.match(cache.cacheKey('example.com'), /^recent:v17:/);
+    assert.match(cache.cacheKey('example.com'), /^recent:v18:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -144,6 +144,17 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(predicted.affects_score, false);
     assert.equal(predicted.questions[0].predicted_citation, true);
     assert.equal(predicted.score_weight, 0);
+  });
+
+  it('keeps the Worker entry export surface compatible with the module runtime', () => {
+    for (const [name, value] of Object.entries(worker)) {
+      if (name === 'default') continue;
+      assert.equal(
+        typeof value,
+        'function',
+        `Worker named export ${name} must be a function or ExportedHandler`,
+      );
+    }
   });
 
   it('serves non-stale public product facts from /api/meta', async () => {
