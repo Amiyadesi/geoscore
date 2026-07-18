@@ -1,4 +1,5 @@
 import type { SiteArchetype } from '../lib/audit-core';
+import { extractJsonLdBlocks } from '../lib/json-ld';
 
 export interface SchemaAuditResult {
   schemas_found: string[];
@@ -205,15 +206,7 @@ export async function runSchemaAudit(
 }
 
 function extractJsonLd(html: string): string[] {
-  const blocks: string[] = [];
-
-  // Primary: explicit application/ld+json script tags
-  const ldJsonRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-  while ((match = ldJsonRegex.exec(html)) !== null) {
-    const trimmed = match[1].trim();
-    if (trimmed) blocks.push(trimmed);
-  }
+  const blocks = extractJsonLdBlocks(html);
 
   // Secondary: scan inline <script> and JSON blobs for embedded schema objects.
   // Many React/Next.js apps serialize schema into __NEXT_DATA__ or window.__SCHEMA__ etc.

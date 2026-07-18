@@ -555,6 +555,21 @@ function isSoftNotFoundDocument(html: string): boolean {
   return marker.test(title) || marker.test(heading);
 }
 
+function homepageAccessInterstitialReason(candidate: AuditPageCandidate, finalUrl: string): string | undefined {
+  try {
+    if (candidate.page_type !== 'home') return undefined;
+    const requested = new URL(candidate.url);
+    const final = new URL(finalUrl);
+    if ((requested.pathname || '/') !== '/' || final.toString() === requested.toString()) return undefined;
+    if (!/(?:^|\/)(?:pipl[_-]?consent[^/]*|cookie[_-]?consent|consent|signin|sign-in|login|log-in|auth|authentication)(?:\/|$)/i.test(final.pathname)) {
+      return undefined;
+    }
+    return `Homepage redirected to an access interstitial: ${final.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchDirectAuditPage(
   candidate: AuditPageCandidate,
   requestedUrl: string,
@@ -613,6 +628,17 @@ async function fetchDirectAuditPage(
         'AUDIT_BOT_CHALLENGE',
         challenge,
         true,
+        response.status,
+        finalUrl,
+        response.headers,
+      );
+    }
+    const accessInterstitial = homepageAccessInterstitialReason(candidate, finalUrl);
+    if (accessInterstitial) {
+      throw new AuditPageFetchError(
+        'AUDIT_ACCESS_INTERSTITIAL',
+        accessInterstitial,
+        false,
         response.status,
         finalUrl,
         response.headers,

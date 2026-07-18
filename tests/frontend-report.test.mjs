@@ -31,6 +31,7 @@ test('evidence summary and report adapter load before legacy score rendering', (
   assert.ok(indexHtml.indexOf('src="evidence-map.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="monitoring.js"') < indexHtml.indexOf('src="app.js"'));
   assert.ok(indexHtml.indexOf('src="assistant-ui.js"') < indexHtml.indexOf('src="app.js"'));
+  assert.ok(indexHtml.indexOf('src="audit-runner.js"') < indexHtml.indexOf('src="app.js"'));
 });
 
 test('audit header stacks and wraps actions on a 390px viewport', () => {
@@ -40,8 +41,12 @@ test('audit header stacks and wraps actions on a 390px viewport', () => {
 });
 
 test('audit loading state preserves the persistent domain header elements', () => {
-  assert.match(appSource, /showAuditShell\(domain\);\s*spinnerCard\(domain\);\s*openAuditStream/);
+  assert.match(appSource, /showAuditShell\(domain\);\s*spinnerCard\(domain\);\s*auditRunner\.start/);
   assert.doesNotMatch(appSource, /innerHTML\s*=\s*spinnerCard\(domain\)/);
+});
+
+test('legacy unreachable report paths are deleted from the main frontend module', () => {
+  assert.doesNotMatch(appSource, /function (?:wireCopyReport|renderSummaryBullets|submitModuleFeedback)\b/);
 });
 
 test('Browser Run cards do not present renderer metadata as target transport evidence', () => {

@@ -81,14 +81,14 @@ test('custom API values are cleared before the factual audit and consumed once a
   assert.match(stage, /clearInputs\(\)/);
   assert.ok(stage.indexOf('clearInputs()') < stage.indexOf("setStatus(uiText('customApi.queued'))"));
   assert.match(start, /customApiController\.stage\(customApiRunId\)/);
-  assert.ok(start.indexOf('customApiController.stage(customApiRunId)') < start.indexOf('openAuditStream(currentAuditRequest'));
+  assert.ok(start.indexOf('customApiController.stage(customApiRunId)') < start.indexOf('auditRunner.start(currentAuditRequest'));
   assert.match(evidence, /'X-API-Key': customApiConfig\.apiKey/);
   assert.match(evidence, /api_base_url: customApiConfig\.apiBaseUrl/);
   assert.match(evidence, /api_model: customApiConfig\.apiModel/);
   assert.ok(evidence.indexOf('overwriteCustomApiConfig?.(customApiConfig)') < evidence.indexOf('const payload = await requestPromise'));
   assert.match(evidence, /claimPendingCustomApiConfig\?\.\(runId\)/);
-  assert.match(app, /evidenceMapController\.runPending\(d\.data, auditRequest\.customApiRunId\)/);
-  assert.match(app, /evidenceMapController\.runPending\(d, auditRequest\.customApiRunId\)/);
+  assert.match(app, /evidenceMapController\.runPending\(d\.data, request\.customApiRunId\)/);
+  assert.match(app, /evidenceMapController\.runPending\(d, request\.customApiRunId\)/);
   assert.match(evidence, /customApi\.sent/);
   assert.match(evidence, /customApi\.complete/);
 });

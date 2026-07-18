@@ -169,6 +169,33 @@ describe('GeoScore 2 audit core', () => {
     assert.equal(result.error_code, 'AUDIT_SOFT_404');
   });
 
+  it('rejects homepage consent and authentication interstitial redirects', async () => {
+    const cases = [
+      {
+        path: '/pipl_consent.en-us.html?target_page=%2F',
+        html: '<html><head><title>We need your consent</title></head><body><h1>We need your consent</h1></body></html>',
+      },
+      {
+        path: '/signin?next=%2F',
+        html: '<html><head><title>Questions and answers</title></head><body><main>Sign in to continue</main></body></html>',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const fetcher = async url => String(url) === 'https://example.com/'
+        ? new Response('', { status: 302, headers: { Location: testCase.path } })
+        : new Response(testCase.html, { status: 200, headers: { 'Content-Type': 'text/html' } });
+      const result = await pages.fetchAuditPage(
+        { url: 'https://example.com/', page_type: 'home', source: 'requested' },
+        fetcher,
+      );
+
+      assert.equal(result.status, 'error');
+      assert.equal(result.error_code, 'AUDIT_ACCESS_INTERSTITIAL');
+      assert.match(result.error ?? '', /interstitial/i);
+    }
+  });
+
   it('excludes Markdown documents from representative HTML samples', () => {
     assert.equal(pages.isAuditableHtmlCandidate('https://example.com/agents.md'), false);
     assert.equal(pages.isAuditableHtmlCandidate('https://example.com/readme.markdown'), false);

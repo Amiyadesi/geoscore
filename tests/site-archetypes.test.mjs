@@ -360,4 +360,68 @@ describe('golden site archetype fixtures', () => {
     assert.equal(context.business_model, 'community');
     assert.match(context.evidence[0]?.value ?? '', /community|forum/i);
   });
+
+  it('reads unquoted JSON-LD and uses a prominent same-site docs link', () => {
+    const domain = 'kubernetes.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Kubernetes</title>
+      <script type=application/ld+json>{"@context":"https://schema.org","@type":"Organization","url":"https://${domain}"}</script>
+      </head><body><header><a class=nav-link href=/docs/home/><span>Documentation</span></a></header>
+      <main><h1>Production-Grade Container Orchestration</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'documentation');
+    assert.match(context.evidence[0]?.value ?? '', /documentation/i);
+  });
+
+  it('does not let a featured homepage article redefine an organization site or its entity', () => {
+    const domain = 'space.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Space Agency</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+        {"@type":"Organization","name":"Space Agency","url":"https://${domain}/"},
+        {"@type":"WebSite","name":"Space Agency","url":"https://${domain}/"},
+        {"@type":"Article","headline":"Mission update","author":{"@type":"Person","name":"Feature Author"}}
+      ]}</script></head><body><main><h1>Space Agency</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'other');
+    assert.equal(context.entity?.name, 'Space Agency');
+    assert.equal(context.entity?.type, 'Organization');
+  });
+
+  it('does not treat a single product catalogue link as ecommerce when nonprofit identity is explicit', () => {
+    const domain = 'mozilla.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Mozilla - Internet for people, not profit</title></head><body>
+      <nav><a href="/products/">Products</a><a href="/about/">About us</a><a href="/contribute/">Get involved</a></nav>
+      <main><h1>Welcome to Mozilla</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'nonprofit');
+  });
+
+  it('recognizes commerce from a same-site cart subdomain without a cart path', () => {
+    const domain = 'market.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Market - Electronics, Fashion and Collectibles</title></head><body>
+      <nav><a href="https://signin.example.com/">Sign in</a><a href="https://cart.example.com/" aria-label="Cart"></a>
+        <a href="/sell/">Sell</a><a href="/purchase-history/">Purchase history</a></nav>
+      <main><h1>Shop millions of items</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'ecommerce');
+  });
+
+  it('recognizes professional services from services and industries navigation', () => {
+    const domain = 'advisory.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Reinvent your business | Northwind Advisory</title></head><body>
+      <nav><a href="/industries/">Industries</a><a href="/services/">Services</a>
+        <a href="/services/audit-assurance/">Audit and assurance</a><a href="/services/consulting/">Consulting</a></nav>
+      <main><h1>Seize tomorrow's technology to reinvent your business</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'professional_services');
+  });
 });

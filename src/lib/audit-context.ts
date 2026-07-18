@@ -1,6 +1,7 @@
 import type { FetchedAuditPage } from './audit-pages';
 import { registrableRoot } from './audit-pages';
 import { SITE_ARCHETYPES, type AuditContext, type AuditEntity, type AuditEvidence, type BuildAuditContextInput, type SiteArchetype } from './audit-contract';
+import { extractJsonLdBlocks } from './json-ld';
 
 type JsonObject = Record<string, unknown>;
 
@@ -38,10 +39,10 @@ function extractJsonLdNodes(pages: BuildAuditContextInput['pages']): JsonLdNode[
   const nodes: JsonLdNode[] = [];
   for (const page of pages) {
     if (page.status !== 'complete' || !page.html) continue;
-    for (const match of page.html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    for (const block of extractJsonLdBlocks(page.html)) {
       try {
         const extracted: JsonObject[] = [];
-        flattenJsonLd(JSON.parse(match[1]), extracted);
+        flattenJsonLd(JSON.parse(block), extracted);
         nodes.push(...extracted.map(node => ({ node, pageUrl: page.url, pageType: page.page_type })));
       } catch { /* malformed schema is represented by a separate normalized check */ }
     }
@@ -92,23 +93,40 @@ function navigationMarkup(html: string): string {
     .join('\n');
 }
 
-function hasSameRootPathLink(html: string, pageUrl: string | undefined, pathPattern: RegExp): boolean {
-  if (!pageUrl) return false;
+interface InternalLinkSignal {
+  target: URL;
+  text: string;
+}
+
+function internalLinkSignals(html: string, pageUrl: string | undefined): InternalLinkSignal[] {
+  if (!pageUrl) return [];
   try {
     const base = new URL(pageUrl);
     const root = registrableRoot(base.hostname);
-    if (!root) return false;
-    return [...html.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].some(match => {
+    if (!root) return [];
+    return [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)].flatMap(match => {
       try {
-        const target = new URL(match[1], base);
-        return registrableRoot(target.hostname) === root && pathPattern.test(target.pathname);
+        const hrefMatch = (match[1] ?? '').match(/(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+        const href = hrefMatch?.[1] ?? hrefMatch?.[2] ?? hrefMatch?.[3];
+        if (!href) return [];
+        const target = new URL(href, base);
+        if (registrableRoot(target.hostname) !== root) return [];
+        return [{ target, text: visibleText(match[0]) }];
       } catch {
-        return false;
+        return [];
       }
     });
   } catch {
-    return false;
+    return [];
   }
+}
+
+function hasLinkPath(links: InternalLinkSignal[], pathPattern: RegExp): boolean {
+  return links.some(link => pathPattern.test(link.target.pathname));
+}
+
+function hasLinkPathAndText(links: InternalLinkSignal[], pathPattern: RegExp, textPattern: RegExp): boolean {
+  return links.some(link => pathPattern.test(link.target.pathname) && textPattern.test(link.text));
 }
 
 function hasLinkText(html: string, textPattern: RegExp): boolean {
@@ -137,6 +155,8 @@ function classifyArchetype(
   const homeLower = visibleText(visibleHomeHtml).toLowerCase();
   const homeIdentity = siteIdentityText(visibleHomeHtml);
   const homeNavigation = navigationMarkup(visibleHomeHtml);
+  const homeLinks = internalLinkSignals(visibleHomeHtml, pageUrl);
+  const navigationLinks = internalLinkSignals(homeNavigation, pageUrl);
   const pageTypes = new Set(pages.map(page => page.page_type));
   const hasType = (...values: string[]) => values.some(value => types.has(value));
   const hasHomeType = (...values: string[]) => values.some(value => homeTypes.has(value));
@@ -159,21 +179,20 @@ function classifyArchetype(
   if (hasHomeType('Blog') && hasHomeType('Person')) return strong('personal_blog', 'Blog and Person JSON-LD', pageUrl);
   if (hasHomeType('ProfilePage') && hasHomeType('Person')) return strong('portfolio', 'Person profile JSON-LD', pageUrl, 0.9);
 
-  const pricingNavigation = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  const productAccountNavigation = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  const directDocumentationNavigation = hasSameRootPathLink(
-    homeNavigation,
-    pageUrl,
-    /^\/(?:docs?|guide|api|reference|manual)(?:\/|$)/i,
-  );
+  const pricingNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:pricing|plans)(?:\/|$)/i);
+  const productAccountNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:signup|sign-up|register|login|dashboard|app)(?:\/|$)/i);
+  const documentationPath = /(?:^|\/)(?:docs?|guide|api|reference|manual)(?:\/|$)/i;
+  const directDocumentationNavigation = hasLinkPath(navigationLinks, documentationPath)
+    || hasLinkPathAndText(
+      homeLinks,
+      documentationPath,
+      /\b(?:docs?|documentation|guide|reference|manual)\b|文档|指南|手册/i,
+    );
   const developerNavigation = directDocumentationNavigation
-    || /href=["'][^"']*\/(docs?|developers?|api|guides?)(?:[\/?#"'])/i.test(visibleHomeHtml)
+    || hasLinkPath(homeLinks, /(?:^|\/)(?:docs?|developers?|api|guides?)(?:\/|$)/i)
     || pageTypes.has('documentation');
-  const commerceNavigation = hasSameRootPathLink(
-    visibleHomeHtml,
-    pageUrl,
-    /\/(?:cart|checkout|collections?|products?|shop|store)(?:\/|$)/i,
-  );
+  const commerceNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:cart|checkout|collections?|shop|store)(?:\/|$)/i)
+    || homeLinks.some(link => /^(?:cart|shop|store)\./i.test(link.target.hostname));
   const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i.test(homeLower);
   const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
   const homeHostname = (() => {
@@ -182,18 +201,17 @@ function classifyArchetype(
   const documentationHost = /^(?:docs?|developer|developers|reference|manual)\./i.test(homeHostname);
   const documentationIdentity = /\b(?:documentation|developer docs?|api reference|language reference|user manual)\b|开发文档|接口文档|参考手册/i.test(homeIdentity);
   const communityIdentity = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i.test(homeIdentity);
-  const discussionNavigation = hasSameRootPathLink(
-    homeNavigation,
-    pageUrl,
-    /\/(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i,
-  );
+  const discussionNavigation = hasLinkPath(navigationLinks, /(?:^|\/)(?:categories|latest|topics?|questions?|discussions?|forum)(?:\/|$)/i);
   const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i.test(homeLower);
-  const reservationAction = /href=["'][^"']*\/(?:reservations?|book(?:ing)?)(?:[\/?#"'])/i.test(visibleHomeHtml)
+  const reservationAction = hasLinkPath(homeLinks, /(?:^|\/)(?:reservations?|book(?:ing)?)(?:\/|$)/i)
     || hasLinkText(visibleHomeHtml, /\b(?:reservations?|reserve|book(?:ing)?)\b|预订|预约/i);
   const localIdentity = /\b(?:hotel|clinic|dental|dentist|physician|pharmacy|salon|attorney|law firm|accountant|real estate|veterinary)\b|酒店|诊所|牙科|律师事务所|美容院/i.test(homeIdentity);
-  const localContactAction = /href=["'][^"']*\/(?:contact|locations?|hours|book(?:ing)?)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  const nonprofitIdentity = /\b(?:nonprofit|non-profit|charity|foundation)\b/i.test(homeIdentity);
-  const nonprofitAction = /href=["'][^"']*\/(?:donate|donation|support-us|membership)(?:[\/?#"'])/i.test(visibleHomeHtml);
+  const localContactAction = hasLinkPath(homeLinks, /(?:^|\/)(?:contact|locations?|hours|book(?:ing)?)(?:\/|$)/i);
+  const nonprofitIdentity = /\b(?:nonprofit|non-profit|not[- ]for[- ]profit|not profit|charity|foundation)\b/i.test(homeIdentity);
+  const nonprofitAction = hasLinkPath(homeLinks, /(?:^|\/)(?:donate|donation|support-us|membership)(?:\/|$)/i);
+  const professionalServicesNavigation = hasLinkPath(homeLinks, /(?:^|\/)services(?:\/|$)/i);
+  const industriesNavigation = hasLinkPath(homeLinks, /(?:^|\/)industries(?:\/|$)/i);
+  const professionalServicesLanguage = /\b(?:consulting|advisory|audit and assurance|professional services|tax services)\b/i.test(homeLower);
   if (communityIdentity && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.88);
   }
@@ -220,6 +238,9 @@ function classifyArchetype(
   if (organizationBacked && productPlatformSignals >= 2) {
     return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
   }
+  if (professionalServicesNavigation && (industriesNavigation || professionalServicesLanguage)) {
+    return strong('professional_services', 'Professional services and industries navigation', pageUrl, 0.8);
+  }
   if ((restaurantLanguage && reservationAction) || (localIdentity && localContactAction)) {
     return strong('local_business', 'Local venue identity with menu, booking, or contact actions', pageUrl, 0.82);
   }
@@ -230,7 +251,10 @@ function classifyArchetype(
     return strong('ecommerce', 'Commerce navigation', pageUrl, 0.78);
   }
 
-  if (hasHomeType('Blog', 'BlogPosting', 'Article', 'TechArticle')) return strong('editorial', 'Homepage editorial JSON-LD', pageUrl, 0.9);
+  const editorialIdentity = /\b(?:blog|news|magazine|journal|publication)\b|博客|新闻|杂志|期刊/i.test(homeIdentity);
+  if (hasHomeType('Blog') || (hasHomeType('BlogPosting', 'Article', 'TechArticle') && editorialIdentity)) {
+    return strong('editorial', 'Homepage editorial JSON-LD and site identity', pageUrl, 0.9);
+  }
   if (hasType('Blog', 'BlogPosting', 'Article', 'TechArticle') && !organizationBacked) {
     return strong('editorial', 'Editorial content without stronger site-level product identity', pageUrl, 0.76);
   }
@@ -248,9 +272,7 @@ function classifyArchetype(
   if (hasType('Service') && hasType('Organization')) return strong('professional_services', 'Service and Organization JSON-LD', pageUrl, 0.82);
   if (hasType('Person') && /\b(portfolio|projects|作品集)\b/i.test(lower)) return strong('portfolio', 'Person and portfolio structure', pageUrl, 0.8);
 
-  const sameSitePricing = /href=["'][^"']*\/(pricing|plans)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  const productActions = /href=["'][^"']*\/(signup|sign-up|register|login|dashboard|app)(?:[\/?#"'])/i.test(visibleHomeHtml);
-  if (sameSitePricing && productActions) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
+  if (pricingNavigation && productAccountNavigation) return strong('saas', 'Pricing and product application navigation', pageUrl, 0.68);
   if (/\b(personal blog|my blog|个人博客|个人空间|随笔)\b/i.test(lower)) {
     return strong('personal_blog', 'Personal blog title or page copy', pageUrl, 0.66);
   }
@@ -273,14 +295,14 @@ function entityForArchetype(
   const priorities: string[] = archetype === 'local_business'
     ? [...LOCAL_TYPES, 'Organization', 'Corporation', 'Person', 'WebSite']
     : archetype === 'news_media'
-      ? ['NewsMediaOrganization', 'Organization', 'Corporation', 'Person', 'WebSite']
+      ? ['NewsMediaOrganization', 'Organization', 'Corporation', 'WebSite']
       : archetype === 'saas'
         ? ['Organization', 'Corporation', 'SoftwareApplication', 'WebApplication', 'WebSite']
         : archetype === 'ecommerce'
           ? ['Organization', 'Corporation', 'Brand', 'Product', 'WebSite']
           : ['personal_blog', 'portfolio', 'editorial'].includes(archetype)
             ? ['Person', 'ProfilePage', 'Organization', 'Corporation', 'Blog', 'WebSite']
-            : ['Organization', 'Corporation', 'LocalBusiness', 'Person', 'WebSite', 'Blog'];
+            : ['Organization', 'Corporation', 'LocalBusiness', 'WebSite', 'Blog'];
   const homepageNodes = nodes.filter(item => item.pageType === 'home');
   const siteLevelNodes = nodes.filter(item => !['article', 'documentation', 'product'].includes(item.pageType));
   const pools = [homepageNodes, siteLevelNodes, nodes];

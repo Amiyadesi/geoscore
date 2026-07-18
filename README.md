@@ -25,7 +25,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.4.2 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.4.3 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -38,7 +38,7 @@ an A-range result.
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.4.2 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.4.3 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -89,7 +89,7 @@ upstream failures. Rejected message parameters are not blindly retried.
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.4.2 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.4.3 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected.
@@ -248,9 +248,14 @@ npm run check
 npm test
 npm run test:e2e:install
 npm run test:e2e
+npm run calibrate:live -- --strict
 ```
 
 The Playwright suite uses deterministic API fixtures and covers English and Chinese desktop/mobile flows. It does not consume production audit or Browser Run quotas.
+The live calibration command fetches a bounded matrix of public sites and fails
+when a reachable site is classified outside its reviewed archetype set. Network
+timeouts, bot challenges, consent pages, and oversized responses remain explicit
+`unavailable` results instead of false classifications.
 
 ---
 
@@ -383,7 +388,14 @@ new account credential.
 geoscore/
 ├── frontend/               # Static site (Cloudflare Pages)
 │   ├── index.html          # Single-page app shell
-│   ├── app.js              # All UI logic (~3 700 lines)
+│   ├── app.js              # Page orchestration and report rendering
+│   ├── audit-runner.js     # SSE lifecycle, retry, and stale-event isolation
+│   ├── custom-api.js       # One-use custom API configuration
+│   ├── evidence-map.js     # Evidence snapshot controller
+│   ├── monitoring.js       # Monitoring project controller
+│   ├── report-ui.js        # Normalized report adapters and Markdown output
+│   ├── report-export.js    # Download and printable export controller
+│   ├── docs/               # Bilingual public documentation
 │   ├── print.css           # Print stylesheet
 │   ├── _headers            # Cloudflare Pages HTTP headers
 │   └── _redirects          # Cloudflare Pages redirects

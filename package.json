@@ -1,6 +1,6 @@
 {
   "name": "sayori-geoscore",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "private": false,
   "license": "MIT",
   "homepage": "https://geo.sayori.org",
@@ -18,6 +18,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
+    "calibrate:live": "node scripts/calibrate-live-sites.mjs",
     "smoke:pagespeed": "node scripts/smoke-pagespeed.mjs",
     "prepare:cloudflare": "node scripts/prepare-cloudflare.mjs",
     "ensure:pages-domain": "node scripts/ensure-pages-domain.mjs",

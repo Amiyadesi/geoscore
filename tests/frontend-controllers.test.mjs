@@ -43,6 +43,76 @@ function fakeClassList(initial = []) {
   };
 }
 
+test('audit runner owns EventSource retry state and applies fresh only to the first attempt', () => {
+  class FakeEventSource {
+    static instances = [];
+    constructor(url) {
+      this.url = url;
+      this.listeners = new Map();
+      this.closed = false;
+      FakeEventSource.instances.push(this);
+    }
+    addEventListener(name, listener) { this.listeners.set(name, listener); }
+    emit(name, data) { this.listeners.get(name)?.({ data: JSON.stringify(data) }); }
+    close() { this.closed = true; }
+  }
+
+  const scheduled = [];
+  const progress = [];
+  const retries = [];
+  const completed = [];
+  const feature = loadController('audit-runner.js', 'GeoScoreAuditRunner', { EventSource: FakeEventSource });
+  const runner = feature.create({
+    EventSource: FakeEventSource,
+    setTimeout: callback => { scheduled.push(callback); return scheduled.length; },
+    clearTimeout() {},
+    maxRetries: 1,
+    buildEndpoint: (request, options) => `https://api.example/audit/${request.domain}?fresh=${options.fresh ? '1' : '0'}`,
+    onProgress: value => progress.push(value),
+    onRetry: value => retries.push(value),
+    onComplete: value => completed.push(value),
+  });
+
+  assert.equal(runner.start({ domain: 'example.com' }, { fresh: true }), true);
+  assert.equal(FakeEventSource.instances[0].url, 'https://api.example/audit/example.com?fresh=1');
+  FakeEventSource.instances[0].emit('progress', { module: 'schema_audit' });
+  assert.equal(progress[0].module, 'schema_audit');
+
+  FakeEventSource.instances[0].emit('error');
+  assert.equal(FakeEventSource.instances[0].closed, true);
+  assert.equal(retries[0].attempt, 1);
+  scheduled.shift()();
+  assert.equal(FakeEventSource.instances[1].url, 'https://api.example/audit/example.com?fresh=0');
+
+  FakeEventSource.instances[1].emit('complete', { audit_id: 'audit_1' });
+  assert.equal(FakeEventSource.instances[1].closed, true);
+  assert.equal(completed[0].audit_id, 'audit_1');
+});
+
+test('audit runner cancels an active connection and ignores its stale events', () => {
+  class FakeEventSource {
+    constructor() { this.listeners = new Map(); this.closed = false; }
+    addEventListener(name, listener) { this.listeners.set(name, listener); }
+    emit(name, data) { this.listeners.get(name)?.({ data: JSON.stringify(data) }); }
+    close() { this.closed = true; }
+  }
+  let completed = 0;
+  const feature = loadController('audit-runner.js', 'GeoScoreAuditRunner', { EventSource: FakeEventSource });
+  const runner = feature.create({
+    EventSource: FakeEventSource,
+    buildEndpoint: () => 'https://api.example/audit',
+    onComplete: () => { completed += 1; },
+  });
+
+  runner.start({ domain: 'first.example' });
+  const source = runner.getActiveSource();
+  runner.cancel();
+  source.emit('complete', { audit_id: 'stale' });
+
+  assert.equal(source.closed, true);
+  assert.equal(completed, 0);
+});
+
 test('custom API controller stages one-use config and bounds model discovery', async () => {
   const feature = loadController('custom-api.js', 'GeoScoreCustomApi');
   const modelOptions = [];

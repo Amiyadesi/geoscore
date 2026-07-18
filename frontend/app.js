@@ -20,6 +20,7 @@ let reportExportController = null;
 let evidenceMapController = null;
 let monitoringController = null;
 let assistantController = null;
+let auditRunner = null;
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
 function applyUiLanguage() {
@@ -130,7 +131,6 @@ document.querySelectorAll('.hiw-tab').forEach(tab => {
     }, 0);
   }
 })();
-
 // ── Social proof: fetch audit count + recently scanned feed ──────────────
 (function () {
   const el = document.getElementById('audits-count');
@@ -593,6 +593,57 @@ assistantController = window.GeoScoreAssistantUi.create({
   getAuditId: () => currentAuditId,
   getReportLanguage: () => reportLanguage,
   getRecommendation: key => recMap.get(key),
+});
+
+auditRunner = window.GeoScoreAuditRunner.create({
+  buildEndpoint: (request, options) => REPORT_UI?.buildAuditEndpoint(API, request, options),
+  onProgress: d => updateModuleProgress(d.module, d.status, d.detail),
+  onSection: (d, { request }) => {
+    if (d.module !== 'cache_hit') {
+      renderSection(d);
+      if (PROGRESS_MODULES.has(d.module)) {
+        tickProgress();
+        clearTimeout(window._catCountTimer);
+        window._catCountTimer = setTimeout(updateCatTabCounts, 120);
+      }
+      return;
+    }
+    renderFullAudit(d.data);
+    evidenceMapController.runPending(d.data, request.customApiRunId);
+    modulesComplete = TOTAL_MODULES;
+    const fill = document.getElementById('progress-fill');
+    const label = document.getElementById('progress-label');
+    if (fill) fill.style.width = '100%';
+    if (label) label.textContent = UI_LANGUAGE === 'zh'
+      ? `${TOTAL_MODULES} / ${TOTAL_MODULES} 项`
+      : `${TOTAL_MODULES} / ${TOTAL_MODULES} modules`;
+    stopAuditTimer();
+    setTimeout(() => document.getElementById('progress-bar')?.classList.add('hidden'), 800);
+  },
+  onComplete: (d, { request }) => {
+    currentAuditId = d.audit_id;
+    stopAuditTimer();
+    renderFullAudit(d);
+    evidenceMapController.runPending(d, request.customApiRunId);
+    assistantController.enableChat();
+    fetchLighthouse(request.domain);
+  },
+  onRetry: ({ attempt, maxRetries }) => {
+    assistantController.appendError(`Connection interrupted — retrying (${attempt}/${maxRetries})...`, true);
+  },
+  onFailure: ({ code, request }) => {
+    stopAuditTimer();
+    if (customApiController.discard(request?.customApiRunId)) {
+      customApiController.setStatus(uiText('customApi.error.audit'), true);
+    }
+    assistantController.appendError(code === 'AUDIT_STREAM_INVALID_ENDPOINT'
+      ? 'Only public domains are supported'
+      : 'Audit failed or timed out. Please try again.');
+    document.querySelectorAll('[id^="module-"] .spinner').forEach(spinner => {
+      const card = spinner.closest('[id^="module-"]');
+      if (card) renderSection({ module: card.id.replace('module-', ''), status: 'failed', error: 'Timed out', duration_ms: null });
+    });
+  },
 });
 
 void monitoringController.verifyEmailFromUrl();
@@ -1219,6 +1270,7 @@ function buildDomainGuesses(input) {
 }
 
 async function startAudit(rawInput, options = {}) {
+  auditRunner.cancel();
   customApiController.discard();
   const parsed = parsePublicDomainInput(rawInput);
   let domain = parsed.domain;
@@ -1290,7 +1342,7 @@ async function startAudit(rawInput, options = {}) {
   history.pushState({}, '', pageQuery);
   showAuditShell(domain);
   spinnerCard(domain);
-  openAuditStream(currentAuditRequest, 0, options.fresh === true);
+  auditRunner.start(currentAuditRequest, { fresh: options.fresh === true });
 }
 
 function showAuditShell(domain) {
@@ -1732,77 +1784,6 @@ function updateCwvPillsFromLighthouse(lh) {
       el.style.borderColor = color;
     }
   }
-}
-
-// SSE with auto-reconnect (up to 2 retries on network error)
-// fresh=true adds ?fresh=1 so the server atomically busts its cache before re-auditing
-function openAuditStream(request, attempt, fresh = false) {
-  const auditRequest = typeof request === 'string'
-    ? { domain: request, mode: 'site', targetUrl: null, archetypeHint: null, customApiRunId: null }
-    : request;
-  const endpoint = REPORT_UI?.buildAuditEndpoint(API, auditRequest, { fresh: fresh && attempt === 0 });
-  if (!endpoint) {
-    assistantController.appendError('Only public domains are supported');
-    return;
-  }
-  const es = new EventSource(endpoint);
-
-  es.addEventListener('progress', (e) => {
-    const d = JSON.parse(e.data);
-    updateModuleProgress(d.module, d.status, d.detail);
-  });
-
-  es.addEventListener('section', (e) => {
-    const d = JSON.parse(e.data);
-    if (d.module !== 'cache_hit') {
-      renderSection(d);
-      if (PROGRESS_MODULES.has(d.module)) { tickProgress(); clearTimeout(window._catCountTimer); window._catCountTimer = setTimeout(updateCatTabCounts, 120); }
-    } else {
-      renderFullAudit(d.data);
-      evidenceMapController.runPending(d.data, auditRequest.customApiRunId);
-      // Instantly complete progress bar for cached results
-      modulesComplete = TOTAL_MODULES;
-      const fill = document.getElementById('progress-fill');
-      const label = document.getElementById('progress-label');
-      if (fill) fill.style.width = '100%';
-      if (label) label.textContent = UI_LANGUAGE === 'zh'
-        ? `${TOTAL_MODULES} / ${TOTAL_MODULES} 项`
-        : `${TOTAL_MODULES} / ${TOTAL_MODULES} modules`;
-      stopAuditTimer();
-      setTimeout(() => { const bar = document.getElementById('progress-bar'); if (bar) bar.classList.add('hidden'); }, 800);
-    }
-  });
-
-  es.addEventListener('complete', (e) => {
-    const d = JSON.parse(e.data);
-    currentAuditId = d.audit_id;
-    stopAuditTimer();
-    renderFullAudit(d);
-    evidenceMapController.runPending(d, auditRequest.customApiRunId);
-    assistantController.enableChat();
-    es.close();
-    // Kick off Lighthouse in a separate request (own Worker invocation = own subrequest budget)
-    fetchLighthouse(auditRequest.domain);
-  });
-
-  es.addEventListener('error', () => {
-    es.close();
-    if (attempt < 2) {
-      setTimeout(() => openAuditStream(auditRequest, attempt + 1), 2000 * (attempt + 1));
-      assistantController.appendError(`Connection interrupted — retrying (${attempt + 1}/2)...`, true);
-    } else {
-      stopAuditTimer();
-      if (customApiController.discard(auditRequest.customApiRunId)) {
-        customApiController.setStatus(uiText('customApi.error.audit'), true);
-      }
-      assistantController.appendError('Audit failed or timed out. Please try again.');
-      // Clear any modules stuck on spinner
-      document.querySelectorAll('[id^="module-"] .spinner').forEach(spinner => {
-        const card = spinner.closest('[id^="module-"]');
-        if (card) renderSection({ module: card.id.replace('module-', ''), status: 'failed', error: 'Timed out', duration_ms: null });
-      });
-    }
-  });
 }
 
 function renderSiteIntro(data) {
@@ -2309,7 +2290,7 @@ function wireActionButtons(data) {
         document.getElementById('scores').classList.add('hidden');
         navFreshBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> ${UI_LANGUAGE === 'zh' ? '重新审查' : 'Start Fresh'}`;
         navFreshBtn.dataset.wired = '';
-        openAuditStream(currentAuditRequest, 0, true);
+        auditRunner.start(currentAuditRequest, { fresh: true });
       });
     }
   }
@@ -3599,97 +3580,6 @@ function renderSection(d) {
   applyActiveCatFilter(el);
 }
 
-function wireCopyReport(data) {
-  const btn = document.getElementById('copy-report-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    const summary = REPORT_UI?.normalizeScoreSummary(data) ?? {};
-    const scoreText = value => value == null ? 'evidence insufficient' : `${Math.round(value)}/100`;
-    const lines = [
-      `GeoScore Audit — ${data.domain}`,
-      `Date: ${new Date(data.created_at).toLocaleString()}`,
-      '',
-      `Overall: ${scoreText(summary.overall)}  |  SEO: ${scoreText(summary.seo)}  |  GEO·AI: ${scoreText(summary.geo)}`,
-      '',
-    ];
-    const tech = data.modules?.technical_seo?.data;
-    if (tech) {
-      lines.push('── Technical SEO ──');
-      lines.push(`Score: ${tech.score}/100`);
-      (tech.issues || []).forEach(i => lines.push(`  • ${i}`));
-      if (tech.tech_stack?.cms) lines.push(`  CMS: ${tech.tech_stack.cms}`);
-      if (tech.security_headers) lines.push(`  Security headers: ${tech.security_headers.score}/100`);
-      lines.push('');
-    }
-    const geo = data.modules?.geo_predicted?.data;
-    if (geo && geo.is_reliable !== false) {
-      lines.push('── GEO / Predicted Visibility Simulation ──');
-      lines.push(`Predicted positive rate: ${Math.round((geo.citation_rate || 0) * 100)}%  |  Avg confidence: ${Math.round((geo.avg_confidence || 0) * 100)}%`);
-      (geo.queries || []).forEach(q => lines.push(`  ${q.cited ? '✓' : '✗'} ${q.query}`));
-      lines.push('');
-    }
-    const kw = data.modules?.keywords?.data;
-    if (kw?.keywords?.length && kw.is_reliable !== false) {
-      lines.push('── Top Keywords ──');
-      kw.keywords.slice(0, 15).forEach(k => lines.push(`  [${k.intent}] ${k.keyword}${k.geo_potential ? ' ✦' : ''}`));
-      lines.push('');
-    }
-    const onPage = data.modules?.on_page_seo?.data;
-    if (onPage?.page_speed) {
-      lines.push('── Core Web Vitals (Mobile) ──');
-      const ps = onPage.page_speed;
-      lines.push(`  Performance: ${ps.performance}/100  |  Accessibility: ${ps.accessibility}/100`);
-      if (ps.lcp_s) lines.push(`  LCP: ${ps.lcp_s}s  CLS: ${ps.cls ?? '—'}  FCP: ${ps.fcp_s}s`);
-      lines.push('');
-    }
-    const offPage = data.modules?.off_page_seo?.data;
-    if (offPage) {
-      lines.push('── Off-Page SEO ──');
-      if (offPage.social_profiles?.length) lines.push(`  Social: ${offPage.social_profiles.map(s => s.platform).join(', ')}`);
-      const em = offPage.email_security;
-      if (em) lines.push(`  Email security: MX ${em.has_mx ? '✓' : '✗'}  SPF ${em.has_spf ? '✓' : '✗'}  DMARC ${em.has_dmarc ? em.dmarc_policy ?? '✓' : '✗'}`);
-      lines.push('');
-    }
-    const siteIntel = data.modules?.site_intel?.data;
-    if (siteIntel) {
-      lines.push('── Site Intelligence ──');
-      if (siteIntel.hosting?.org) lines.push(`  Host: ${siteIntel.hosting.org_label || siteIntel.hosting.org} (${[siteIntel.hosting.city, siteIntel.hosting.country].filter(Boolean).join(', ')})`);
-      if (siteIntel.ip) lines.push(`  IP: ${siteIntel.ip}`);
-      if ((siteIntel.fonts?.google_fonts ?? []).length) lines.push(`  Fonts: ${siteIntel.fonts.google_fonts.join(', ')}`);
-      if (siteIntel.carbon) lines.push(`  Carbon: ${siteIntel.carbon.grams_per_view}g CO₂/view (rating ${siteIntel.carbon.rating})`);
-      lines.push('');
-    }
-    const redirect = data.modules?.redirect_chain?.data;
-    if (redirect) {
-      lines.push('── Redirect Chain ──');
-      lines.push(`  Hops: ${redirect.chain_length}  |  HTTPS: ${redirect.has_https_redirect ? '✓' : '✗'}  |  Clean: ${redirect.is_clean ? '✓' : '✗'}`);
-      (redirect.issues ?? []).forEach(i => lines.push(`  • ${i}`));
-      lines.push('');
-    }
-    const access = data.modules?.accessibility?.data;
-    if (access) {
-      lines.push('── Accessibility ──');
-      lines.push(`  WCAG score: ${access.score}/100`);
-      if (access.desktop_cwv) lines.push(`  Desktop Perf: ${access.desktop_cwv.performance}/100  A11y: ${access.desktop_cwv.accessibility_score}/100`);
-      // Derive failing checks from wcag_checks[] (issues[] is intentionally empty now — checklist is the single source)
-      (access.wcag_checks ?? []).filter(c => !c.passed).slice(0, 3).forEach(c => lines.push(`  • ${c.rule}${c.detail ? ' — ' + c.detail : ''}`));
-      lines.push('');
-    }
-    const recs = data.modules?.recommendations?.data;
-    if (recs?.length) {
-      lines.push('── Recommendations ──');
-      recs.forEach((r, i) => lines.push(`  ${i + 1}. ${r.title} (Impact ${r.impact}/5, Effort ${r.effort}/5)`));
-      lines.push('');
-    }
-    lines.push(`Generated by GeoScore — https://geo.sayori.org/?d=${data.domain}`);
-    navigator.clipboard.writeText(lines.join('\n')).then(() => {
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy report'; }, 2000);
-    });
-  }, { once: true });
-}
-
-
 function renderRecommendations(recs) {
   if (!recs?.length) return;
   const existing = document.getElementById('recs-section');
@@ -3814,20 +3704,6 @@ function tipify(escapedHtml) {
     result = result.replace(re, `<abbr class="tech-tip" title="${desc.replace(/"/g, '&quot;')}">$1</abbr>`);
   }
   return result;
-}
-
-function renderSummaryBullets(text) {
-  if (!text) return '';
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let bullets;
-  if (lines.some(l => /^[-•*]|\d+\./.test(l))) {
-    bullets = lines.map(l => l.replace(/^[-•*]\s*|\d+\.\s*/, '')).filter(Boolean);
-  } else {
-    bullets = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 10);
-  }
-  return `<ul class="space-y-2">${bullets.map(b =>
-    `<li class="flex gap-2 text-sm leading-relaxed"><span class="text-blue-400 shrink-0 mt-0.5">•</span><span class="text-blue-900">${tipify(esc(b))}</span></li>`
-  ).join('')}</ul>`;
 }
 
 function scoreVitals(value, good, poor, label, display) {
@@ -5393,15 +5269,3 @@ document.getElementById('vertical-modal')?.addEventListener('click', (e) => {
   document.getElementById('vm-submit')?.addEventListener('click', submitArchetypeCorrection);
   document.getElementById('vm-cancel')?.addEventListener('click', closeVerticalModal);
 })();
-
-// ── Generic module feedback (thumbs-down) ────────────────────────────────────
-
-async function submitModuleFeedback(domain, module, field, reportedValue) {
-  try {
-    await fetch(`${API}/api/feedback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain, module, field, reported_value: reportedValue }),
-    });
-  } catch { /* best-effort */ }
-}

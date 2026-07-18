@@ -4,6 +4,7 @@ import { extractJsonArray, extractJsonObject } from '../lib/json';
 import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from '../prompts';
 import { isBotChallengePage } from '../lib/bot-detection';
 import type { SubrequestBudgetLike } from '../lib/subrequest-budget';
+import { extractJsonLdBlocks } from '../lib/json-ld';
 
 // Models are managed by lib/llm.ts (Workers AI → Groq or OpenRouter fallback).
 
@@ -176,8 +177,8 @@ export function detectVerticalFromSchema(html: string): string | null {
 
   // Collect all @type values from every JSON-LD block (handles arrays and nested objects)
   const types = new Set<string>();
-  for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    for (const m of block[1].matchAll(/"@type"\s*:\s*(?:"([^"]+)"|\[([^\]]+)\])/g)) {
+  for (const block of extractJsonLdBlocks(html)) {
+    for (const m of block.matchAll(/"@type"\s*:\s*(?:"([^"]+)"|\[([^\]]+)\])/g)) {
       if (m[1]) types.add(m[1]);
       if (m[2]) { for (const t of m[2].matchAll(/"([^"]+)"/g)) types.add(t[1]); }
     }

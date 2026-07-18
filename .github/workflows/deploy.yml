@@ -43,9 +43,8 @@ jobs:
         shell: bash
         run: |
           if [[ -z "${GEOSCORE_CF_ACCOUNT_ID}" || -z "${GEOSCORE_CF_API_TOKEN}" ]]; then
-            echo "::warning::Cloudflare deploy skipped. Add GEOSCORE_CF_ACCOUNT_ID and GEOSCORE_CF_API_TOKEN repository secrets. Existing Worker secrets are not changed."
-            echo "ready=false" >> "${GITHUB_OUTPUT}"
-            exit 0
+            echo "::error::Missing required deployment secrets GEOSCORE_CF_ACCOUNT_ID or GEOSCORE_CF_API_TOKEN."
+            exit 1
           fi
 
           check_access() {

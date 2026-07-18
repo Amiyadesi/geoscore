@@ -85,6 +85,14 @@ describe('editorial classification and keyword degradation', () => {
     }
   });
 
+  it('accepts valid unquoted JSON-LD type attributes', async () => {
+    const html = '<html><head><script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","name":"Kubernetes"}</script></head><body><h1>Kubernetes</h1></body></html>';
+    const audit = await runSchemaAudit('kubernetes.io', html, [], 'documentation');
+
+    assert.ok(audit.schemas_found.includes('WebSite'));
+    assert.equal(audit.coverage.Entity, true);
+  });
+
   it('scores only applicable schema coverage and does not reward unrelated schema types', async () => {
     const withFaq = await runSchemaAudit('sayori.org', EDITORIAL_HTML, [], 'personal_blog');
     const withoutFaq = await runSchemaAudit(
