@@ -201,7 +201,7 @@ test('report language refreshes status totals and performance provenance', () =>
   assert.match(languageHandler, /updatePerformanceContext\(currentAuditData\)/);
 });
 
-test('full Markdown export includes every failure, score caps, unavailable checks and one handoff prompt', () => {
+test('full Markdown export includes every failure, score caps, unavailable checks and both AI briefs', () => {
   const checks = Array.from({ length: 5 }, (_, index) => ({
     id: `seo.failure_${index + 1}`,
     category: 'seo',
@@ -265,13 +265,71 @@ test('full Markdown export includes every failure, score caps, unavailable check
   assert.match(markdown, /geo\.info/);
   assert.match(markdown, /Optional capabilities not run/);
   assert.match(markdown, /broken_links/);
-  assert.equal((markdown.match(/Unified handoff prompt/g) ?? []).length, 1);
+  assert.equal((markdown.match(/## Content AI brief/g) ?? []).length, 1);
+  assert.equal((markdown.match(/## Developer AI brief/g) ?? []).length, 1);
+  assert.doesNotMatch(markdown, /Unified handoff prompt/);
   assert.match(markdown, /Do not invent prices, plans, services/);
   assert.doesNotMatch(markdown, /\/api\/fix/);
 
   const chinese = report.generateFullRepairMarkdown(data, 'zh');
   assert.match(chinese, /GeoScore 完整修复报告/);
   assert.match(chinese, /全部失败项与修复方案/);
+  assert.match(chinese, /## 内容 AI 简报/);
+  assert.match(chinese, /## 开发 AI 简报/);
+});
+
+test('full Markdown export separates evidence-bound content and developer AI briefs', () => {
+  const data = {
+    domain: 'example.com',
+    target_url: 'https://example.com/articles/evidence/',
+    mode: 'url',
+    audit_context: {
+      site_archetype: 'editorial',
+      locale: 'en',
+      root_domain: 'example.com',
+      evidence: [],
+    },
+    pages_audited: [{ url: 'https://example.com/articles/evidence/', page_type: 'article', status: 'complete' }],
+    checks: [
+      { id: 'geo.direct_answer', category: 'geo', title: 'Direct answer structure', status: 'fail', severity: 'minor', weight: 2, confidence: 0.82, source: 'page_structure', page_url: 'https://example.com/articles/evidence/', evidence: ['no concise lead answer'] },
+      { id: 'seo.canonical', category: 'seo', title: 'Canonical URL', status: 'fail', severity: 'major', weight: 2, confidence: 1, source: 'technical_seo', page_url: 'https://example.com/articles/evidence/', evidence: ['No canonical link found'] },
+      { id: 'geo.author_signal', category: 'geo', title: 'Content responsibility', status: 'not_applicable', severity: 'major', weight: 2, confidence: 0, source: 'json_ld', evidence: ['No sampled article page requires content responsibility attribution'] },
+      { id: 'geo.freshness', category: 'geo', title: 'Content freshness signals', status: 'unknown', severity: 'minor', weight: 1, confidence: 0, source: 'content_dates', evidence: ['Date evidence unavailable'] },
+    ],
+    recommendations_v2: [
+      { id: 'geo.direct_answer', title: 'Add a concise lead answer', severity: 'minor', page_url: 'https://example.com/articles/evidence/', why: 'The article does not answer its title near the beginning.', fix: 'Add a short factual answer before the detailed explanation.', verify: 'Re-audit the article and confirm the check passes.' },
+      { id: 'seo.canonical', title: 'Add a canonical URL', severity: 'major', page_url: 'https://example.com/articles/evidence/', why: 'The final HTML has no canonical link.', fix: 'Add one self-referencing canonical link in the document head.', verify: 'Inspect the final HTML and re-audit the URL.' },
+    ],
+    score_summary: {
+      score_version: '2.4.3',
+      status: 'complete',
+      overall: { score: 79, raw_score: 50, coverage: 0.8, confidence: 0.9, cap: 79, cap_reasons: [] },
+      seo: { score: 79, raw_score: 0, coverage: 1, confidence: 1, cap: 79, cap_reasons: [] },
+      geo: { score: 50, raw_score: 50, coverage: 0.5, confidence: 0.82, cap: 100, cap_reasons: [] },
+    },
+  };
+
+  const markdown = report.generateFullRepairMarkdown(data, 'en');
+  const contentStart = markdown.indexOf('## Content AI brief');
+  const developerStart = markdown.indexOf('## Developer AI brief');
+  assert.ok(contentStart >= 0);
+  assert.ok(developerStart > contentStart);
+
+  const contentBrief = markdown.slice(contentStart, developerStart);
+  const developerBrief = markdown.slice(developerStart);
+  assert.match(contentBrief, /geo\.direct_answer/);
+  assert.doesNotMatch(contentBrief, /seo\.canonical/);
+  assert.doesNotMatch(contentBrief, /geo\.author_signal|geo\.freshness/);
+  assert.match(contentBrief, /Prompt for a content AI/);
+  assert.match(developerBrief, /seo\.canonical/);
+  assert.doesNotMatch(developerBrief, /geo\.direct_answer/);
+  assert.match(developerBrief, /Prompt for a developer AI/);
+  assert.doesNotMatch(markdown, /Unified handoff prompt/);
+  assert.doesNotMatch(markdown, /\/api\/fix/);
+
+  const chinese = report.generateFullRepairMarkdown(data, 'zh');
+  assert.match(chinese, /## 内容 AI 简报/);
+  assert.match(chinese, /## 开发 AI 简报/);
 });
 
 test('primary Markdown download is deterministic while per-item fix packs remain optional', () => {

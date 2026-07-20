@@ -5,7 +5,7 @@ GeoScore audits public websites for verifiable SEO and generative-engine readine
 ## Evidence model
 
 - The normalized registry currently contains 60 factual checks: 54 scoring checks and 6 informational checks. The public `/api/meta` endpoint is the runtime source of truth for these counts.
-- The primary SEO and GEO Readiness scores use factual checks such as indexability, canonical metadata, semantic structure, schema suitability, entity consistency, authorship, source linkage, content extractability, freshness where applicable, cross-page consistency, CrUX field data, and audit-bound PageSpeed evidence.
+- The primary SEO and GEO Readiness scores use factual checks such as indexability, canonical metadata, semantic structure, schema suitability, entity consistency, article-level content responsibility, source linkage, content extractability, freshness where applicable, cross-page consistency, CrUX field data, and audit-bound PageSpeed evidence.
 - Every normalized check reports a status, severity, applicable page, evidence source, observed evidence, and confidence.
 - Unknown, unavailable, error, and not-applicable evidence does not reduce the raw weighted score. Coverage below 60% or confidence below 50% returns insufficient evidence, while lower-but-sufficient evidence can cap the final score.
 - Critical, major, and minor failures cap an affected score at 49, 79, and 94 respectively. Reports expose both raw and final scores and the exact cap reasons.
@@ -14,7 +14,9 @@ GeoScore audits public websites for verifiable SEO and generative-engine readine
 
 ## Repair reports and FixPacks
 
-The primary report action downloads one complete deterministic Markdown repair report without an AI call. It contains every recorded failure, unknown/error evidence, not-applicable and informational summaries, optional modules that were not run, score caps, evidence, remediation, verification steps, and one provider-neutral handoff prompt.
+The primary report action downloads one complete deterministic Markdown repair report without an AI call. It contains every recorded failure, unknown/error evidence, not-applicable and informational summaries, optional modules that were not run, score caps, evidence, remediation, verification steps, a content AI brief, and a developer AI brief. Only applicable failed content checks become editing tasks; technical failures stay in the developer brief. The report does not generate a full replacement article or publish changes.
+
+Content responsibility applies to sampled article pages, not every page. A trusted site-level Person can represent a personal blog, while an editorial or news article can expose a truthful author or responsible publisher. Non-article home, documentation, product, category, contact, and ordinary portfolio pages are not told to add an author merely for scoring.
 
 Per-item AI-assisted FixPacks are optional advanced details. They can only be generated from a recorded, applicable failed check in a stored audit. A FixPack includes the observed evidence, a constrained draft or technical snippet, validation steps, and a provider-neutral handoff prompt. It does not automatically change or publish the audited website, and it must not invent business facts, prices, services, or authority claims.
 
@@ -26,7 +28,7 @@ GeoScore may use live page fetches, robots.txt, sitemap.xml, PageSpeed Insights,
 
 - Audit modes: site and URL
 - Maximum site sample: five HTML pages
-- Current score version: 2.4.2
+- Current score version: 2.4.3
 - Current registry: 60 factual / 54 scoring / 6 informational / 1 Predicted
 - Interface languages: English and Chinese
 - License: MIT

@@ -513,6 +513,7 @@ export interface GeoPageSignals {
   paragraphs: string[];
   entityNames: string[];
   authorNames: string[];
+  publisherNames: string[];
   siteLabels: string[];
   dates: string[];
   claims: Array<{ text: string; supported: boolean }>;
@@ -573,6 +574,19 @@ export function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
     ...metadataValues(html, ['author', 'article:author']),
     ...[...html.matchAll(/rel=["']author["'][^>]*>([\s\S]*?)<\//gi)].map(match => decodeHtmlText(match[1])),
   ].filter(Boolean);
+  const publisherNames = [
+    ...nodes.flatMap(node => {
+      const publisher = node.publisher;
+      const values = Array.isArray(publisher) ? publisher : [publisher];
+      return values.flatMap(value => {
+        if (typeof value === 'string') return [value.trim()];
+        if (!value || typeof value !== 'object') return [];
+        const name = (value as JsonObject).name;
+        return typeof name === 'string' ? [name.trim()] : [];
+      });
+    }),
+    ...metadataValues(html, ['article:publisher', 'publisher']),
+  ].filter(Boolean);
   const siteLabels = [
     ...metadataValues(html, ['og:site_name', 'application-name']),
     ...nodes
@@ -600,7 +614,7 @@ export function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
       text: value,
       supported: claims.find(claim => claim.text === value)?.supported ?? /\[\d+\]|<cite\b|data-source/i.test(value),
     }));
-  return { pageUrl: page.url, pageType: page.page_type, title, text, paragraphs, entityNames, authorNames, siteLabels, dates, claims, statistics };
+  return { pageUrl: page.url, pageType: page.page_type, title, text, paragraphs, entityNames, authorNames, publisherNames, siteLabels, dates, claims, statistics };
 }
 
 export function contentPagesFor(context: AuditContext, signals: GeoPageSignals[]): GeoPageSignals[] {

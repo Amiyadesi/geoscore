@@ -594,16 +594,25 @@ export function buildNormalizedChecks(
           ? entityConflicts.flatMap(item => item.names.map(name => `${item.pageUrl}: ${name}`)).slice(0, 8)
           : entitySignals.flatMap(item => item.names.map(name => `${item.pageUrl}: ${name}`)).slice(0, 8),
   }));
-  const authorApplicable = ['personal_blog', 'editorial', 'news_media', 'portfolio'].includes(context.site_archetype);
-  const authorPages = contentSignals.filter(page => page.authorNames.length > 0 || page.pageType === 'article');
-  const missingAuthorPages = authorPages.filter(page => page.authorNames.length === 0);
-  output.push(check({ id: 'geo.author_signal', category: 'geo', title: zh ? '作者归属信号' : 'Author attribution', weight: 2,
-    status: !primaryAvailable ? 'unknown' : !authorApplicable ? 'not_applicable' : missingAuthorPages.length > 0 ? 'fail' : (schemas.has('Person') || pageMeta?.article_author || geoSignals.some(page => page.authorNames.length > 0) ? 'pass' : 'fail'),
+  const authorPages = contentSignals.filter(page => page.pageType === 'article');
+  const personalSiteResponsible = context.site_archetype === 'personal_blog' && context.entity?.type === 'Person';
+  const missingAuthorPages = authorPages.filter(page =>
+    page.authorNames.length === 0 && page.publisherNames.length === 0 && !personalSiteResponsible,
+  );
+  output.push(check({ id: 'geo.author_signal', category: 'geo', title: zh ? '内容责任归属' : 'Content responsibility', weight: 2,
+    status: !primaryAvailable ? 'unknown' : authorPages.length === 0 ? 'not_applicable' : missingAuthorPages.length > 0 ? 'fail' : 'pass',
     source: 'json_ld', pageUrl, evidence: !primaryAvailable
       ? ['Primary page content was not available']
+      : authorPages.length === 0
+        ? ['No sampled article page requires content responsibility attribution']
       : missingAuthorPages.length > 0
-        ? missingAuthorPages.map(page => `${page.pageUrl}: no author metadata`).slice(0, 8)
-        : geoSignals.flatMap(page => page.authorNames.map(name => `${page.pageUrl}: ${name}`)).slice(0, 8) }));
+        ? missingAuthorPages.map(page => `${page.pageUrl}: no explicit author or responsible publisher`).slice(0, 8)
+        : authorPages.flatMap(page => page.authorNames.length > 0
+          ? page.authorNames.map(name => `${page.pageUrl}: author ${name}`)
+          : page.publisherNames.length > 0
+            ? page.publisherNames.map(name => `${page.pageUrl}: publisher ${name}`)
+            : [`${page.pageUrl}: site Person ${context.entity?.name ?? ''}`]
+        ).slice(0, 8) }));
   const wordCount = Number(content?.word_count ?? onPage?.content?.word_count ?? 0);
   const extractableText = geoSignals.reduce((total, page) => total + page.text.length, 0);
   output.push(check({ id: 'geo.extractability', category: 'geo', title: zh ? '内容可提取性' : 'Content extractability', weight: 3,
