@@ -146,8 +146,8 @@ test('competitor controller owns domain normalization and factual score comparis
       return {
         ok: true,
         json: async () => ({
-          'example.com': { scoreVersion: '2.4.2', overall: 70, seo: 72, geo: 68 },
-          'stripe.com': { scoreVersion: '2.4.2', overall: 79, seo: 80, geo: 78 },
+          'example.com': { scoreVersion: '2.4.3', overall: 70, seo: 72, geo: 68 },
+          'stripe.com': { scoreVersion: '2.4.3', overall: 79, seo: 80, geo: 78 },
         }),
       };
     },

@@ -812,6 +812,19 @@
     return localized(error?.message, lang);
   }
 
+  const CONTENT_BRIEF_CHECK_IDS = new Set([
+    'geo.author_signal',
+    'geo.extractability',
+    'geo.direct_answer',
+    'geo.claim_source_support',
+    'geo.statistic_provenance',
+    'geo.freshness',
+    'seo.h1',
+    'seo.heading_hierarchy',
+    'seo.internal_links',
+    'seo.image_alt',
+  ]);
+
   function generateFullRepairMarkdown(data, lang) {
     const selected = language(lang);
     const zh = selected === 'zh';
@@ -825,6 +838,8 @@
     const failures = checks
       .filter(item => item.status === 'fail' && item.weight !== 0 && item.severity !== 'info')
       .sort((a, b) => (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0) || a.id.localeCompare(b.id));
+    const contentFailures = failures.filter(item => CONTENT_BRIEF_CHECK_IDS.has(item.id));
+    const developerFailures = failures.filter(item => !CONTENT_BRIEF_CHECK_IDS.has(item.id));
     const unavailable = checks.filter(item => item.status === 'unknown' || item.status === 'error');
     const secondaryChecks = checks.filter(item =>
       item.status === 'not_applicable' ||
@@ -851,20 +866,22 @@
       scores: '分数与评分限制', final: '最终分', raw: '原始加权分', coverage: '覆盖率', confidence: '置信度', cap: '最高分上限', limits: '限制原因', insufficient: '证据不足',
       pages: '抽样页面', failures: '全部失败项与修复方案', noFailures: '没有已知且适用的计分失败项。', page: '页面', source: '检测来源', evidence: '原始证据', why: '失败原因', fix: '修改方法', verify: '复验步骤', snippet: '技术片段',
       unavailable: '未知与错误检查', unavailableNote: '这些项目没有计为失败，也没有按 0 分处理；它们只影响证据覆盖率。',
-      notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', handoff: '交给开发 AI 的统一 Handoff Prompt',
+      notApplicable: '不适用与信息项', optional: '匿名审计未运行的可选能力', contentBrief: '内容 AI 简报', developerBrief: '开发 AI 简报',
       noInvent: '不得虚构价格、套餐、服务、地址、实体、作者、统计来源或站点未公开的业务事实。不得自动发布。',
       severity: '严重度', status: '状态', check: '检查', recommendation: '修复任务', unknown: '未知', none: '无',
       repairGroups: '按页面与根因聚合的修复组', stage: '阶段', checks: '检查项', evidenceMap: '查询证据地图', observedAt: '观察时间', affectsScore: '影响评分', appearances: '根域名出现次数', queries: '查询', opportunities: '内容机会', diagnosis: '流程诊断', provenance: '来源溯源与 API 运行', answerSnapshots: 'API 回答快照', answerError: 'API 回答错误', answer: '回答', model: '模型', latency: '耗时', citations: '引用', limitations: '限制说明', monitoring: '监控历史', runType: '运行类型', delta: '分数变化', baseline: '基线行为', noSnapshot: '尚未生成快照', noHistory: '尚无监控历史',
+      targetPages: '目标页面', verifiedIssues: '已验证问题', concreteTasks: '具体修改任务', guardrails: '禁止虚构项', contentVerification: '内容复验步骤', contentPrompt: '交给内容 AI 的 Prompt', technicalFailures: '技术失败项', acceptance: '验收条件', developerPrompt: '交给开发 AI 的 Prompt', noContentTasks: '没有适用且已失败的内容检查需要修改。', noDeveloperTasks: '没有适用且已失败的技术检查需要修改。',
     } : {
       title: 'GeoScore full repair report', audit: 'Audit identity', generated: 'Generated', version: 'Score version', mode: 'Audit mode', target: 'Target',
       profile: 'Site profile', archetype: 'Site archetype', entity: 'Entity', industry: 'Industry vertical', business: 'Business model', locale: 'Page locale', root: 'Root domain', classification: 'Classification evidence',
       scores: 'Scores and scoring limits', final: 'Final score', raw: 'Raw weighted score', coverage: 'Coverage', confidence: 'Confidence', cap: 'Maximum score cap', limits: 'Cap reasons', insufficient: 'Insufficient evidence',
       pages: 'Audited page sample', failures: 'All failed checks and repair actions', noFailures: 'No known, applicable scoring checks failed.', page: 'Page', source: 'Detection source', evidence: 'Raw evidence', why: 'Why it failed', fix: 'How to change it', verify: 'How to verify', snippet: 'Technical snippet',
       unavailable: 'Unknown and error checks', unavailableNote: 'These checks are not failures and were not converted to zero; they affect evidence coverage only.',
-      notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', handoff: 'Unified handoff prompt for a developer AI',
+      notApplicable: 'Not-applicable and informational checks', optional: 'Optional capabilities not run in the anonymous audit', contentBrief: 'Content AI brief', developerBrief: 'Developer AI brief',
       noInvent: 'Do not invent prices, plans, services, addresses, entities, authors, statistical sources, or business facts not published by the site. Do not publish automatically.',
       severity: 'Severity', status: 'Status', check: 'Check', recommendation: 'Repair task', unknown: 'Unknown', none: 'None',
       repairGroups: 'Repair groups by page and root cause', stage: 'Stage', checks: 'Checks', evidenceMap: 'Query Evidence Map', observedAt: 'Observed at', affectsScore: 'Affects score', appearances: 'Audited-root appearances', queries: 'Queries', opportunities: 'Content opportunities', diagnosis: 'Pipeline diagnosis', provenance: 'Source provenance and API runs', answerSnapshots: 'API answer snapshots', answerError: 'API answer error', answer: 'Answer', model: 'Model', latency: 'Latency', citations: 'Citations', limitations: 'Limitations', monitoring: 'Monitoring history', runType: 'Run type', delta: 'Score change', baseline: 'Baseline action', noSnapshot: 'No snapshot has been generated', noHistory: 'No monitoring history is available',
+      targetPages: 'Target pages', verifiedIssues: 'Verified issues', concreteTasks: 'Concrete editing tasks', guardrails: 'Do not invent', contentVerification: 'Content verification steps', contentPrompt: 'Prompt for a content AI', technicalFailures: 'Technical failures', acceptance: 'Acceptance criteria', developerPrompt: 'Prompt for a developer AI', noContentTasks: 'No applicable failed content checks require editing.', noDeveloperTasks: 'No applicable failed technical checks require implementation.',
     };
     const oneLine = value => String(value ?? '').replace(/\s+/g, ' ').trim();
     const percent = value => value === null || value === undefined ? labels.unknown : `${Math.round(value)}%`;
@@ -1001,13 +1018,41 @@
     const limitationLines = [...new Set(limitations.map(oneLine))].length
       ? [...new Set(limitations.map(oneLine))].map(item => `- ${item}`)
       : [`- ${labels.none}`];
-    const handoffTasks = failures.length ? failures.map((item, index) => {
+    const repairPage = item => {
       const action = actionById.get(item.id);
-      return `${index + 1}. ${item.id} on ${action?.page || item.page || data?.domain}: ${oneLine(action?.fix || item.evidence.join('; '))}. Verify: ${oneLine(action?.verify || 're-run the audit and require pass')}`;
-    }).join('\n') : (zh ? '当前没有需要实施的计分失败项。' : 'There are no scoring failures to implement.');
-    const handoffPrompt = zh
-      ? `请在网站代码库中一次性处理以下 GeoScore ${scores.scoreVersion ?? ''} 失败项。先定位生成对应 URL 的源文件，保留现有框架和内容风格，只修改证据支持的部分。\n\n${handoffTasks}\n\n${labels.noInvent}\n完成后运行项目现有测试/构建，并逐项说明修改文件、证据对应关系与复验结果。`
-      : `Apply the following GeoScore ${scores.scoreVersion ?? ''} failures in one batch. First locate the source files that generate each URL, preserve the existing framework and content style, and change only what the evidence supports.\n\n${handoffTasks}\n\n${labels.noInvent}\nAfter implementation, run the project's existing tests/build and report the changed files, evidence mapping, and verification result for every item.`;
+      return action?.page || item.page || data?.target_url || `https://${data?.domain ?? ''}/`;
+    };
+    const briefTargetLines = (items, emptyMessage) => {
+      const targets = [...new Set(items.map(repairPage).filter(Boolean))];
+      return targets.length ? targets.map(value => `- ${oneLine(value)}`) : [`- ${emptyMessage}`];
+    };
+    const briefIssueBlocks = (items, emptyMessage) => items.length ? items.map((item, index) => {
+      const action = actionById.get(item.id);
+      return [
+        `#### ${index + 1}. [${item.severity.toUpperCase()}] ${item.title} (\`${item.id}\`)`,
+        `- ${labels.page}: ${oneLine(repairPage(item))}`,
+        `- ${labels.source}: ${oneLine(action?.source || item.source || labels.unknown)}`,
+        `- ${labels.evidence}:`,
+        ...(item.evidence.length ? item.evidence.map(value => `  - ${oneLine(value)}`) : [`  - ${labels.none}`]),
+        `- ${labels.why}: ${oneLine(action?.reason || (zh ? '该适用检查基于上述可验证证据失败。' : 'This applicable check failed on the verifiable evidence above.'))}`,
+      ].join('\n');
+    }).join('\n\n') : `- ${emptyMessage}`;
+    const briefTaskLines = (items, emptyMessage) => items.length ? items.map((item, index) => {
+      const action = actionById.get(item.id);
+      return `${index + 1}. \`${item.id}\` @ ${oneLine(repairPage(item))}: ${oneLine(action?.fix || (zh ? '只修改证据支持的部分。' : 'Change only what the evidence supports.'))}`;
+    }) : [`- ${emptyMessage}`];
+    const briefVerificationLines = (items, emptyMessage) => items.length ? items.map(item => {
+      const action = actionById.get(item.id);
+      return `- \`${item.id}\`: ${oneLine(action?.verify || (zh ? '重新审计目标 URL，并确认该检查变为 pass。' : 'Re-audit the target URL and confirm this check becomes pass.'))}`;
+    }) : [`- ${emptyMessage}`];
+    const contentPromptTasks = briefTaskLines(contentFailures, labels.noContentTasks).join('\n');
+    const developerPromptTasks = briefTaskLines(developerFailures, labels.noDeveloperTasks).join('\n');
+    const contentPrompt = zh
+      ? `请只根据下面已验证的内容失败项，为列出的页面准备候选修改。保留原有事实、语气和页面目的，不重写无关段落，不自动发布。每项输出目标页面、建议替换或结构调整、需要人工确认的事实，以及复验方法。\n\n${contentPromptTasks}\n\n${labels.noInvent}`
+      : `Use only the verified content failures below to prepare candidate edits for the listed pages. Preserve the published facts, voice, and page purpose; do not rewrite unrelated sections or publish anything. For each task, return the target page, suggested replacement or structural edit, facts that need human confirmation, and the verification method.\n\n${contentPromptTasks}\n\n${labels.noInvent}`;
+    const developerPrompt = zh
+      ? `请在网站代码库中只处理下面的技术失败项。先定位生成目标 URL 的源文件，保留现有框架，只修改证据支持的代码或配置。\n\n${developerPromptTasks}\n\n${labels.noInvent}\n完成后运行项目现有测试或构建，并逐项说明修改文件、证据对应关系与复验结果。`
+      : `Apply only the technical failures below in the website repository. First locate the source files that generate each target URL, preserve the existing framework, and change only code or configuration supported by the evidence.\n\n${developerPromptTasks}\n\n${labels.noInvent}\nAfter implementation, run the project's existing tests or build and report the changed files, evidence mapping, and verification result for every item.`;
 
     return `# ${labels.title}: ${data?.domain ?? labels.unknown}
 
@@ -1081,10 +1126,53 @@ ${monitoringLines.join('\n')}
 
 ${limitationLines.join('\n')}
 
-## ${labels.handoff}
+## ${labels.contentBrief}
+
+### ${labels.targetPages}
+
+${briefTargetLines(contentFailures, labels.noContentTasks).join('\n')}
+
+### ${labels.verifiedIssues}
+
+${briefIssueBlocks(contentFailures, labels.noContentTasks)}
+
+### ${labels.concreteTasks}
+
+${briefTaskLines(contentFailures, labels.noContentTasks).join('\n')}
+
+### ${labels.guardrails}
+
+- ${labels.noInvent}
+- ${zh ? '不要把 not_applicable、unknown 或 error 项改写成内容任务，也不要为了评分强行添加 FAQ、作者或商业信息。' : 'Do not turn not_applicable, unknown, or error checks into editing tasks, and do not add FAQ, authors, or commercial facts merely to improve a score.'}
+
+### ${labels.contentVerification}
+
+${briefVerificationLines(contentFailures, labels.noContentTasks).join('\n')}
+
+### ${labels.contentPrompt}
 
 \`\`\`text
-${handoffPrompt.replace(/\`\`\`/g, "'''")}
+${contentPrompt.replace(/\`\`\`/g, "'''")}
+\`\`\`
+
+## ${labels.developerBrief}
+
+### ${labels.technicalFailures}
+
+${briefIssueBlocks(developerFailures, labels.noDeveloperTasks)}
+
+### ${labels.concreteTasks}
+
+${briefTaskLines(developerFailures, labels.noDeveloperTasks).join('\n')}
+
+### ${labels.acceptance}
+
+${briefVerificationLines(developerFailures, labels.noDeveloperTasks).join('\n')}
+
+### ${labels.developerPrompt}
+
+\`\`\`text
+${developerPrompt.replace(/\`\`\`/g, "'''")}
 \`\`\`
 `;
   }

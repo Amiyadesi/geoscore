@@ -1,6 +1,6 @@
 import type { FetchedAuditPage } from './audit-pages';
 
-export const SCORE_VERSION = '2.4.2';
+export const SCORE_VERSION = '2.4.3';
 
 export const SCORE_POLICY = {
   minimum_category_coverage: 0.6,
@@ -100,7 +100,7 @@ export const CHECK_TITLES: Record<string, LocalizedAuditText> = {
   'geo.ai_crawler_policy': { en: 'AI crawler policy', zh: 'AI 爬虫策略' },
   'geo.entity_identity': { en: 'Entity identity clarity', zh: '实体身份清晰度' },
   'geo.entity_consistency': { en: 'Cross-page entity consistency', zh: '跨页面实体一致性' },
-  'geo.author_signal': { en: 'Author attribution', zh: '作者归属信号' },
+  'geo.author_signal': { en: 'Content responsibility', zh: '内容责任归属' },
   'geo.extractability': { en: 'Content extractability', zh: '内容可提取性' },
   'geo.direct_answer': { en: 'Direct answer structure', zh: '直接回答结构' },
   'geo.claim_source_support': { en: 'Claim-to-source support', zh: '声明与来源关联' },

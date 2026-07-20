@@ -353,6 +353,105 @@ describe('GeoScore 2 audit core', () => {
     assert.equal(schemaRecommendation, undefined);
   });
 
+  it('does not require content responsibility on a non-article portfolio page', () => {
+    const homepage = page('https://portfolio.example.com/', `<!doctype html>
+      <html lang="en"><head><title>Example portfolio</title></head>
+      <body><main><h1>Selected work</h1><p>A collection of design and engineering projects.</p></main></body></html>`);
+    const context = core.buildAuditContext({
+      domain: 'portfolio.example.com',
+      pages: [homepage],
+      archetypeHint: 'portfolio',
+    });
+    const author = core.buildNormalizedChecks(context, [homepage], {})
+      .find(item => item.id === 'geo.author_signal');
+
+    assert.equal(author?.status, 'not_applicable');
+    assert.equal(author?.localized_title.en, 'Content responsibility');
+    assert.equal(author?.localized_title.zh, '内容责任归属');
+  });
+
+  it('accepts a trusted site Person as responsibility for a personal-blog article', () => {
+    const homepage = page('https://blog.sayori.org/', PERSONAL_BLOG_HTML);
+    const article = page('https://blog.sayori.org/posts/evidence/', `<!doctype html>
+      <html lang="zh-CN"><head><title>证据怎么写</title>
+      <script type="application/ld+json">{
+        "@context":"https://schema.org",
+        "@type":"BlogPosting",
+        "headline":"证据怎么写",
+        "datePublished":"2026-07-20"
+      }</script></head><body><article><h1>证据怎么写</h1>
+      <p>这篇文章解释如何把声明和公开来源放在同一个可核验的上下文里。</p>
+      </article></body></html>`, 'article');
+    const context = core.buildAuditContext({
+      domain: 'blog.sayori.org',
+      pages: [homepage, article],
+      archetypeHint: 'personal_blog',
+    });
+    const author = core.buildNormalizedChecks(context, [homepage, article], {})
+      .find(item => item.id === 'geo.author_signal');
+
+    assert.equal(context.entity?.type, 'Person');
+    assert.equal(author?.status, 'pass');
+    assert.match(author?.evidence.join(' ') ?? '', /Sayori/);
+  });
+
+  it('accepts an explicit responsible publisher on a news article', () => {
+    const homepage = page('https://news.example.com/', `<!doctype html>
+      <html lang="en"><head><title>Example News</title>
+      <script type="application/ld+json">{
+        "@context":"https://schema.org",
+        "@type":"NewsMediaOrganization",
+        "name":"Example News",
+        "url":"https://news.example.com/"
+      }</script></head><body><main><h1>Example News</h1><p>Independent local reporting.</p></main></body></html>`);
+    const article = page('https://news.example.com/story/transit/', `<!doctype html>
+      <html lang="en"><head><title>Transit plan approved</title>
+      <script type="application/ld+json">{
+        "@context":"https://schema.org",
+        "@type":"NewsArticle",
+        "headline":"Transit plan approved",
+        "publisher":{"@type":"Organization","name":"Example News"}
+      }</script></head><body><article><h1>Transit plan approved</h1>
+      <p>The council approved the transit plan after a public hearing.</p>
+      </article></body></html>`, 'article');
+    const context = core.buildAuditContext({
+      domain: 'news.example.com',
+      pages: [homepage, article],
+      archetypeHint: 'news_media',
+    });
+    const author = core.buildNormalizedChecks(context, [homepage, article], {})
+      .find(item => item.id === 'geo.author_signal');
+
+    assert.equal(author?.status, 'pass');
+    assert.match(author?.evidence.join(' ') ?? '', /publisher Example News/);
+  });
+
+  it('fails an article only when no truthful author or publisher can take responsibility', () => {
+    const article = page('https://news.example.com/story/unattributed/', `<!doctype html>
+      <html lang="en"><head><title>Unattributed report</title>
+      <script type="application/ld+json">{
+        "@context":"https://schema.org",
+        "@type":"NewsArticle",
+        "headline":"Unattributed report"
+      }</script></head><body><article><h1>Unattributed report</h1>
+      <p>The page publishes a report but does not identify who takes responsibility for it.</p>
+      </article></body></html>`, 'article');
+    const context = core.buildAuditContext({
+      domain: 'news.example.com',
+      pages: [article],
+      archetypeHint: 'news_media',
+    });
+    const author = core.buildNormalizedChecks(context, [article], {})
+      .find(item => item.id === 'geo.author_signal');
+    const recommendation = core.buildRecommendations(context, author ? [author] : [])[0];
+
+    assert.equal(author?.status, 'fail');
+    assert.match(author?.evidence.join(' ') ?? '', /no explicit author or responsible publisher/i);
+    assert.equal(recommendation?.localized.en.title, 'Clarify content responsibility');
+    assert.match(recommendation?.localized.en.fix ?? '', /author or responsible publisher/i);
+    assert.doesNotMatch(recommendation?.localized.en.fix ?? '', /must|require.*Person/i);
+  });
+
   it('keeps target transport checks unknown for Browser Run evidence', () => {
     const browserPage = {
       ...page('https://nodeloc.com/', PERSONAL_BLOG_HTML),

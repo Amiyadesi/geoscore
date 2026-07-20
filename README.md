@@ -49,15 +49,25 @@ weight zero. `/api/meta` is the runtime source of truth for these counts.
 | **Structured data and site profile** | Schema presence separately from archetype fit, site type, entity, business model, locale, root domain, page roles, confidence, and the evidence used for classification |
 | **Mobile and accessibility** | Viewport, basic mobile usability, labels, landmarks, descriptive links, skip navigation, and image accessibility |
 | **Performance** | CrUX field metrics plus PageSpeed/Lighthouse lab metrics. `/api/lighthouse?audit_id=...` merges successful evidence back into the stored audit and recalculates the same score |
-| **Factual GEO readiness** | Entity identity/consistency, author attribution, extractability, direct-answer structure where applicable, claim/source linkage, statistic provenance, freshness, source links, and cross-page consistency |
+| **Factual GEO readiness** | Entity identity/consistency, article-level content responsibility, extractability, direct-answer structure where applicable, claim/source linkage, statistic provenance, freshness, source links, and cross-page consistency |
 | **Public discoverability evidence** | HTML conformance, RSS/Atom discovery, AI crawler policy, llms.txt presence, domain-matched knowledge-graph evidence, and Common Crawl capture presence |
 
 The report shows three evidence-backed priority actions on screen. The primary
 download produces one deterministic `GEOSCORE-REPAIR-<domain>.md` containing all
 failed checks, unknown/error evidence, not-applicable and informational summaries,
-optional modules that were not run, score caps, verification steps, and one
-provider-neutral handoff prompt. It does not require an AI call. Per-item AI
-FixPacks remain available only as optional advanced details for stored failures.
+optional modules that were not run, score caps, verification steps, and two
+provider-neutral handoff briefs. The content AI brief contains only applicable
+failed content checks and asks for evidence-bound candidate edits. The developer
+AI brief contains metadata, schema, crawling, performance, and other code or
+configuration work. Neither brief requires an AI call, generates a full replacement
+article, or publishes changes. Per-item AI FixPacks remain available only as
+optional advanced details for stored failures.
+
+Content responsibility is evaluated only for sampled article pages. Homepages,
+documentation, product, category, contact, and ordinary portfolio pages are not
+asked to add an author merely for a score. A personal blog can use its trusted
+site-level `Person` identity, while an editorial or news article can identify a
+truthful author or responsible publisher.
 
 ### Evidence Map and accountless monitoring
 

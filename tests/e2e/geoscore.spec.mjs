@@ -44,7 +44,7 @@ async function mockApi(page) {
       return route.fulfill({
         json: {
           version: '2.4.5',
-          score_version: '2.4.2',
+          score_version: '2.4.3',
           max_pages: 5,
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },
@@ -184,6 +184,7 @@ test('shared audit reveals the report and primary Markdown download', async ({ p
   expect(downloadPath).toBeTruthy();
   const markdown = await readFile(downloadPath, 'utf8');
   expect(markdown).toContain('geo.author_attribution');
-  expect(markdown).toContain('Unified handoff prompt');
+  expect(markdown).toContain('Content AI brief');
+  expect(markdown).toContain('Developer AI brief');
   expect(runtimeErrors).toEqual([]);
 });
