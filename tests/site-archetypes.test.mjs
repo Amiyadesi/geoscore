@@ -199,6 +199,35 @@ describe('golden site archetype fixtures', () => {
     assert.equal(context.entity?.name, 'NASA');
   });
 
+  it('uses a matching homepage brand instead of a sampled sub-site organization', () => {
+    const domain = 'streamly.com';
+    const home = `<!doctype html><html lang="en"><head><title>Streamly</title>
+      <meta property="og:site_name" content="Streamly"></head>
+      <body><main><h1>Streamly</h1><p>Watch and share videos with people around the world.</p></main></body></html>`;
+    const policy = `<!doctype html><html lang="en"><head><title>Copyright - How Streamly Works</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"How Streamly Works","url":"https://streamly.com/how-it-works/"}</script>
+      </head><body><main><h1>Copyright</h1></main></body></html>`;
+
+    const context = core.buildAuditContext({
+      domain,
+      pages: [page(domain, home), page(domain, policy, '/about/copyright/', 'about')],
+    });
+
+    assert.equal(context.site_archetype, 'other');
+    assert.equal(context.entity?.name, 'Streamly');
+    assert.equal(context.entity?.type, 'WebSite');
+    assert.equal(context.entity?.source, 'page_metadata');
+    assert.ok(context.confidence < 0.8);
+  });
+
+  it('does not invent an entity from a generic homepage title', () => {
+    const domain = 'example.org';
+    const html = '<!doctype html><html lang="en"><head><title>Welcome</title></head><body><main><h1>Welcome</h1></main></body></html>';
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.entity, null);
+  });
+
   it('keeps a documentation product ahead of a community navigation link', () => {
     const domain = 'kubernetes.example.com';
     const html = `<!doctype html><html lang="en"><head><title>Kubernetes</title>
@@ -227,6 +256,22 @@ describe('golden site archetype fixtures', () => {
     const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
 
     assert.equal(context.site_archetype, 'saas');
+  });
+
+  it('recognizes a forum host from repeated discussion routes without branded forum copy', () => {
+    const domain = 'forum.example.com';
+    const html = `<!doctype html><html lang="zh-CN"><head><title>Doki Club</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+        {"@type":"Organization","name":"Doki Club","url":"https://forum.example.com/"},
+        {"@type":"WebSite","name":"Doki Club","url":"https://forum.example.com/"}
+      ]}</script></head><body><main><noscript><h1>全部主题</h1>
+      <a href="/d/101">主题一</a><a href="/d/102">主题二</a><a href="/d/103">主题三</a>
+      </noscript></main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'community');
+    assert.match(context.evidence[0]?.value ?? '', /community|forum/i);
   });
 
   it('recognizes a blog identified as written by a named author', () => {

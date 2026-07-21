@@ -459,8 +459,14 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.match(routeSource, /candidates\.map\(candidate => fetchAuditPage\(candidate, pageFetcher\)\)/);
   });
 
-  it('detects an empty JavaScript app shell without flagging rendered content', () => {
+  it('detects empty and oversized sparse JavaScript shells without flagging real content', () => {
+    const sparseText = 'About Press Copyright Contact Creators Advertise Developers Terms Privacy Policy Safety How the site works Test new features. '.repeat(2).slice(0, 159);
+    const oversizedSparseShell = `<!doctype html><html><head>${'<script src="/app.js"></script>'.repeat(8)}</head><body><div id="content">${sparseText}</div><!--${'x'.repeat(817 * 1024)}--></body></html>`;
+    const shortRealPage = `<!doctype html><html><head><script src="/app.js"></script></head><body><main><h1>About Acme</h1><p>Acme publishes a concise, server-rendered introduction with contact details and a clear purpose.</p></main></body></html>`;
+
     assert.equal(detectJavaScriptShell('<div id="root"></div><script src="/app.js"></script>'), true);
+    assert.equal(detectJavaScriptShell(oversizedSparseShell), true);
+    assert.equal(detectJavaScriptShell(shortRealPage), false);
     assert.equal(detectJavaScriptShell(renderedHtml), false);
   });
 });

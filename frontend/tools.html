@@ -74,7 +74,7 @@
         <button id="tab-robots" data-i18n="tools.robots.tab" class="tool-tab active w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🤖 robots.txt generator</button>
         <button id="tab-meta" data-i18n="tools.meta.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🏷️ Meta tag generator</button>
         <button id="tab-serp" data-i18n="tools.serp.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🔍 SERP preview</button>
-        <button id="tab-og" data-i18n="tools.og.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">📸 Open Graph preview</button>
+        <button id="tab-og" data-i18n="tools.og.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">📸 Social card checker</button>
         <button id="tab-sitemap" data-i18n="tools.sitemap.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🗺️ Sitemap XML builder</button>
         <button id="tab-headers" data-i18n="tools.headers.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🛡️ Security headers</button>
         <button id="tab-schema" data-i18n="tools.schema.tab" class="tool-tab w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all">🗂️ Schema generator</button>
@@ -90,7 +90,7 @@
         <button id="tab-robots-m" data-i18n="tools.robots.tab" class="tool-tab active px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">robots.txt generator</button>
         <button id="tab-meta-m" data-i18n="tools.meta.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Meta tag generator</button>
         <button id="tab-serp-m" data-i18n="tools.serp.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">SERP preview</button>
-        <button id="tab-og-m" data-i18n="tools.og.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Open Graph preview</button>
+        <button id="tab-og-m" data-i18n="tools.og.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Social card checker</button>
         <button id="tab-sitemap-m" data-i18n="tools.sitemap.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Sitemap XML builder</button>
         <button id="tab-headers-m" data-i18n="tools.headers.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Security headers</button>
         <button id="tab-schema-m" data-i18n="tools.schema.tab" class="tool-tab px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Schema generator</button>
@@ -284,8 +284,8 @@
       <!-- ── 4. Open Graph Preview ─────────────────────────────────────── -->
       <section id="panel-og" class="tool-panel">
         <div class="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 data-i18n="tools.og.title" class="text-lg font-bold mb-1">Open Graph preview</h2>
-          <p data-i18n="tools.og.body" class="text-sm text-slate-500 mb-5">Preview common social cards from manually entered tags or a public URL.</p>
+          <h2 data-i18n="tools.og.title" class="text-lg font-bold mb-1">Social card checker</h2>
+          <p data-i18n="tools.og.body" class="text-sm text-slate-500 mb-5">Check one public page without running a full audit. Preview its share cards and see which core Open Graph tags are missing.</p>
 
           <div class="grid md:grid-cols-2 gap-6">
             <div class="space-y-3">
@@ -293,9 +293,10 @@
                 <p data-i18n="tools.og.fetchUrl" class="text-sm font-semibold text-blue-800 mb-1.5">Fetch from URL</p>
                 <div class="flex gap-2">
                   <input id="og-url-input" type="url" placeholder="https://example.com" class="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white">
-                  <button id="og-fetch" data-i18n="common.fetch" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Fetch</button>
+                  <button id="og-fetch" type="button" data-i18n="common.fetch" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-wait text-white text-sm font-semibold rounded-lg transition-colors">Fetch</button>
                 </div>
-                <p id="og-fetch-status" class="text-xs text-blue-600 mt-1.5 hidden"></p>
+                <p id="og-fetch-status" role="status" aria-live="polite" class="text-xs text-blue-600 mt-1.5 hidden"></p>
+                <p data-i18n="tools.og.fetchPrivacy" class="text-[11px] leading-relaxed text-blue-700/75 mt-1.5">GeoScore reads public page metadata for this request only and does not create an audit record.</p>
               </div>
               <div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div><div class="relative flex justify-center"><span data-i18n="tools.og.manual" class="bg-white px-2 text-xs text-slate-400">or enter manually</span></div></div>
               <div>

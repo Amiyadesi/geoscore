@@ -1,5 +1,6 @@
 import { fetchWithTimeout, type HttpFetcher } from '../lib/http';
-import { isTextLengthGood, textLengthRange } from '../lib/metadata-quality';
+import { descriptionLengthRange, isBrandOnlyHomepageTitle, isDescriptionLengthGood, isTextLengthGood, textLengthRange } from '../lib/metadata-quality';
+import { parseHTML } from 'linkedom';
 
 export interface RobotsSummary {
   user_agent_count: number;
@@ -83,6 +84,72 @@ export interface PageMeta {
   article_published_time: string | null;
   article_modified_time: string | null;
   article_author: string | null;
+}
+
+function cleanMetaValue(value: string | null | undefined): string | null {
+  const cleaned = value?.trim();
+  return cleaned ? cleaned : null;
+}
+
+/** Parse metadata with an HTML parser so apostrophes and attribute ordering are preserved. */
+export function extractPageMeta(html: string): PageMeta {
+  const empty: PageMeta = {
+    title: null,
+    description: null,
+    og_title: null,
+    og_description: null,
+    og_image: null,
+    og_type: null,
+    og_site_name: null,
+    canonical_url: null,
+    twitter_card: null,
+    twitter_title: null,
+    twitter_description: null,
+    twitter_image: null,
+    favicon: null,
+    lang: null,
+    article_published_time: null,
+    article_modified_time: null,
+    article_author: null,
+  };
+
+  try {
+    const { document } = parseHTML(html);
+    const metas = [...document.querySelectorAll('meta')];
+    const metaValue = (attribute: 'name' | 'property', key: string): string | null => {
+      const wanted = key.toLowerCase();
+      const node = metas.find(item => (item.getAttribute(attribute) ?? '').trim().toLowerCase() === wanted);
+      return cleanMetaValue(node?.getAttribute('content'));
+    };
+    const links = [...document.querySelectorAll('link')];
+    const linkValue = (requiredRel: string, attribute: 'href' = 'href'): string | null => {
+      const node = links.find(item => (item.getAttribute('rel') ?? '').toLowerCase().split(/\s+/).includes(requiredRel));
+      return cleanMetaValue(node?.getAttribute(attribute));
+    };
+    const lang = cleanMetaValue(document.documentElement?.getAttribute('lang'));
+
+    return {
+      title: cleanMetaValue(document.querySelector('title')?.textContent),
+      description: metaValue('name', 'description'),
+      og_title: metaValue('property', 'og:title'),
+      og_description: metaValue('property', 'og:description'),
+      og_image: metaValue('property', 'og:image'),
+      og_type: metaValue('property', 'og:type'),
+      og_site_name: metaValue('property', 'og:site_name'),
+      canonical_url: linkValue('canonical'),
+      twitter_card: metaValue('name', 'twitter:card'),
+      twitter_title: metaValue('name', 'twitter:title'),
+      twitter_description: metaValue('name', 'twitter:description'),
+      twitter_image: metaValue('name', 'twitter:image'),
+      favicon: linkValue('icon') ?? linkValue('shortcut'),
+      lang,
+      article_published_time: metaValue('property', 'article:published_time'),
+      article_modified_time: metaValue('property', 'article:modified_time'),
+      article_author: metaValue('property', 'article:author'),
+    };
+  } catch {
+    return empty;
+  }
 }
 
 interface Check {
@@ -880,28 +947,8 @@ export async function runTechnicalSeo(
     page_weight_kb = Math.round(html.length / 1024);
     tech_stack = detectTechStack(html, sharedHeaders);
 
-    // Extract page meta for SERP / Social previews
-    const langMatch = html.match(/<html[^>]+lang=["']([^"']+)["']/i);
-    page_meta = {
-      title:              html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? null,
-      description:       (html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
-                       ?? html.match(/content=["']([^"']{80,}?)["'][^>]*name=["']description["']/i))?.[1]?.trim() ?? null,
-      og_title:          html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      og_description:    html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      og_image:          html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      og_type:           html.match(/<meta[^>]*property=["']og:type["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      og_site_name:      html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      canonical_url:     html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      twitter_card:      html.match(/<meta[^>]*name=["']twitter:card["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      twitter_title:     html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      twitter_description: html.match(/<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      twitter_image:     html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      favicon:           html.match(/<link[^>]*rel=["'](?:icon|shortcut icon)["'][^>]*href=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      lang:              langMatch?.[1]?.trim() ?? null,
-      article_published_time: html.match(/<meta[^>]*property=["']article:published_time["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      article_modified_time:  html.match(/<meta[^>]*property=["']article:modified_time["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-      article_author:         html.match(/<meta[^>]*property=["']article:author["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() ?? null,
-    };
+    // Extract page meta for SERP / Social previews.
+    page_meta = extractPageMeta(html);
 
     // Only scripts in <head> can block initial HTML parsing. Body scripts are
     // intentionally excluded even when they omit async/defer.
@@ -923,22 +970,27 @@ export async function runTechnicalSeo(
     checks.push({ name: 'No noindex directive', passed: !hasNoindex });
     if (hasNoindex) issues.push('CRITICAL: noindex meta tag found — page excluded from all search engines');
 
-    checks.push({ name: 'HTML lang attribute', passed: !!langMatch, detail: langMatch?.[1] });
-    if (!langMatch) issues.push('Missing lang attribute on <html>');
+    checks.push({ name: 'HTML lang attribute', passed: !!page_meta.lang, detail: page_meta.lang ?? undefined });
+    if (!page_meta.lang) issues.push('Missing lang attribute on <html>');
 
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch?.[1] ?? '';
-    const titleRange = textLengthRange(title, langMatch?.[1]);
-    const titleOk = isTextLengthGood(title, langMatch?.[1]);
-    checks.push({ name: `Title tag length (${titleRange.label} chars)`, passed: titleOk, detail: `"${title.slice(0, 60)}" (${title.length} chars; target ${titleRange.label})` });
+    const title = page_meta.title ?? '';
+    const titleRange = textLengthRange(title, page_meta.lang ?? undefined);
+    const isRootHomepage = (() => {
+      try { return new URL(sharedFinalUrl ?? '').pathname.replace(/\/+$/, '') === ''; } catch { return false; }
+    })();
+    const brandOnlyHomepage = isRootHomepage && isBrandOnlyHomepageTitle(title, domain);
+    const titleOk = brandOnlyHomepage || isTextLengthGood(title, page_meta.lang ?? undefined);
+    const titleDetail = brandOnlyHomepage
+      ? `"${title.slice(0, 60)}" (${title.length} chars; root-domain brand homepage, generic length target not applied)`
+      : `"${title.slice(0, 60)}" (${title.length} chars; target ${titleRange.label})`;
+    checks.push({ name: `Title tag length (${titleRange.label} chars)`, passed: titleOk, detail: titleDetail });
     if (!titleOk) issues.push(`Title tag length: ${title.length} chars (target ${titleRange.label})`);
 
-    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
-                   ?? html.match(/content=["']([^"']{80,}?)["'][^>]*name=["']description["']/i);
-    const desc = descMatch?.[1] ?? '';
-    const descOk = desc.length >= 100 && desc.length <= 170;
-    checks.push({ name: 'Meta description (100-170 chars)', passed: descOk, detail: `${desc.length} chars` });
-    if (!descOk) issues.push(`Meta description: ${desc.length} chars (target 100-170)`);
+    const desc = page_meta.description ?? '';
+    const descRange = descriptionLengthRange(desc, page_meta.lang ?? undefined);
+    const descOk = isDescriptionLengthGood(desc, page_meta.lang ?? undefined);
+    checks.push({ name: `Meta description length (${descRange.label} chars)`, passed: descOk, detail: `${desc.length} chars; target ${descRange.label}` });
+    if (!descOk) issues.push(`Meta description: ${desc.length} chars (target ${descRange.label})`);
     // Flag when title and description are identical — they serve different purposes and Google
     // may rewrite the snippet if they match, weakening click-through rate.
     if (title && desc && title.trim().toLowerCase() === desc.trim().toLowerCase()) {

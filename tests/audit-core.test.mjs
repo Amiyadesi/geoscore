@@ -85,6 +85,13 @@ describe('GeoScore 2 audit core', () => {
 
   it('keeps URL-mode targets on the submitted registrable root', () => {
     assert.equal(
+      pages.validatePublicAuditUrl('https://blog.example.co.uk/post/1#section'),
+      'https://blog.example.co.uk/post/1',
+    );
+    assert.equal(pages.validatePublicAuditUrl('http://127.0.0.1/post/1'), null);
+    assert.equal(pages.validatePublicAuditUrl('https://user:pass@example.com/post/1'), null);
+    assert.equal(pages.validatePublicAuditUrl('https://example.com:8443/post/1'), null);
+    assert.equal(
       pages.validateAuditTargetUrl('https://blog.example.co.uk/post/1', 'www.example.co.uk'),
       'https://blog.example.co.uk/post/1',
     );
@@ -631,6 +638,7 @@ describe('GeoScore 2 audit core', () => {
       'https://example.com/_next/static/chunks/app.js',
       'https://example.com/assets/site.css',
       'https://example.com/files/guide.pdf',
+      'https://blog.example.com/posts/cross-subdomain',
       'https://other.example.net/posts/nope',
     ];
     const first = pages.selectAuditPageCandidates('https://example.com/', links, links);
@@ -639,7 +647,7 @@ describe('GeoScore 2 audit core', () => {
     assert.deepEqual(first, second);
     assert.ok(first.length <= 4, 'homepage plus candidates must stay within five total pages');
     assert.equal(first[0]?.page_type, 'about');
-    assert.doesNotMatch(JSON.stringify(first), /cdn-cgi|_next|site\.css|guide\.pdf/);
+    assert.doesNotMatch(JSON.stringify(first), /cdn-cgi|_next|site\.css|guide\.pdf|blog\.example\.com/);
 
     const withoutAbout = links.filter(link => !link.endsWith('/about'));
     const representativeOnly = pages.selectAuditPageCandidates('https://example.com/', withoutAbout, withoutAbout);

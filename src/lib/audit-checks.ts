@@ -3,7 +3,7 @@ import type { ModuleResult } from './types';
 import { contentPagesFor, directAnswerApplicable, geoPageSignals, normalizedEntityName, normalizedSiteLabel, sampledEntitySignals } from './audit-context';
 import type { AuditContext, CheckStatus, NormalizedCheck } from './audit-contract';
 import { check } from './audit-scoring';
-import { isTextLengthGood, textLengthRange } from './metadata-quality';
+import { descriptionLengthRange, isBrandOnlyHomepageTitle, isDescriptionLengthGood, isTextLengthGood, textLengthRange } from './metadata-quality';
 
 interface NamedAuditCheck {
   name?: string;
@@ -240,7 +240,7 @@ export function buildNormalizedChecks(
   const contentSignals = contentPagesFor(context, geoSignals);
   const namedTechnicalCheck = (name: string): { passed: boolean; detail?: string } | null => {
     const candidate = Array.isArray(technical?.checks)
-      ? technical.checks.find((item: unknown) => !!item && typeof item === 'object' && (item as Record<string, unknown>).name === name)
+      ? technical.checks.find((item: unknown) => !!item && typeof item === 'object' && String((item as Record<string, unknown>).name ?? '').startsWith(name))
       : null;
     return candidate && typeof candidate.passed === 'boolean' ? candidate : null;
   };
@@ -281,12 +281,12 @@ export function buildNormalizedChecks(
           ? ['robots.txt blocks Googlebot with Disallow: /']
           : robotsTxt.exists
             ? ['robots.txt fetched without a site-wide block']
-            : ['robots.txt not found'];
+            : ['robots.txt was not published; absence alone does not block crawling'];
   output.push(check({ id: 'seo.indexability', category: 'seo', title: zh ? '索引状态' : 'Indexability', weight: 3,
     status: !primaryAvailable ? 'unknown' : contentError ?? (content ? (content.has_noindex ? 'fail' : 'pass') : 'unknown'), source: 'content_quality', pageUrl,
     evidence: !primaryAvailable ? ['Primary page content was not available'] : content ? [content.has_noindex ? 'meta robots contains noindex' : 'No noindex directive found'] : [] }));
   output.push(check({ id: 'seo.robots', category: 'seo', title: 'robots.txt', weight: 2,
-    status: robotsError ?? (robots ? (robotsTxt?.fetch_status === 'blocked' ? 'unknown' : robotsTxt?.blocks_all || robotsTxt?.blocks_googlebot ? 'fail' : robotsTxt?.exists ? 'pass' : 'fail') : 'unknown'),
+    status: robotsError ?? (robots ? (robotsTxt?.fetch_status === 'blocked' ? 'unknown' : robotsTxt?.blocks_all || robotsTxt?.blocks_googlebot ? 'fail' : robotsTxt?.exists ? 'pass' : 'unknown') : 'unknown'),
     source: 'robots_sitemap', evidence: robotsEvidence }));
   output.push(check({ id: 'seo.sitemap', category: 'seo', title: 'XML sitemap', weight: 2,
     status: robotsError ?? (robots ? (robots.sitemap?.fetch_status === 'blocked' ? 'unknown' : robots.sitemap?.exists ? 'pass' : 'fail') : 'unknown'), source: 'robots_sitemap',
@@ -357,8 +357,10 @@ export function buildNormalizedChecks(
   const accessibilityError = statusFromModule(modules, 'accessibility');
   const cruxError = statusFromModule(modules, 'crux');
   const lighthouseError = statusFromModule(modules, 'lighthouse');
-  const titleLength = namedTechnicalCheck('Title tag length (30-70 chars)');
-  const descriptionLength = namedTechnicalCheck('Meta description (100-170 chars)');
+  const titleLength = namedTechnicalCheck('Title tag length');
+  const brandOnlyHomepageTitle = primary?.page_type === 'home'
+    && isBrandOnlyHomepageTitle(String(pageMeta?.title ?? ''), context.root_domain);
+  const descriptionLength = namedTechnicalCheck('Meta description length');
   const httpsEnabled = namedTechnicalCheck('HTTPS enabled');
   const responseTime = namedTechnicalCheck('Response time < 2s');
   const openGraph = namedTechnicalCheck('Open Graph tags complete');
@@ -393,19 +395,25 @@ export function buildNormalizedChecks(
   }));
   output.push(check({
     id: 'seo.title_length', category: 'seo', weight: 1,
-    status: !primaryAvailable ? 'unknown' : !pageMeta?.title ? 'not_applicable' : techError ?? (titleLength
+    status: !primaryAvailable ? 'unknown' : !pageMeta?.title || brandOnlyHomepageTitle ? 'not_applicable' : techError ?? (titleLength
       ? (titleLength.passed ? 'pass' : 'fail')
       : isTextLengthGood(String(pageMeta.title), pageMeta.lang ?? context.locale) ? 'pass' : 'fail'),
     source: 'technical_seo', pageUrl,
-    evidence: titleLength ? [titleLength.detail ?? `${String(pageMeta?.title ?? '').length} characters`] : pageMeta?.title ? [`${String(pageMeta.title).length} characters; target ${textLengthRange(String(pageMeta.title), pageMeta.lang ?? context.locale).label}`] : [],
+    evidence: brandOnlyHomepageTitle
+      ? [`${String(pageMeta?.title ?? '').length} characters; root-domain brand homepage, generic length target not applicable`]
+      : titleLength ? [titleLength.detail ?? `${String(pageMeta?.title ?? '').length} characters`] : pageMeta?.title ? [`${String(pageMeta.title).length} characters; target ${textLengthRange(String(pageMeta.title), pageMeta.lang ?? context.locale).label}`] : [],
   }));
   output.push(check({
     id: 'seo.meta_description_length', category: 'seo', weight: 1,
     status: !primaryAvailable ? 'unknown' : !pageMeta?.description ? 'not_applicable' : techError ?? (descriptionLength
       ? (descriptionLength.passed ? 'pass' : 'fail')
-      : String(pageMeta.description).length >= 100 && String(pageMeta.description).length <= 170 ? 'pass' : 'fail'),
+      : isDescriptionLengthGood(String(pageMeta.description), pageMeta.lang ?? context.locale) ? 'pass' : 'fail'),
     source: 'technical_seo', pageUrl,
-    evidence: descriptionLength ? [descriptionLength.detail ?? `${String(pageMeta?.description ?? '').length} characters`] : [],
+    evidence: descriptionLength
+      ? [descriptionLength.detail ?? `${String(pageMeta?.description ?? '').length} characters`]
+      : pageMeta?.description
+        ? [`${String(pageMeta.description).length} characters; target ${descriptionLengthRange(String(pageMeta.description), pageMeta.lang ?? context.locale).label}`]
+        : [],
   }));
   output.push(check({
     id: 'seo.hreflang', category: 'seo', weight: 1,
@@ -565,8 +573,9 @@ export function buildNormalizedChecks(
   }));
 
   const identityApplicable = context.site_archetype !== 'unknown';
+  const entityConfidence = context.entity?.source === 'json_ld' ? 0.98 : context.entity ? 0.78 : context.confidence;
   output.push(check({ id: 'geo.entity_identity', category: 'geo', title: zh ? '实体身份清晰度' : 'Entity identity clarity', weight: 3,
-    status: !siteEvidenceAvailable || !identityApplicable ? 'unknown' : context.entity ? 'pass' : 'fail', confidence: context.entity ? 0.98 : context.confidence,
+    status: !siteEvidenceAvailable || !identityApplicable ? 'unknown' : context.entity ? 'pass' : 'fail', confidence: entityConfidence,
     source: context.entity?.source ?? 'audit_context', pageUrl: context.entity?.page_url,
     evidence: !siteEvidenceAvailable ? ['No fetched page content was available for entity verification'] : context.entity ? [`${context.entity.type}: ${context.entity.name}`] : ['No trusted schema entity found'] }));
   const entitySignals = context.entity ? sampledEntitySignals(pages, context.entity.type) : [];

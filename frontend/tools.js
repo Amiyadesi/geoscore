@@ -1,4 +1,9 @@
 const I18N = window.GeoScoreI18n;
+const PRODUCTION_API = 'https://geo-api.sayori.org';
+const LOCAL_API = 'http://127.0.0.1:8787';
+const API = window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? LOCAL_API
+  : PRODUCTION_API;
 const UI_LANGUAGE = I18N?.getUiLanguage?.() ?? (/^zh(?:-|_|$)/i.test(navigator.language) ? 'zh' : 'en');
 const text = (key, vars) => I18N?.t?.(key, vars, UI_LANGUAGE) ?? key;
 
@@ -250,28 +255,55 @@ function updateOgPreview() {
 }
 
 async function fetchOgFromUrl() {
-  const url = document.getElementById('og-url-input').value.trim();
+  const input = document.getElementById('og-url-input');
+  const button = document.getElementById('og-fetch');
+  const rawUrl = input.value.trim();
   const status = document.getElementById('og-fetch-status');
-  if (!url) return;
-  status.textContent = text('status.searching'); status.classList.remove('hidden');
+  if (!rawUrl) return;
+
+  let targetUrl;
   try {
-    // Use allorigins proxy to avoid CORS issues
-    const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url.startsWith('http') ? url : 'https://' + url)}`);
-    if (!proxyRes.ok) throw new Error('Could not fetch page');
-    const html = await proxyRes.text();
-    const getTag = (prop) => {
-      const match = html.match(new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
-                  || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${prop}["']`, 'i'));
-      return match ? match[1] : '';
-    };
-    document.getElementById('og-title').value  = getTag('og:title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)||[])[1] || '';
-    document.getElementById('og-desc').value   = getTag('og:description');
-    document.getElementById('og-image').value  = getTag('og:image');
-    document.getElementById('og-site').value   = getTag('og:site_name') || (() => { try { return new URL(url).hostname; } catch { return ''; } })();
-    updateOgPreview();
-    status.textContent = `✓ ${text('tools.og.tagsLoaded')}`; status.className = 'text-xs text-green-600 mt-1.5';
+    targetUrl = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`).toString();
   } catch {
-    status.textContent = text('tools.og.fetchFailed'); status.className = 'text-xs text-orange-600 mt-1.5';
+    status.textContent = text('tools.og.invalidUrl');
+    status.className = 'text-xs text-orange-600 mt-1.5';
+    return;
+  }
+
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = text('status.searching');
+  status.textContent = text('status.searching');
+  status.className = 'text-xs text-blue-600 mt-1.5';
+  try {
+    const response = await fetch(`${API}/api/page-meta?url=${encodeURIComponent(targetUrl)}`);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) throw new Error(payload?.error?.code || 'PAGE_META_FETCH_FAILED');
+
+    const data = payload.data ?? {};
+    document.getElementById('og-title').value = data.title ?? '';
+    document.getElementById('og-desc').value = data.description ?? '';
+    document.getElementById('og-image').value = data.image ?? '';
+    document.getElementById('og-site').value = data.site_name ?? '';
+    input.value = data.final_url ?? targetUrl;
+    updateOgPreview();
+
+    const missing = Array.isArray(data.missing) ? data.missing : [];
+    const found = Math.max(0, 4 - missing.length);
+    if (missing.length) {
+      status.textContent = text('tools.og.missingSummary', { found, missing: missing.join(', ') });
+      status.className = 'text-xs text-amber-700 mt-1.5';
+    } else {
+      status.textContent = text('tools.og.completeSummary');
+      status.className = 'text-xs text-green-600 mt-1.5';
+    }
+  } catch {
+    status.textContent = text('tools.og.fetchFailed');
+    status.className = 'text-xs text-orange-600 mt-1.5';
+  } finally {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.textContent = text('common.fetch');
   }
 }
 
@@ -623,6 +655,11 @@ document.addEventListener('click', function(e) {
     document.getElementById(id)?.addEventListener('input', () => updateOgPreview());
   });
   document.getElementById('og-fetch')?.addEventListener('click', () => fetchOgFromUrl());
+  document.getElementById('og-url-input')?.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    fetchOgFromUrl();
+  });
 
   // ── Sitemap panel
   document.getElementById('sm-generate')?.addEventListener('click', () => generateSitemap());

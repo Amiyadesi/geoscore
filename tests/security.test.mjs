@@ -30,13 +30,26 @@ execFileSync(
   { stdio: 'inherit' },
 );
 
-const { isValidPublicHostname, PUBLIC_DOMAIN_ERROR } = await import(
+const { corsHeaders, isValidPublicHostname, PUBLIC_DOMAIN_ERROR } = await import(
   pathToFileUrl(path.join(tmpDir, 'security.js'))
 );
 
 describe('public hostname validation', () => {
   it('exports the public-domain error contract', () => {
     assert.equal(PUBLIC_DOMAIN_ERROR, 'Only public domains are supported');
+  });
+
+  it('allows the documented local frontend without opening CORS to arbitrary origins', () => {
+    const env = { ALLOWED_ORIGINS: '', PUBLIC_APP_URL: 'https://geo.sayori.org' };
+    const local = corsHeaders(new Request('https://geo-api.sayori.org/api/meta', {
+      headers: { Origin: 'http://127.0.0.1:4173' },
+    }), env);
+    const unknown = corsHeaders(new Request('https://geo-api.sayori.org/api/meta', {
+      headers: { Origin: 'https://untrusted.example' },
+    }), env);
+
+    assert.equal(local['Access-Control-Allow-Origin'], 'http://127.0.0.1:4173');
+    assert.equal(unknown['Access-Control-Allow-Origin'], 'https://geo.sayori.org');
   });
 
   it('allows ordinary public hostnames', () => {

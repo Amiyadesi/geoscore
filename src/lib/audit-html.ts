@@ -24,13 +24,31 @@ export function visiblePageText(html: string): string {
 export function detectJavaScriptShell(html: string): boolean {
   if (!html || !/<script\b/i.test(html)) return false;
   const visibleText = visiblePageText(html);
-  if (visibleText.length >= 120) return false;
-
   const scriptCount = (html.match(/<script\b/gi) ?? []).length;
   const shellMarker = /<(?:div|main|section)\b[^>]*(?:id|data-reactroot)=["'](?:root|app|__next|__nuxt|svelte|gatsby-focus-wrapper)["'][^>]*>\s*<\/(?:div|main|section)>/i.test(html)
     || /<(?:div|main)\b[^>]*id=["'](?:root|app|__next|__nuxt)["'][^>]*>/i.test(html)
     || /\b(?:__NEXT_DATA__|__NUXT__|hydrateRoot|createRoot\s*\(|webpackChunk)\b/.test(html);
-  return shellMarker || (visibleText.length < 40 && scriptCount >= 2);
+
+  // A consent/navigation shell can contain a surprising amount of text while
+  // still exposing no page content. Give semantic server-rendered content
+  // priority over raw character counts so short, real pages are not rejected.
+  let hasMeaningfulStructure = false;
+  try {
+    const { document } = parseHTML(html);
+    const contentRoot = document.querySelector('main, article');
+    const heading = contentRoot?.querySelector('h1') ?? document.querySelector('h1');
+    const semanticText = (contentRoot?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    hasMeaningfulStructure = !!contentRoot && !!heading && semanticText.length >= 60;
+  } catch {
+    hasMeaningfulStructure = /<(?:main|article)\b[\s\S]*?<h1\b/i.test(html) && visibleText.length >= 60;
+  }
+  if (hasMeaningfulStructure) return false;
+
+  const sparseLargeDocument = visibleText.length < 240
+    && scriptCount >= 6
+    && html.length >= 256 * 1024
+    && !/<(?:main|article)\b/i.test(html);
+  return shellMarker || sparseLargeDocument || (visibleText.length < 40 && scriptCount >= 2);
 }
 
 export function titleFromHtml(html: string): string | undefined {

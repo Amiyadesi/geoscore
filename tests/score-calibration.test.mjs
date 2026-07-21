@@ -78,7 +78,7 @@ describe('GeoScore 2.4 golden-site score calibration', () => {
     const checks = checksFor(calibration.profiles[0]);
     const weights = checks.map(item => item.weight);
 
-    assert.equal(core.SCORE_VERSION, '2.4.3');
+    assert.equal(core.SCORE_VERSION, '2.4.5');
     assert.deepEqual(core.SCORE_POLICY.repeated_failure_caps, {
       critical: { step: 10, floor: 19 },
       major: { step: 10, floor: 49 },

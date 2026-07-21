@@ -175,14 +175,10 @@ export async function runRobotsSitemap(
 
   if (!robotsTxt.exists && robotsFetchBlocked) robotsTxt.fetch_status = 'blocked';
 
-  // Robots.txt issues — only report "not found" when we have a definitive answer.
-  // If the fetch was blocked (non-404 failure) or the site uses bot protection, skip.
-  if (!robotsTxt.exists) {
-    if (!robotsFetchBlocked && !isBotBlocked) {
-      issues.push('robots.txt not found — search engines rely on it for crawl guidance');
-    }
-    // else: couldn't verify — don't falsely report as missing
-  }
+  // A missing robots.txt is valid: crawlers use the default allow policy. Keep
+  // the absence in structured evidence, but do not present it as a crawl block.
+  // If the fetch was blocked (non-404 failure) or the site uses bot protection,
+  // the status remains blocked so the normalized check can stay unknown.
   if (robotsTxt.blocks_all) {
     issues.push('robots.txt blocks all crawlers (Disallow: / for User-agent: *) — site will not be indexed');
   }

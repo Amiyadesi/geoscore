@@ -21,6 +21,7 @@ execFileSync(process.execPath, [
   '--rootDir', 'src',
   '--outDir', tmpDir,
   'src/modules/technical_seo.ts',
+  'src/modules/robots_sitemap.ts',
   'src/lib/audit-core.ts',
   'src/lib/audit-pages.ts',
   'src/lib/types.ts',
@@ -28,6 +29,7 @@ execFileSync(process.execPath, [
 
 const require = createRequire(import.meta.url);
 const technical = require(path.join(tmpDir, 'modules', 'technical_seo.js'));
+const robotsSitemap = require(path.join(tmpDir, 'modules', 'robots_sitemap.js'));
 const core = require(path.join(tmpDir, 'lib', 'audit-core.js'));
 
 function context() {
@@ -78,6 +80,29 @@ function normalizedCrawlerCheck(policy) {
 }
 
 describe('Crawler Policy v2', () => {
+  it('preserves apostrophes and attribute order in page metadata', async () => {
+    const description = "Amiya's Desk is Amiya_desi's public home for writing, Godot projects, homelab and Cloudflare notes, Obsidian workflows, public services, and contact links.";
+    const html = `<!doctype html><html lang="en"><head>
+      <title>Amiya's Desk | Projects and Notes</title>
+      <meta content="${description}" name="description">
+      <meta content="Amiya's Desk" property="og:title">
+      <meta property="og:description" content="Amiya_desi's public projects and notes">
+      <link href="https://sayori.org/" rel="canonical">
+    </head><body><main><h1>Amiya's Desk</h1></main></body></html>`;
+    const result = await technical.runTechnicalSeo(
+      'sayori.org', html, new Headers(), 10, 'https://sayori.org/',
+      { fetcher: async () => new Response('', { status: 404 }) },
+    );
+    const descriptionCheck = result.checks.find(item => item.name.startsWith('Meta description'));
+
+    assert.equal(result.page_meta.description, description);
+    assert.equal(result.page_meta.og_title, "Amiya's Desk");
+    assert.equal(result.page_meta.og_description, "Amiya_desi's public projects and notes");
+    assert.equal(result.page_meta.canonical_url, 'https://sayori.org/');
+    assert.equal(descriptionCheck?.passed, true);
+    assert.equal(descriptionCheck?.detail, `${description.length} chars; target 100-170`);
+  });
+
   it('counts only truly blocking external scripts in the document head', async () => {
     const html = `<!doctype html><html><head>
       <script src="/blocking.js"></script>
@@ -105,6 +130,41 @@ describe('Crawler Policy v2', () => {
 
     assert.equal(titleCheck?.passed, true);
     assert.match(titleCheck?.detail ?? '', /target 8-35/);
+  });
+
+  it('does not apply generic title length targets to a root-domain brand homepage', async () => {
+    const html = '<!doctype html><html lang="en"><head><title>Streamly</title></head><body><main><h1>Streamly</h1><p>Watch and share videos.</p></main></body></html>';
+    const result = await technical.runTechnicalSeo(
+      'streamly.com', html, new Headers(), 10, 'https://streamly.com/',
+      { fetcher: async () => new Response('', { status: 404 }) },
+    );
+    const titleCheck = result.checks.find(item => item.name.startsWith('Title tag length'));
+    const normalized = core.buildNormalizedChecks(
+      { ...context(), root_domain: 'streamly.com' },
+      [{ ...page(), url: 'https://streamly.com/', final_url: 'https://streamly.com/', html, title: 'Streamly' }],
+      { technical_seo: { status: 'ok', data: result } },
+    ).find(item => item.id === 'seo.title_length');
+
+    assert.equal(titleCheck?.passed, true);
+    assert.doesNotMatch(result.issues.join(' '), /Title tag length/);
+    assert.equal(normalized?.status, 'not_applicable');
+  });
+
+  it('uses a practical CJK range for meta descriptions', async () => {
+    for (const description of ['站点摘要'.repeat(8), '页面内容介绍'.repeat(15)]) {
+      const html = `<!doctype html><html lang="zh-CN"><head>
+        <title>中文页面标题示例</title>
+        <meta name="description" content="${description}">
+      </head><body><main><h1>中文页面标题示例</h1></main></body></html>`;
+      const result = await technical.runTechnicalSeo(
+        'example.com', html, new Headers(), 10, 'https://example.com/',
+        { fetcher: async () => new Response('', { status: 404 }) },
+      );
+      const descriptionCheck = result.checks.find(item => item.name.startsWith('Meta description'));
+
+      assert.ok(description.length >= 31 && description.length <= 120);
+      assert.equal(descriptionCheck?.passed, true, `${description.length} CJK chars should pass`);
+    }
   });
 
   it('separates search, training, and user-triggered bot groups', () => {
@@ -141,6 +201,22 @@ describe('Crawler Policy v2', () => {
     const check = normalizedCrawlerCheck(policy);
     assert.equal(check.status, 'unknown');
     assert.equal(policy.search_index.status, 'unknown');
+  });
+
+  it('treats an absent robots.txt as unknown and does not generate a repair task', async () => {
+    const result = await robotsSitemap.runRobotsSitemap(
+      'forum.monika.love', false, '',
+      { fetcher: async () => new Response('', { status: 404 }) },
+    );
+    const checks = core.buildNormalizedChecks(context(), [page()], {
+      robots_sitemap: { status: 'ok', data: result },
+    });
+    const robotsCheck = checks.find(item => item.id === 'seo.robots');
+
+    assert.equal(result.robots_txt.fetch_status, 'missing');
+    assert.doesNotMatch(result.issues.join(' '), /robots\.txt not found/i);
+    assert.equal(robotsCheck?.status, 'unknown');
+    assert.deepEqual(core.buildRecommendations(context(), checks).filter(item => item.id === 'seo.robots'), []);
   });
 
   it('does not execute legacy predicted or keyword modules in new audit source', () => {

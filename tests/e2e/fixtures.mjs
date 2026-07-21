@@ -64,7 +64,7 @@ export const auditFixture = {
     },
   ],
   score_summary: {
-    score_version: '2.4.3',
+    score_version: '2.4.5',
     status: 'complete',
     overall: {
       score: 49,

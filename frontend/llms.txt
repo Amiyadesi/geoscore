@@ -28,7 +28,7 @@ GeoScore may use live page fetches, robots.txt, sitemap.xml, PageSpeed Insights,
 
 - Audit modes: site and URL
 - Maximum site sample: five HTML pages
-- Current score version: 2.4.3
+- Current score version: 2.4.5
 - Current registry: 60 factual / 54 scoring / 6 informational / 1 Predicted
 - Interface languages: English and Chinese
 - License: MIT

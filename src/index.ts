@@ -47,6 +47,7 @@ import {
 import { buildRepairGroups } from './lib/repair-groups';
 import { buildOpenApiSpec } from './lib/openapi';
 import { handleFeedback, handleLearningAdmin } from './routes/feedback';
+import { handlePageMetaPreview } from './routes/page-meta';
 import {
   corsHeaders,
   jsonError as secureJsonError,
@@ -343,6 +344,12 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const { limited } = await searchRateLimit(env, ip);
       if (limited) return rateLimitedResponse(60);
       return handleSearch(req, env);
+    }
+
+    if (pathname === '/api/page-meta' && req.method === 'GET') {
+      const { limited } = await searchRateLimit(env, ip);
+      if (limited) return rateLimitedResponse(60);
+      return handlePageMetaPreview(url);
     }
 
     if (pathname === '/openapi.json' && req.method === 'GET') {

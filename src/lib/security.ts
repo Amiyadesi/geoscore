@@ -3,6 +3,8 @@ import type { Env } from './types';
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://geo.sayori.org',
   'https://sayori-geoscore.pages.dev',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
 ];
 
 export const PUBLIC_DOMAIN_ERROR = 'Only public domains are supported';

@@ -124,3 +124,10 @@ test('dynamic schema fields and browser-generated warnings use the shared biling
   assert.match(tools, /tools\.schema\.field\.\$\{f\.id\}/);
   assert.doesNotMatch(tools, /Google may truncate after/);
 });
+
+test('social card checker uses the GeoScore API instead of a third-party CORS proxy', () => {
+  const tools = read('tools.js');
+  assert.match(tools, /\/api\/page-meta\?url=/);
+  assert.doesNotMatch(tools, /allorigins/i);
+  assert.match(tools, /tools\.og\.missingSummary/);
+});

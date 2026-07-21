@@ -32,6 +32,14 @@ const DIRECT_HTTP_PROVIDER = 'Direct HTTP' as const;
 const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|markdown|md|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
 const INFRASTRUCTURE_PATH = /(?:^|\/)(?:cdn-cgi|_next|_nuxt|_astro|wp-content|wp-includes)(?:\/|$)/i;
 
+function sampleHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/^www\./, '');
+}
+
+function isSameSampleHost(left: string, right: string): boolean {
+  return sampleHostname(left) === sampleHostname(right);
+}
+
 export interface AuditPageCandidate {
   url: string;
   page_type: AuditPageType;
@@ -136,20 +144,26 @@ async function fetchWithinRegistrableRoot(
   );
 }
 
-export function validateAuditTargetUrl(raw: string, submittedDomain: string): string | null {
+export function validatePublicAuditUrl(raw: string): string | null {
   try {
     const parsed = new URL(raw);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
     if (parsed.username || parsed.password || parsed.port) return null;
     const host = parsed.hostname.toLowerCase();
     if (!isValidPublicHostname(host)) return null;
-    const submittedRoot = registrableRoot(submittedDomain);
-    if (!submittedRoot || registrableRoot(host) !== submittedRoot) return null;
     parsed.hash = '';
     return parsed.toString();
   } catch {
     return null;
   }
+}
+
+export function validateAuditTargetUrl(raw: string, submittedDomain: string): string | null {
+  const validated = validatePublicAuditUrl(raw);
+  if (!validated) return null;
+  const submittedRoot = registrableRoot(submittedDomain);
+  if (!submittedRoot || registrableRoot(new URL(validated).hostname) !== submittedRoot) return null;
+  return validated;
 }
 
 export function classifyAuditPageType(url: string): AuditPageType {
@@ -183,8 +197,6 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
   if (!html) return [];
   let base: URL;
   try { base = new URL(baseUrl); } catch { return []; }
-  const root = registrableRoot(base.hostname);
-  if (!root) return [];
 
   try {
     const { document } = parseHTML(html);
@@ -195,7 +207,7 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
       try {
         const resolved = new URL(href, base);
         if (!['http:', 'https:'].includes(resolved.protocol)) continue;
-        if (registrableRoot(resolved.hostname) !== root) continue;
+        if (!isSameSampleHost(resolved.hostname, base.hostname)) continue;
         resolved.hash = '';
         if (!isAuditableHtmlCandidate(resolved.toString())) continue;
         links.add(resolved.toString());
@@ -209,14 +221,13 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
 
 function normalizedCandidates(urls: string[], homeUrl: string): string[] {
   const home = new URL(homeUrl);
-  const homeRoot = registrableRoot(home.hostname);
   const homePath = home.pathname.replace(/\/+$/, '') || '/';
   const unique = new Set<string>();
   for (const raw of urls) {
     try {
       const url = new URL(raw, home);
       if (!['http:', 'https:'].includes(url.protocol)) continue;
-      if (registrableRoot(url.hostname) !== homeRoot) continue;
+      if (!isSameSampleHost(url.hostname, home.hostname)) continue;
       url.hash = '';
       if (!isAuditableHtmlCandidate(url.toString())) continue;
       const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
@@ -307,11 +318,10 @@ export async function discoverSitemapPageUrls(
   html: string,
   fetcher: HttpFetcher = fetchWithTimeout,
 ): Promise<string[]> {
-  const homeRoot = registrableRoot(new URL(homeUrl).hostname);
-  if (!homeRoot) return [];
+  const home = new URL(homeUrl);
   for (const sitemapUrl of sitemapReferences(homeUrl, html).slice(0, 3)) {
     try {
-      if (registrableRoot(new URL(sitemapUrl).hostname) !== homeRoot) continue;
+      if (!isSameSampleHost(new URL(sitemapUrl).hostname, home.hostname)) continue;
       const { response } = await fetchWithinRegistrableRoot(sitemapUrl, 7000, fetcher);
       if (!response.ok) {
         await cancelResponseBody(response);
@@ -322,7 +332,7 @@ export async function discoverSitemapPageUrls(
       let locations = extractSitemapLocations(xml);
       if (/<sitemapindex\b/i.test(xml)) {
         const child = locations.find(url => {
-          try { return registrableRoot(new URL(url).hostname) === homeRoot; } catch { return false; }
+          try { return isSameSampleHost(new URL(url).hostname, home.hostname); } catch { return false; }
         });
         if (!child) return [];
         const { response: childResponse } = await fetchWithinRegistrableRoot(child, 7000, fetcher);

@@ -2,6 +2,7 @@ import type { FetchedAuditPage } from './audit-pages';
 import { registrableRoot } from './audit-pages';
 import { SITE_ARCHETYPES, type AuditContext, type AuditEntity, type AuditEvidence, type BuildAuditContextInput, type SiteArchetype } from './audit-contract';
 import { extractJsonLdBlocks } from './json-ld';
+import { isBrandOnlyHomepageTitle } from './metadata-quality';
 
 type JsonObject = Record<string, unknown>;
 
@@ -69,7 +70,34 @@ const LOCAL_TYPES = new Set([
 function visibleMarkup(html: string): string {
   return html
     .replace(/<!--[^]*?-->/g, ' ')
-    .replace(/<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+    .replace(/<(script|style|template|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+}
+
+function siteIdentityUrl(node: JsonObject, pageUrl: string, entityType: string): boolean {
+  const pageRoot = (() => {
+    try { return registrableRoot(new URL(pageUrl).hostname); } catch { return null; }
+  })();
+  if (!pageRoot) return false;
+
+  const allowedPath = entityType === 'Person' || entityType === 'ProfilePage'
+    ? /^\/(?:about(?:[-_]?me)?|profile)?\/?$/i
+    : /^\/(?:about(?:[-_]?us)?|company)?\/?$/i;
+  return [node.url, node['@id']]
+    .filter((value): value is string => typeof value === 'string' && !!value.trim())
+    .some(value => {
+      try {
+        const target = new URL(value, pageUrl);
+        return registrableRoot(target.hostname) === pageRoot && allowedPath.test(target.pathname);
+      } catch {
+        return false;
+      }
+    });
+}
+
+function isComparableSiteEntityNode(item: JsonLdNode, entityType?: string): boolean {
+  if (item.pageType === 'home') return true;
+  const types = entityType ? [entityType] : nodeTypes(item.node);
+  return types.some(type => siteIdentityUrl(item.node, item.pageUrl, type));
 }
 
 function visibleText(html: string): string {
@@ -263,15 +291,22 @@ function classifyArchetype(
     try { return new URL(pageUrl ?? '').hostname.toLowerCase(); } catch { return ''; }
   })();
   const documentationHost = /^(?:docs?|developer|developers|reference|manual)\./i.test(homeHostname);
+  const communityHost = /^(?:community|discuss|discussion|forums?)\./i.test(homeHostname);
   const documentationIdentity = /\b(?:documentation|developer docs?|api reference|language reference|user manual)\b|开发文档|接口文档|参考手册/i.test(homeIdentity);
   const communityPattern = /\b(?:community|forum|discussion forum)\b|(?:交流|理想型|技术|开放|友好)?社区|论坛|讨论区/i;
   const communityHeadlineIdentity = communityPattern.test(homeHeadline);
   const communityIdentity = communityHeadlineIdentity || communityPattern.test(homeIdentity);
-  const discussionNavigation = hasLinkPathAndText(
+  const explicitDiscussionNavigation = hasLinkPathAndText(
     navigationLinks,
     /(?:^|\/)(?:active|categories|comments|latest|recent|topics?|questions?|discussions?|forum)(?:\/|$)/i,
     /\b(?:active|categories|comments|latest|recent|topics?|questions?|discussions?|forum)\b|活跃|分类|评论|最新主题|主题|问题|讨论|论坛/i,
   );
+  const threadLinkCount = homeLinks.filter(link =>
+    /(?:^|\/)(?:d|t|threads?|topics?|discussions?|questions?)\/[^/]+/i.test(link.target.pathname),
+  ).length;
+  const topicListingHeading = /\b(?:all|latest|recent) (?:discussions?|threads?|topics?)\b|全部主题|最新主题|最近讨论/i.test(homeHeadline);
+  const discussionNavigation = explicitDiscussionNavigation
+    || (threadLinkCount >= 3 && (communityHost || topicListingHeading));
   const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i
     .test(`${homeIdentity} ${homeIntro}`);
   const reservationAction = hasLinkPath(homeLinks, /(?:^|\/)(?:reservations?|bookings?|book-a-table|book-table)(?:\/|$)/i)
@@ -313,7 +348,7 @@ function classifyArchetype(
   if (newsIdentity && newsNavigation) {
     return strong('news_media', 'News identity and primary news navigation', pageUrl, 0.88);
   }
-  if (communityIdentity && discussionNavigation) {
+  if ((communityIdentity || communityHost) && discussionNavigation) {
     return strong('community', 'Visible community/forum identity in the homepage title, heading, or navigation', pageUrl, 0.88);
   }
   if (/\b(?:personal blog|my blog|weblog|(?:a )?blog by|blog of)\b|个人博客|个人网站|网络日志|个人空间|随笔/i.test(homeIdentity)) {
@@ -422,6 +457,7 @@ function strong(archetype: SiteArchetype, value: string, pageUrl?: string, confi
 function entityForArchetype(
   nodes: JsonLdNode[],
   archetype: SiteArchetype,
+  pages: BuildAuditContextInput['pages'],
 ): AuditEntity | null {
   const priorities: string[] = archetype === 'local_business'
     ? [...LOCAL_TYPES, 'Organization', 'Corporation', 'Person', 'WebSite']
@@ -435,8 +471,8 @@ function entityForArchetype(
             ? ['Person', 'ProfilePage', 'Organization', 'Corporation', 'Blog', 'WebSite']
             : ['Organization', 'Corporation', 'LocalBusiness', 'WebSite', 'Blog'];
   const homepageNodes = nodes.filter(item => item.pageType === 'home');
-  const siteLevelNodes = nodes.filter(item => !['article', 'documentation', 'product'].includes(item.pageType));
-  const pools = [homepageNodes, siteLevelNodes, nodes];
+  const siteLevelNodes = nodes.filter(item => isComparableSiteEntityNode(item));
+  const pools = [homepageNodes, siteLevelNodes];
   for (const pool of pools) {
     for (const type of priorities) {
       const match = pool.find(({ node, pageType }) =>
@@ -455,7 +491,25 @@ function entityForArchetype(
       };
     }
   }
-  return null;
+
+  const homepage = pages.find(page => page.status === 'complete' && page.page_type === 'home');
+  if (!homepage) return null;
+  const root = (() => {
+    try { return registrableRoot(new URL(homepage.url).hostname); } catch { return null; }
+  })();
+  if (!root) return null;
+
+  const siteLabels = metadataValues(homepage.html, ['og:site_name', 'application-name']);
+  const title = firstElementText(homepage.html, 'title');
+  const titleBrand = title.split(/\s*(?:\||—|–| - )\s*/)[0]?.trim() ?? '';
+  const candidate = [...siteLabels, titleBrand, firstElementText(homepage.html, 'h1')]
+    .find(value => isBrandOnlyHomepageTitle(value, root));
+  return candidate ? {
+    name: candidate.slice(0, 200),
+    type: 'WebSite',
+    source: 'page_metadata',
+    page_url: homepage.url,
+  } : null;
 }
 
 function inferLocale(pages: BuildAuditContextInput['pages']): string {
@@ -497,6 +551,7 @@ export function sampledEntitySignals(
       pageUrl: page.url,
       names: [...new Set(
         extractJsonLdNodes([page])
+          .filter(item => isComparableSiteEntityNode(item, entityType))
           .filter(({ node }) => nodeTypes(node).includes(entityType) && typeof node.name === 'string')
           .map(({ node }) => String(node.name).trim())
           .filter(Boolean),
@@ -644,18 +699,19 @@ function businessModel(archetype: SiteArchetype): string | null {
 export function buildAuditContext(input: BuildAuditContextInput): AuditContext {
   const nodes = extractJsonLdNodes(input.pages);
   const classification = classifyArchetype(nodes, input.pages, input.archetypeHint);
-  const entity = entityForArchetype(nodes, classification.archetype);
+  const entity = entityForArchetype(nodes, classification.archetype, input.pages);
   const evidence = [...classification.evidence];
   if (entity) {
     evidence.push({
       source: entity.source,
       page_url: entity.page_url,
       value: `${entity.type}: ${entity.name}`,
-      confidence: 0.98,
+      confidence: entity.source === 'json_ld' ? 0.98 : 0.78,
     });
   }
   const root = registrableRoot(input.domain) ?? input.domain.toLowerCase();
-  const contextConfidence = clamp01(classification.confidence * 0.75 + (entity ? 0.25 : 0));
+  const entityConfidenceBonus = entity?.source === 'json_ld' ? 0.25 : entity ? 0.15 : 0;
+  const contextConfidence = clamp01(classification.confidence * 0.75 + entityConfidenceBonus);
   return {
     site_archetype: classification.archetype,
     industry_vertical: input.industryVertical && input.industryVertical !== 'general' ? input.industryVertical : null,

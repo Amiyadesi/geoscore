@@ -44,7 +44,7 @@ async function mockApi(page) {
       return route.fulfill({
         json: {
           version: '2.4.5',
-          score_version: '2.4.3',
+          score_version: '2.4.5',
           max_pages: 5,
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },
@@ -99,7 +99,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page);
 
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('h1')).toHaveText(copy.title);
@@ -118,7 +118,7 @@ test('docs follow browser language and fit the viewport', async ({ page }, testI
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
 
-  await page.goto('/docs/index.html');
+  await page.goto('/docs/index.html', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('main article:not([hidden]) h1')).toHaveText(copy.docsTitle);
@@ -141,7 +141,7 @@ test('audit renders deterministic evidence and extracted controllers remain inte
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page);
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   await page.locator('#search-input').fill('example.com');
   await page.locator('#audit-btn').click();
@@ -171,7 +171,7 @@ test('shared audit reveals the report and primary Markdown download', async ({ p
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page);
 
-  await page.goto('/?share=example.com');
+  await page.goto('/?share=example.com', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('#audit')).toBeVisible();
   await expect(page.locator('#domain-name')).toHaveText('example.com');

@@ -88,8 +88,8 @@ function baselineModules() {
 
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
-    assert.equal(core.SCORE_VERSION, '2.4.3');
-    assert.match(cache.cacheKey('example.com'), /^recent:v25:/);
+    assert.equal(core.SCORE_VERSION, '2.4.5');
+    assert.match(cache.cacheKey('example.com'), /^recent:v26:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -160,7 +160,7 @@ describe('GEO Evidence v3 contract', () => {
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
     assert.equal(meta.version, '2.4.5');
-    assert.equal(meta.score_version, '2.4.3');
+    assert.equal(meta.score_version, '2.4.5');
     assert.equal(meta.snapshot_version, '1.0.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
@@ -195,7 +195,7 @@ describe('GEO Evidence v3 contract', () => {
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
     const response = await worker.default.fetch(new Request('https://geo-api.example/api/meta'), env, {});
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).score_version, '2.4.3');
+    assert.equal((await response.json()).score_version, '2.4.5');
 
     const openapiResponse = await worker.default.fetch(new Request('https://geo-api.example/openapi.json'), env, {});
     assert.equal(openapiResponse.status, 200);
@@ -231,6 +231,57 @@ describe('GEO Evidence v3 contract', () => {
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
     ), {}, {});
     assert.equal(retiredMonitor.status, 404);
+  });
+
+  it('loads bounded public-page metadata for the social card checker', async () => {
+    const originalFetch = globalThis.fetch;
+    const requested = [];
+    globalThis.fetch = async url => {
+      requested.push(String(url));
+      return new Response(`<!doctype html><html lang="en"><head>
+        <title>Fallback title</title>
+        <meta name="description" content="Fallback description">
+        <meta property="og:title" content="Share title">
+        <meta property="og:description" content="Share description">
+        <meta property="og:image" content="/images/share.webp">
+        <meta property="og:site_name" content="Example Notes">
+        <link rel="canonical" href="/canonical-page">
+      </head><body></body></html>`, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    };
+
+    const env = {
+      BUDGET_KV: {
+        async get() { return null; },
+        async put() {},
+      },
+    };
+
+    try {
+      const response = await worker.default.fetch(new Request(
+        'https://geo-api.example/api/page-meta?url=https%3A%2F%2Fexample.com%2Fnotes%2Fone',
+      ), env, {});
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.equal(payload.ok, true);
+      assert.equal(payload.data.title, 'Share title');
+      assert.equal(payload.data.description, 'Share description');
+      assert.equal(payload.data.image, 'https://example.com/images/share.webp');
+      assert.equal(payload.data.site_name, 'Example Notes');
+      assert.equal(payload.data.canonical_url, 'https://example.com/canonical-page');
+      assert.deepEqual(payload.data.missing, ['og:type']);
+      assert.deepEqual(requested, ['https://example.com/notes/one']);
+
+      const blocked = await worker.default.fetch(new Request(
+        'https://geo-api.example/api/page-meta?url=http%3A%2F%2F127.0.0.1%2Fprivate',
+      ), env, {});
+      assert.equal(blocked.status, 400);
+      assert.deepEqual(requested, ['https://example.com/notes/one']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('does not turn zero-weight informational failures into repair tasks', () => {
