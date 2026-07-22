@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geoscore-security-'));
 fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"type":"module"}\n');
+fs.symlinkSync(path.resolve('node_modules'), path.join(tmpDir, 'node_modules'), 'junction');
 
 execFileSync(
   process.execPath,
@@ -92,6 +93,14 @@ describe('public hostname validation', () => {
     ]) {
       assert.equal(isValidPublicHostname(hostname), false, hostname);
     }
+  });
+
+  it('rejects asset-like and unknown suffixes before starting an audit', () => {
+    for (const hostname of ['favicon.ico', 'bundle.js', 'example.invalid']) {
+      assert.equal(isValidPublicHostname(hostname), false, hostname);
+    }
+    assert.equal(isValidPublicHostname('foo.github.io'), true);
+    assert.equal(isValidPublicHostname('xn--fsqu00a.xn--0zwm56d'), true);
   });
 });
 

@@ -86,6 +86,16 @@ export interface PageMeta {
   article_author: string | null;
 }
 
+const MAX_METADATA_SCAN_BYTES = 128 * 1024;
+const MAX_TECH_STACK_SCAN_BYTES = 64 * 1024;
+
+function metadataMarkup(html: string): string {
+  const htmlTag = html.match(/<html\b[^>]*>/i)?.[0] ?? '<html>';
+  const head = html.match(/<head\b[^>]*>[\s\S]*?<\/head\s*>/i)?.[0];
+  if (head) return (`${htmlTag}${head}</html>`).slice(0, MAX_METADATA_SCAN_BYTES);
+  return html.slice(0, MAX_METADATA_SCAN_BYTES);
+}
+
 function cleanMetaValue(value: string | null | undefined): string | null {
   const cleaned = value?.trim();
   return cleaned ? cleaned : null;
@@ -114,7 +124,9 @@ export function extractPageMeta(html: string): PageMeta {
   };
 
   try {
-    const { document } = parseHTML(html);
+    // Metadata belongs in <head>. Parsing only that bounded fragment avoids
+    // turning a large body/DOM into a Worker CPU hot spot.
+    const { document } = parseHTML(metadataMarkup(html));
     const metas = [...document.querySelectorAll('meta')];
     const metaValue = (attribute: 'name' | 'property', key: string): string | null => {
       const wanted = key.toLowerCase();
@@ -319,7 +331,11 @@ function extractVersion(html: string, patterns: RegExp[]): string | null {
   return null;
 }
 
-function detectTechStack(html: string, headers: Headers): TechStack {
+function detectTechStack(fullHtml: string, headers: Headers): TechStack {
+  // Technology detection is informational. Most reliable fingerprints live in
+  // response headers and the document head, so do not rescan a multi-megabyte
+  // article body for every product name it happens to mention.
+  const html = fullHtml.slice(0, MAX_TECH_STACK_SCAN_BYTES);
   const lower = html.toLowerCase();
   const versions: Record<string, string> = {};
 
@@ -460,7 +476,7 @@ function detectTechStack(html: string, headers: Headers): TechStack {
   }
 
   let ecommerce: string | null = null;
-  if (lower.includes('woocommerce') || lower.includes('wc-ajax')) ecommerce = 'WooCommerce';
+  if (/wp-content\/plugins\/woocommerce|woocommerce\/assets|wc-ajax(?:=|\/)/i.test(lower)) ecommerce = 'WooCommerce';
   else if (lower.includes('.myshopify.com') || lower.includes('shopify.com/s/files')) ecommerce = 'Shopify';
   else if (lower.includes('magento') || lower.includes('mage/cookies')) ecommerce = 'Magento';
   else if (lower.includes('prestashop')) ecommerce = 'PrestaShop';

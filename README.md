@@ -25,7 +25,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.4.6 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.4.7 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -34,11 +34,17 @@ weighted scores are then limited by critical, major, and minor failures plus
 evidence coverage and confidence, so a serious known failure cannot still receive
 an A-range result.
 
+If a fresh audit is interrupted, GeoScore keeps verified module results for 30
+minutes. A retry refetches the sampled pages, reuses page-dependent evidence only
+when their semantic fingerprints still match, and reruns failed, skipped, or stale
+modules. Repeated attempts can therefore complete one audit without treating old
+page evidence as current.
+
 ---
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.4.6 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.4.7 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -99,7 +105,7 @@ upstream failures. Rejected message parameters are not blindly retried.
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.4.6 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.4.7 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected.

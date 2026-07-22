@@ -28,6 +28,7 @@ export type AuditPageSource = 'requested' | 'homepage' | 'internal_link' | 'site
 
 const MAX_AUDIT_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_SITEMAP_BYTES = 1 * 1024 * 1024;
+const MAX_DISCOVERED_INTERNAL_LINKS = 2_000;
 const DIRECT_HTTP_PROVIDER = 'Direct HTTP' as const;
 const NON_HTML_PATH_EXTENSION = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|map|markdown|md|mjs|mov|mp3|mp4|ogg|otf|pdf|png|pptx?|rar|rss|svg|tar|tgz|ttf|txt|wasm|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
 const INFRASTRUCTURE_PATH = /(?:^|\/)(?:cdn-cgi|_next|_nuxt|_astro|wp-content|wp-includes)(?:\/|$)/i;
@@ -38,6 +39,11 @@ function sampleHostname(hostname: string): string {
 
 function isSameSampleHost(left: string, right: string): boolean {
   return sampleHostname(left) === sampleHostname(right);
+}
+
+function htmlAttributeValue(markup: string, attribute: string): string | null {
+  const match = markup.match(new RegExp(`(?:^|\\s)${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>\\x60]+))`, 'i'));
+  return (match?.[1] ?? match?.[2] ?? match?.[3] ?? '').replace(/&amp;|&#0*38;|&#x0*26;/gi, '&') || null;
 }
 
 export interface AuditPageCandidate {
@@ -199,10 +205,9 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
   try { base = new URL(baseUrl); } catch { return []; }
 
   try {
-    const { document } = parseHTML(html);
     const links = new Set<string>();
-    for (const anchor of document.querySelectorAll('a[href]')) {
-      const href = anchor.getAttribute('href')?.trim();
+    for (const anchor of html.matchAll(/<a\b([^>]*)>/gi)) {
+      const href = htmlAttributeValue(anchor[1] ?? '', 'href')?.trim();
       if (!href || /^(#|mailto:|tel:|javascript:|data:)/i.test(href)) continue;
       try {
         const resolved = new URL(href, base);
@@ -211,6 +216,7 @@ export function extractInternalLinks(baseUrl: string, html: string): string[] {
         resolved.hash = '';
         if (!isAuditableHtmlCandidate(resolved.toString())) continue;
         links.add(resolved.toString());
+        if (links.size >= MAX_DISCOVERED_INTERNAL_LINKS) break;
       } catch { /* ignore malformed links */ }
     }
     return [...links].sort((a, b) => a.localeCompare(b));
@@ -300,13 +306,14 @@ function extractSitemapLocations(xml: string): string[] {
 
 function sitemapReferences(homeUrl: string, html: string): string[] {
   const refs = new Set<string>();
-  try {
-    const { document } = parseHTML(html);
-    for (const link of document.querySelectorAll('link[rel~="sitemap"][href]')) {
-      const href = link.getAttribute('href');
-      if (href) refs.add(new URL(href, homeUrl).toString());
-    }
-  } catch { /* fall through to conventional paths */ }
+  const head = html.match(/<head\b[^>]*>[\s\S]*?<\/head\s*>/i)?.[0] ?? html.slice(0, 128 * 1024);
+  for (const link of head.matchAll(/<link\b([^>]*)>/gi)) {
+    const attributes = link[1] ?? '';
+    const rel = htmlAttributeValue(attributes, 'rel')?.toLowerCase().split(/\s+/) ?? [];
+    const href = htmlAttributeValue(attributes, 'href');
+    if (!rel.includes('sitemap') || !href) continue;
+    try { refs.add(new URL(href, homeUrl).toString()); } catch { /* use conventional paths */ }
+  }
   const home = new URL(homeUrl);
   refs.add(new URL('/sitemap.xml', home).toString());
   refs.add(new URL('/sitemap_index.xml', home).toString());
@@ -351,7 +358,7 @@ export async function discoverSitemapPageUrls(
 function normalizeDirectFetchError(error: unknown): AuditPageFetchError {
   if (error instanceof AuditPageFetchError) return error;
   if (error instanceof ResponseTooLargeError) {
-    return new AuditPageFetchError('AUDIT_RESPONSE_TOO_LARGE', error.message, false);
+    return new AuditPageFetchError('AUDIT_RESPONSE_TOO_LARGE', error.message, true);
   }
   if (error instanceof SubrequestBudgetExceeded) {
     return new AuditPageFetchError(error.code, error.message, false);
@@ -369,6 +376,11 @@ function normalizeDirectFetchError(error: unknown): AuditPageFetchError {
 }
 
 function immediateMetaRefreshTarget(html: string, currentUrl: string): string | null {
+  // Most pages do not use a meta refresh. Avoid a full DOM parse unless the
+  // markup contains an actual refresh directive.
+  if (!/<meta\b[^>]*\bhttp-equiv\s*=\s*(?:"\s*refresh\s*"|'\s*refresh\s*'|refresh\b)/i.test(html)) {
+    return null;
+  }
   try {
     const { document } = parseHTML(html);
     const current = new URL(currentUrl);
@@ -460,7 +472,7 @@ async function fetchDirectAuditPage(
         throw new AuditPageFetchError(
           'AUDIT_RESPONSE_TOO_LARGE',
           error.message,
-          false,
+          true,
           response.status,
           finalUrl,
           response.headers,

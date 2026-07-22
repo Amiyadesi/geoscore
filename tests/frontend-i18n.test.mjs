@@ -46,6 +46,7 @@ test('shared catalog localizes product copy and interpolates values', () => {
   assert.equal(i18n.t('app.documentTitle', {}, 'zh'), 'GeoScore — 证据优先的 SEO 与 GEO 审查');
   assert.equal(i18n.t('semantic.loading', {}, 'zh'), 'AI 加载中…');
   assert.equal(i18n.t('progress.modules', { done: 2, total: 8 }, 'zh'), '2 / 8 项');
+  assert.equal(i18n.t('progress.resumed', { count: 3 }, 'zh'), '正在复用上次中断审计的 3 项已验证结果…');
   assert.equal(i18n.t('audit.fixTasks', {}, 'en'), 'Download full repair report (.md)');
   assert.equal(i18n.t('audit.fixTasks', {}, 'zh'), '下载完整修复报告.md');
   assert.equal(i18n.t('audit.evidenceMap.title', {}, 'zh'), '查询证据地图');

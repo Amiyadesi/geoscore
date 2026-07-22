@@ -1,4 +1,5 @@
 import type { Env } from './types';
+import { parse as parseHostname } from 'tldts';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://geo.sayori.org',
@@ -97,6 +98,10 @@ export function isValidPublicHostname(hostname: string): boolean {
     host.endsWith('.home.arpa')
   ) return false;
   if (!/^(xn--)?(?=[a-z0-9-]{2,63}$)(?=.*[a-z])[a-z0-9-]+$/.test(tld)) return false;
+  const parsed = parseHostname(host, { allowPrivateDomains: true });
+  // Reject asset names such as favicon.ico and reserved/unknown suffixes while
+  // retaining private suffixes (for example github.io) and punycode IDNs.
+  if (!parsed.domain || (!parsed.isIcann && !parsed.isPrivate && !tld.startsWith('xn--'))) return false;
   return labels.every((label) =>
     label.length >= 1 &&
     label.length <= 63 &&

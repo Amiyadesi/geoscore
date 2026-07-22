@@ -116,6 +116,32 @@ describe('GeoScore 2 audit core', () => {
     }
   });
 
+  it('discovers internal pages and sitemap declarations without a full DOM parse', async () => {
+    const html = `<html><head><link href="/custom-map.xml" rel="alternate sitemap"></head><body>
+      <a data-kind="post" href="/posts/one?x=1&amp;y=2">One</a>
+      <a href=/plain>Plain</a>
+      <a href="https://example.com/docs/start#intro">Docs</a>
+      <a href="/cdn-cgi/challenge">Infrastructure</a>
+      <a href="https://other.example.net/post">Other host</a>
+    </body></html>`;
+    assert.deepEqual(pages.extractInternalLinks('https://example.com/', html), [
+      'https://example.com/docs/start',
+      'https://example.com/plain',
+      'https://example.com/posts/one?x=1&y=2',
+    ]);
+
+    const requested = [];
+    const sitemapUrls = await pages.discoverSitemapPageUrls('https://example.com/', html, async url => {
+      requested.push(String(url));
+      return new Response(
+        '<urlset><url><loc>https://example.com/posts/from-map</loc></url></urlset>',
+        { status: 200, headers: { 'content-type': 'application/xml' } },
+      );
+    });
+    assert.equal(requested[0], 'https://example.com/custom-map.xml');
+    assert.deepEqual(sitemapUrls, ['https://example.com/posts/from-map']);
+  });
+
   it('follows an immediate same-root meta refresh before auditing the page', async () => {
     const requested = [];
     const fetcher = async url => {

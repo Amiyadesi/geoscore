@@ -2406,6 +2406,14 @@ function showEmbedCode(domain) {
 
 function updateModuleProgress(name, status, detail) {
   if (name === 'cache') return; // cache is internal — never show as a card
+  if (name === 'checkpoint') {
+    const statusEl = document.getElementById('progress-status');
+    const count = Array.isArray(detail?.reused_modules) ? detail.reused_modules.length : 0;
+    if (statusEl && status === 'resumed') {
+      statusEl.textContent = uiText('progress.resumed', { count });
+    }
+    return;
+  }
   // These modules are rendered by renderComputedSections, not as streaming cards.
   // Without this guard, they'd get a permanent spinner that never resolves.
   if (name === 'recommendations' || name === 'keywords' || name === 'competitor_snapshot') return;

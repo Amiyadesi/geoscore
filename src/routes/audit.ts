@@ -1,6 +1,12 @@
 import type { Env, ModuleResult } from '../lib/types';
 import { createSseStream } from '../lib/sse';
-import { getCachedAudit, setCachedAudit } from '../lib/cache';
+import {
+  clearPartialAudit,
+  getCachedAudit,
+  getPartialAudit,
+  setCachedAudit,
+  setPartialAudit,
+} from '../lib/cache';
 import { detectBotChallenge } from '../lib/bot-detection';
 import { SubrequestBudget, budgetedFetcher } from '../lib/subrequest-budget';
 import {
@@ -35,6 +41,15 @@ import { runMobileAudit } from '../modules/mobile_audit';
 import { runHtmlValidation } from '../modules/html_validator';
 import { runCommonCrawlPresence } from '../modules/common_crawl';
 import { buildRepairGroups } from '../lib/repair-groups';
+import {
+  buildAuditCheckpoint,
+  canReuseCheckpointModule,
+  checkpointMatchesPageFingerprints,
+  checkpointMatchesScope,
+  fingerprintAuditPages,
+  type AuditCheckpoint,
+} from '../lib/audit-checkpoint';
+import { SCORE_VERSION } from '../lib/audit-contract';
 
 import { monotonicFactory } from 'ulid';
 
@@ -150,6 +165,17 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       return;
     }
 
+    // A previous invocation may have been cut off after completing some
+    // modules. Keep that server-side checkpoint around for the next run; it
+    // is validated against fresh page fingerprints before any result is reused.
+    let partialCandidate: AuditCheckpoint | null = null;
+    try {
+      partialCandidate = await getPartialAudit(env, cleanDomain, cacheScope);
+    } catch {
+      // Checkpoint reuse is an optimisation. An unavailable KV must never
+      // make a fresh audit fail.
+    }
+
     const business = { name: cleanDomain, domain: cleanDomain };
     const businessId = await upsertBusiness(business, env);
     const auditId = ulid();
@@ -159,6 +185,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     ).bind(auditId, businessId).run();
 
     const modules: Record<string, ModuleResult> = {};
+    const reusedModuleNames = new Set<string>();
     // Workers Free allows 50 subrequests per invocation. Track 36 explicit
     // external/service calls and leave headroom for D1/KV/cache operations.
     const externalBudget = new SubrequestBudget(36, 'audit.external');
@@ -266,15 +293,33 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       locality: locationOverride,
       archetypeHint,
     });
+    const checkpointScope = {
+      domain: cleanDomain,
+      mode,
+      target_url: requestedUrl,
+      archetype_hint: archetypeHint,
+      score_version: SCORE_VERSION,
+    };
+    // Fingerprinting can scan several megabytes of HTML. Compute it once per
+    // invocation, then reuse the native SHA-256 result for every KV snapshot.
+    const auditPageFingerprints = await fingerprintAuditPages(auditPages);
+    if (checkpointMatchesScope(partialCandidate, checkpointScope)) {
+      const pagesMatch = checkpointMatchesPageFingerprints(partialCandidate, auditPageFingerprints);
+      for (const [moduleName, result] of Object.entries(partialCandidate.modules)) {
+        if (!canReuseCheckpointModule(moduleName, result, pagesMatch)) continue;
+        modules[moduleName] = result;
+        reusedModuleNames.add(moduleName);
+      }
+    }
     emit('section', { module: 'audit_context', status: 'ok', data: auditContext });
     emit('section', { module: 'pages_audited', status: 'ok', data: auditPages.map(summarizeAuditPage) });
 
     const deterministicReason = 'Deprecated for new audits: dated Evidence Map snapshots are separate from factual scoring';
-    modules.geo_predicted = { status: 'skipped', data: { reason: deterministicReason, deprecated: true } };
+    modules.geo_predicted ??= { status: 'skipped', data: { reason: deterministicReason, deprecated: true } };
     emit('section', { module: 'geo_predicted', ...modules.geo_predicted });
-    modules.keywords = { status: 'skipped', data: { reason: deterministicReason } };
+    modules.keywords ??= { status: 'skipped', data: { reason: deterministicReason } };
     emit('section', { module: 'keywords', ...modules.keywords });
-    modules.ai_content_insights = { status: 'skipped', data: { reason: deterministicReason } };
+    modules.ai_content_insights ??= { status: 'skipped', data: { reason: deterministicReason } };
     emit('section', { module: 'ai_content_insights', ...modules.ai_content_insights });
 
     // Secondary pages were already fetched by the bounded sampler and are reused
@@ -282,16 +327,6 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     const innerPagesHtml = auditPages.slice(1)
       .filter(page => page.status === 'complete')
       .map(page => page.html);
-    const robotsFetcher = budgetedFetcher(coreBudget.child('robots', 3), undefined, 'robots');
-    const earlyRobotsSitemapPromise = runModule(
-      'robots_sitemap',
-      () => runRobotsSitemap(cleanDomain, sharedHtmlIsBotChallenge, contentHtml, {
-        fetcher: robotsFetcher,
-        maxRobotsCandidates: 1,
-        maxSitemapCandidates: 2,
-      }),
-      20000,
-    );
 
     // ── All modules in parallel — stream each result as it lands ──────────
     // NOTE: Lighthouse is NOT in this list — it runs via /api/lighthouse (own Worker
@@ -302,6 +337,14 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       'html_validator','common_crawl',
     ];
     PROGRESS_MODULES.forEach(m => emit('progress', { module: m, status: 'running' }));
+    if (reusedModuleNames.size > 0) {
+      emit('progress', {
+        module: 'checkpoint',
+        status: 'resumed',
+        reused_modules: [...reusedModuleNames].sort(),
+        detail: { reused_modules: [...reusedModuleNames].sort() },
+      });
+    }
 
     const legacySkipReason = 'Skipped in the v2 anonymous audit to keep the Cloudflare Workers Free request budget deterministic';
     const budgetSkippedModules = [
@@ -314,11 +357,50 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
       'broken_links',
     ] as const;
     for (const moduleName of budgetSkippedModules) {
-      const result: ModuleResult = { status: 'skipped', data: { reason: legacySkipReason } };
-      modules[moduleName] = result;
-      emit('section', { module: moduleName, ...result });
+      modules[moduleName] ??= { status: 'skipped', data: { reason: legacySkipReason } };
+      emit('section', { module: moduleName, ...modules[moduleName] });
     }
 
+    let completedSinceCheckpoint = 0;
+    let checkpointWrite = Promise.resolve();
+    const queueCheckpoint = (force = false): void => {
+      if (!force) {
+        completedSinceCheckpoint += 1;
+        if (completedSinceCheckpoint !== 1 && completedSinceCheckpoint !== 6) return;
+      }
+      const snapshot = buildAuditCheckpoint(
+        checkpointScope,
+        auditId,
+        businessId,
+        auditPageFingerprints,
+        { ...modules },
+      );
+      checkpointWrite = checkpointWrite
+        .then(() => setPartialAudit(env, cleanDomain, cacheScope, snapshot))
+        .catch(() => undefined);
+    };
+    const recordModule = (moduleName: string, result: ModuleResult): void => {
+      modules[moduleName] = result;
+      emit('section', { module: moduleName, ...result });
+      queueCheckpoint();
+    };
+    const runOrReuse = (
+      moduleName: string,
+      run: () => Promise<ModuleResult>,
+    ): Promise<void> => {
+      if (reusedModuleNames.has(moduleName) && modules[moduleName]) {
+        emit('section', { module: moduleName, ...modules[moduleName], reused: true });
+        return Promise.resolve();
+      }
+      return run().then(result => recordModule(moduleName, result));
+    };
+
+    // Save the page fingerprints and deterministic skipped modules before the
+    // expensive parallel phase. Later writes are coalesced to at most three per
+    // audit so checkpointing does not become a new subrequest bottleneck.
+    queueCheckpoint(true);
+
+    const robotsFetcher = budgetedFetcher(coreBudget.child('robots', 3), undefined, 'robots');
     const technicalFetcher = budgetedFetcher(coreBudget.child('technical', 4), undefined, 'technical');
     const authorityFetcher = budgetedFetcher(coreBudget.child('authority', 6), undefined, 'authority');
     const cruxFetcher = budgetedFetcher(coreBudget.child('crux', 2), undefined, 'crux');
@@ -326,7 +408,7 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     const commonCrawlFetcher = budgetedFetcher(optionalBudget.child('common_crawl', 2), undefined, 'common-crawl');
 
     await Promise.all([
-      runModule('technical_seo', () => runTechnicalSeo(
+      runOrReuse('technical_seo', () => runModule('technical_seo', () => runTechnicalSeo(
         cleanDomain,
         contentHtml,
         sharedHeaders,
@@ -337,61 +419,69 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
           includeAdsTxt: false,
           transportEvidenceAvailable: primaryPage.fetch_source !== 'browser_run',
         },
-      ), 22000).then(r => {
-        modules.technical_seo = r;
-        emit('section', { module: 'technical_seo', ...r });
-      }),
-      runModule('schema_audit', () => runSchemaAudit(cleanDomain, contentHtml, innerPagesHtml, auditContext.site_archetype), 15000).then(r => {
-        modules.schema_audit = r;
-        emit('section', { module: 'schema_audit', ...r });
-      }),
-      runModule('content_quality', () => runContentQuality(cleanDomain, contentHtml, innerPagesHtml), 15000).then(r => {
-        modules.content_quality = r;
-        emit('section', { module: 'content_quality', ...r });
-      }),
-      runModule('authority', () => runAuthority(
+      ), 22000)),
+      runOrReuse('schema_audit', () => runModule(
+        'schema_audit',
+        () => runSchemaAudit(cleanDomain, contentHtml, innerPagesHtml, auditContext.site_archetype),
+        15000,
+      )),
+      runOrReuse('content_quality', () => runModule(
+        'content_quality',
+        () => runContentQuality(cleanDomain, contentHtml, innerPagesHtml),
+        15000,
+      )),
+      runOrReuse('authority', () => runModule('authority', () => runAuthority(
         auditContext.root_domain,
         auditContext.entity?.name ?? auditContext.root_domain,
         env.OPENPAGERANK_KEY,
         { fetcher: authorityFetcher, maxKnowledgeCandidates: 1, maxRdapEndpoints: 2 },
-      ), 25000).then(r => {
-        modules.authority = r;
-        emit('section', { module: 'authority', ...r });
-      }),
-      runModule('on_page_seo', () => runOnPageSeo(cleanDomain, contentHtml), 30000).then(r => {
-        modules.on_page_seo = r;
-        emit('section', { module: 'on_page_seo', ...r });
-      }),
-      runModule('accessibility', () => runAccessibility(cleanDomain, contentHtml), 30000).then(r => {
-        modules.accessibility = r;
-        emit('section', { module: 'accessibility', ...r });
-      }),
-      runModule('crux', () => runCrux(cleanDomain, env, { fetcher: cruxFetcher }), 15000).then(r => {
-        modules.crux = r;
-        emit('section', { module: 'crux', ...r });
-      }),
-      earlyRobotsSitemapPromise.then(r => {
-        modules.robots_sitemap = r;
-        emit('section', { module: 'robots_sitemap', ...r });
-      }),
-      runModule('mobile_audit', () => Promise.resolve(runMobileAudit(cleanDomain, contentHtml)), 5000).then(r => {
-        modules.mobile_audit = r;
-        emit('section', { module: 'mobile_audit', ...r });
-      }),
-      (primaryPage.status === 'complete'
+      ), 25000)),
+      runOrReuse('on_page_seo', () => runModule(
+        'on_page_seo',
+        () => runOnPageSeo(cleanDomain, contentHtml),
+        30000,
+      )),
+      runOrReuse('accessibility', () => runModule(
+        'accessibility',
+        () => runAccessibility(cleanDomain, contentHtml),
+        30000,
+      )),
+      runOrReuse('crux', () => runModule(
+        'crux',
+        () => runCrux(cleanDomain, env, { fetcher: cruxFetcher }),
+        15000,
+      )),
+      runOrReuse('robots_sitemap', () => runModule(
+        'robots_sitemap',
+        () => runRobotsSitemap(cleanDomain, sharedHtmlIsBotChallenge, contentHtml, {
+          fetcher: robotsFetcher,
+          maxRobotsCandidates: 1,
+          maxSitemapCandidates: 2,
+        }),
+        20000,
+      )),
+      runOrReuse('mobile_audit', () => runModule(
+        'mobile_audit',
+        () => Promise.resolve(runMobileAudit(cleanDomain, contentHtml)),
+        5000,
+      )),
+      runOrReuse('html_validator', () => primaryPage.status === 'complete'
         ? runModule('html_validator', () => runHtmlValidation(primaryPage.final_url, { fetcher: htmlValidatorFetcher }), 15000)
         : Promise.resolve<ModuleResult>({ status: 'skipped', error: 'Primary HTML page was unavailable' })
-      ).then(r => {
-        modules.html_validator = r;
-        emit('section', { module: 'html_validator', ...r });
-      }),
-      runModule('common_crawl', () => runCommonCrawlPresence(auditContext.root_domain, { fetcher: commonCrawlFetcher }), 23000).then(r => {
-        modules.common_crawl = r;
-        emit('section', { module: 'common_crawl', ...r });
-      }),
+      ),
+      runOrReuse('common_crawl', () => runModule(
+        'common_crawl',
+        () => runCommonCrawlPresence(auditContext.root_domain, { fetcher: commonCrawlFetcher }),
+        23000,
+      )),
       // Lighthouse intentionally omitted — runs via /api/lighthouse (separate invocation)
       // to stay within Cloudflare's 50-subrequest-per-invocation free-plan limit.
     ]);
+
+    // Ensure the latest scheduled checkpoint is durable before scoring. A
+    // successful audit clears it; an interrupted run keeps the first six
+    // verified modules without spending another subrequest on a final snapshot.
+    await checkpointWrite;
 
     // ── Evidence-first scoring and recommendations ─────────────────────────
     const checks = buildNormalizedChecks(auditContext, auditPages, modules);
@@ -435,6 +525,12 @@ export function handleAudit(domain: string, env: Env, options: AuditRequestOptio
     // Six hours keeps deterministic page evidence fresh without tying cache
     // lifetime to an optional model or external snapshot provider.
     await setCachedAudit(env, cleanDomain, auditId, 60 * 60 * 6, cacheScope);
+    try {
+      await clearPartialAudit(env, cleanDomain, cacheScope);
+    } catch {
+      // A stale checkpoint expires after 30 minutes and can never replace a
+      // completed cache hit, so cleanup failure is non-fatal.
+    }
     emit('complete', fullAudit);
   });
 }

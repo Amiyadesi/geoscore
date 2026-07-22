@@ -1,4 +1,4 @@
-# GeoScore 2.4.6 — Evidence-first SEO and GEO Audit
+# GeoScore 2.4.7 — Evidence-first SEO and GEO Audit
 
 GeoScore audits public websites for verifiable SEO and generative-engine readiness signals. It supports a bounded site audit and a single-URL audit. Site mode samples at most five HTML pages, including the homepage and representative pages discovered from the site.
 
@@ -28,7 +28,7 @@ GeoScore may use live page fetches, robots.txt, sitemap.xml, PageSpeed Insights,
 
 - Audit modes: site and URL
 - Maximum site sample: five HTML pages
-- Current score version: 2.4.6
+- Current score version: 2.4.7
 - Current registry: 60 factual / 54 scoring / 6 informational / 1 Predicted
 - Interface languages: English and Chinese
 - License: MIT

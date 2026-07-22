@@ -131,6 +131,22 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(kv.calls.put, 0);
   });
 
+  it('uses Browser Run after a retryable direct fetch timeout', async () => {
+    const binding = bindingWith(() => successResponse());
+    const page = await fetchAuditPage(candidate, async () => {
+      const error = new Error('upstream request timed out');
+      error.name = 'AbortError';
+      throw error;
+    }, {
+      browserFallback: browserOptions({ binding }),
+    });
+
+    assert.equal(page.status, 'complete');
+    assert.equal(page.fetch_source, 'browser_run');
+    assert.equal(page.browser_fallback?.status, 'complete');
+    assert.equal(binding.calls.length, 1);
+  });
+
   it('does not call the provider when the daily reservation would exceed 540 seconds', async () => {
     const kv = memoryKv('530');
     const binding = bindingWith(() => successResponse());
@@ -328,7 +344,7 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(binding.calls.length, 1);
   });
 
-  it('classifies oversized direct and Browser Run responses with stable codes', async () => {
+  it('uses Browser Run for oversized direct HTML and still bounds the rendered response', async () => {
     const directBinding = bindingWith(() => successResponse());
     const direct = await fetchAuditPage(candidate, () => Promise.resolve(new Response('x', {
       status: 200,
@@ -339,8 +355,9 @@ describe('Cloudflare Browser Run audit fallback', () => {
     })), {
       browserFallback: browserOptions({ binding: directBinding }),
     });
-    assert.equal(direct.error_code, 'AUDIT_RESPONSE_TOO_LARGE');
-    assert.equal(directBinding.calls.length, 0);
+    assert.equal(direct.status, 'complete');
+    assert.equal(direct.fetch_source, 'browser_run');
+    assert.equal(directBinding.calls.length, 1);
 
     const envelopeBinding = bindingWith(() => new Response('x', {
       status: 200,
@@ -468,5 +485,10 @@ describe('Cloudflare Browser Run audit fallback', () => {
     assert.equal(detectJavaScriptShell(oversizedSparseShell), true);
     assert.equal(detectJavaScriptShell(shortRealPage), false);
     assert.equal(detectJavaScriptShell(renderedHtml), false);
+  });
+
+  it('keeps the hot-path shell detector parser-free for large pages', () => {
+    const source = fs.readFileSync(path.resolve('src/lib/audit-html.ts'), 'utf8');
+    assert.doesNotMatch(source, /from ['"]linkedom['"]/);
   });
 });

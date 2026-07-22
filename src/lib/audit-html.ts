@@ -1,23 +1,15 @@
-import { parseHTML } from 'linkedom';
 import { detectBotChallenge } from './bot-detection';
 
 export function visiblePageText(html: string): string {
   if (!html) return '';
-  try {
-    const { document } = parseHTML(html);
-    for (const element of document.querySelectorAll('script,style,noscript,template,svg')) {
-      element.remove();
-    }
-    return (document.body?.textContent ?? document.documentElement?.textContent ?? '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  } catch {
-    return html
-      .replace(/<(?:script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|template|svg)>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  // This helper runs before every page audit. Keep it linear and parser-free:
+  // a full DOM parse of a 500 KB homepage costs more CPU than the actual checks.
+  return html
+    .replace(/<(?:script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|template|svg)>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:nbsp|amp|lt|gt|quot);/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Conservative heuristic for an app shell that has scripts but no useful rendered text. */
@@ -30,18 +22,11 @@ export function detectJavaScriptShell(html: string): boolean {
     || /\b(?:__NEXT_DATA__|__NUXT__|hydrateRoot|createRoot\s*\(|webpackChunk)\b/.test(html);
 
   // A consent/navigation shell can contain a surprising amount of text while
-  // still exposing no page content. Give semantic server-rendered content
-  // priority over raw character counts so short, real pages are not rejected.
-  let hasMeaningfulStructure = false;
-  try {
-    const { document } = parseHTML(html);
-    const contentRoot = document.querySelector('main, article');
-    const heading = contentRoot?.querySelector('h1') ?? document.querySelector('h1');
-    const semanticText = (contentRoot?.textContent ?? '').replace(/\s+/g, ' ').trim();
-    hasMeaningfulStructure = !!contentRoot && !!heading && semanticText.length >= 60;
-  } catch {
-    hasMeaningfulStructure = /<(?:main|article)\b[\s\S]*?<h1\b/i.test(html) && visibleText.length >= 60;
-  }
+  // still exposing no page content. Check the same semantic signals without
+  // reparsing the whole document with linkedom.
+  const hasMeaningfulStructure = /<(?:main|article)\b/i.test(html)
+    && /<h1\b/i.test(html)
+    && visibleText.length >= 60;
   if (hasMeaningfulStructure) return false;
 
   const sparseLargeDocument = visibleText.length < 240

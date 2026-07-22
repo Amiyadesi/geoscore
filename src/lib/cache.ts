@@ -1,4 +1,5 @@
 import type { Env } from './types';
+import type { AuditCheckpoint } from './audit-checkpoint';
 
 /**
  * Increment CACHE_VERSION whenever vertical-detection logic changes.
@@ -6,12 +7,53 @@ import type { Env } from './types';
  * every cached key becomes a different string so old entries are ignored
  * and expire naturally (KV TTL) without needing a manual flush.
  */
-const CACHE_VERSION = 'v27';
+export const CACHE_VERSION = 'v28';
 
 export interface AuditCacheScope {
   mode?: 'site' | 'url';
   targetUrl?: string | null;
   archetypeHint?: string | null;
+}
+
+export function partialCacheKey(domain: string, scope: AuditCacheScope = {}): string {
+  return `partial:${cacheKey(domain, scope)}`;
+}
+
+export async function getPartialAudit(
+  env: Env,
+  domain: string,
+  scope: AuditCacheScope = {},
+): Promise<AuditCheckpoint | null> {
+  const raw = await env.AUDIT_KV.get(partialCacheKey(domain, scope));
+  if (!raw) return null;
+  try {
+    const checkpoint = JSON.parse(raw) as AuditCheckpoint;
+    if (!checkpoint || checkpoint.version !== 1 || !Number.isFinite(checkpoint.expires_at) || checkpoint.expires_at <= Date.now()) {
+      await env.AUDIT_KV.delete(partialCacheKey(domain, scope));
+      return null;
+    }
+    return checkpoint;
+  } catch {
+    await env.AUDIT_KV.delete(partialCacheKey(domain, scope));
+    return null;
+  }
+}
+
+export async function setPartialAudit(
+  env: Env,
+  domain: string,
+  scope: AuditCacheScope,
+  checkpoint: AuditCheckpoint,
+): Promise<void> {
+  await env.AUDIT_KV.put(partialCacheKey(domain, scope), JSON.stringify(checkpoint), {
+    expirationTtl: checkpoint.expires_at > Date.now()
+      ? Math.max(60, Math.ceil((checkpoint.expires_at - Date.now()) / 1000))
+      : 60,
+  });
+}
+
+export async function clearPartialAudit(env: Env, domain: string, scope: AuditCacheScope): Promise<void> {
+  await env.AUDIT_KV.delete(partialCacheKey(domain, scope));
 }
 
 function stableCacheHash(value: string): string {

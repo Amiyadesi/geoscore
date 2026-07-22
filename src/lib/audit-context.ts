@@ -100,13 +100,17 @@ function isComparableSiteEntityNode(item: JsonLdNode, entityType?: string): bool
   return types.some(type => siteIdentityUrl(item.node, item.pageUrl, type));
 }
 
-function visibleText(html: string): string {
-  return visibleMarkup(html)
+function textFromVisibleMarkup(markup: string): string {
+  return markup
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;|&#160;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function visibleText(html: string): string {
+  return textFromVisibleMarkup(visibleMarkup(html));
 }
 
 function firstElementText(html: string, tag: 'title' | 'h1'): string {
@@ -249,8 +253,8 @@ function classifyArchetype(
   const nonArticleTypes = schemaTypes(nonArticleNodes);
   const html = visibleMarkup(pages.map(page => page.html).join('\n'));
   const visibleHomeHtml = visibleMarkup(homeHtml);
-  const lower = visibleText(html).toLowerCase();
-  const homeText = visibleText(visibleHomeHtml);
+  const lower = textFromVisibleMarkup(html).toLowerCase();
+  const homeText = textFromVisibleMarkup(visibleHomeHtml);
   const homeLower = homeText.toLowerCase();
   const homeIdentity = siteIdentityText(visibleHomeHtml);
   const homeHeadline = siteHeadlineText(visibleHomeHtml);

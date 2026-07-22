@@ -117,6 +117,26 @@ describe('Crawler Policy v2', () => {
     assert.equal(result.render_blocking_scripts, 1);
   });
 
+  it('keeps technology detection bounded and ignores product names in article copy', async () => {
+    const mentionOnly = `<!doctype html><html><head><title>Payments guide</title></head><body>
+      <main><h1>Compare payment platforms</h1><p>${'neutral introduction '.repeat(4000)}</p>
+      <p>This article compares WooCommerce with hosted payment products.</p></main></body></html>`;
+    const implementation = `<!doctype html><html><head><title>Store</title>
+      <script src="/wp-content/plugins/woocommerce/assets/js/frontend/cart.js"></script>
+      </head><body><main><h1>Store</h1></main></body></html>`;
+    const fetcher = async () => new Response('', { status: 404 });
+
+    const mentioned = await technical.runTechnicalSeo(
+      'example.com', mentionOnly, new Headers(), 10, 'https://example.com/', { fetcher },
+    );
+    const implemented = await technical.runTechnicalSeo(
+      'example.com', implementation, new Headers(), 10, 'https://example.com/', { fetcher },
+    );
+
+    assert.equal(mentioned.tech_stack.ecommerce, null);
+    assert.equal(implemented.tech_stack.ecommerce, 'WooCommerce');
+  });
+
   it('uses a language-aware title range for Chinese pages', async () => {
     const html = `<!doctype html><html lang="zh-CN"><head>
       <title>LINUX DO - 新的理想型社区</title>
@@ -222,8 +242,8 @@ describe('Crawler Policy v2', () => {
   it('does not execute legacy predicted or keyword modules in new audit source', () => {
     const source = fs.readFileSync('src/routes/audit.ts', 'utf8');
     assert.doesNotMatch(source, /runGeoPredicted|detectVertical|detectLocation|runKeywords/);
-    assert.match(source, /modules\.geo_predicted = \{ status: 'skipped'/);
-    assert.match(source, /modules\.keywords = \{ status: 'skipped'/);
+    assert.match(source, /modules\.geo_predicted \?\?= \{ status: 'skipped'/);
+    assert.match(source, /modules\.keywords \?\?= \{ status: 'skipped'/);
     assert.match(source, /buildPredictedVisibility\(undefined/);
   });
 });
