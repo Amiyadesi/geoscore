@@ -90,7 +90,7 @@ export default {
 };
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
-const PRODUCT_VERSION = '2.4.5';
+const PRODUCT_VERSION = '2.4.6';
 const MAX_AUDIT_PAGES = 5;
 const OPTIONAL_ANONYMOUS_MODULES = [
   'keywords',

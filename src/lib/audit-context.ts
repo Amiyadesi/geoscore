@@ -191,6 +191,17 @@ function hasLinkText(html: string, textPattern: RegExp): boolean {
     .some(match => textPattern.test(visibleText(match[0])));
 }
 
+function uniqueLinkTargetCount(
+  links: InternalLinkSignal[],
+  predicate: (link: InternalLinkSignal) => boolean,
+): number {
+  return new Set(
+    links
+      .filter(predicate)
+      .map(link => `${link.target.hostname}${link.target.pathname}`.toLowerCase()),
+  ).size;
+}
+
 function isLikelyAuthorPerson(node: JsonObject): boolean {
   if (!nodeTypes(node).includes('Person')) return false;
   return [node['@id'], node.url]
@@ -272,6 +283,12 @@ function classifyArchetype(
 
   const pricingNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:pricing|plans)(?:\/|$)/i);
   const productAccountNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:signup|sign-up|register|login|dashboard|app)(?:\/|$)/i);
+  const productFeaturePath = /(?:^|\/)(?:features?|product|platform|integrations?|solutions?)(?:\/|$)/i;
+  const productFeatureLinkCount = uniqueLinkTargetCount(
+    navigationLinks,
+    link => productFeaturePath.test(link.target.pathname),
+  );
+  const productFeatureNavigation = productFeatureLinkCount > 0;
   const documentationPath = /(?:^|\/)(?:docs?|guide|api|reference|manual)(?:\/|$)/i;
   const directDocumentationNavigation = hasLinkPath(navigationLinks, documentationPath)
     || hasLinkPathAndText(
@@ -282,9 +299,24 @@ function classifyArchetype(
   const developerNavigation = directDocumentationNavigation
     || hasLinkPath(homeLinks, /(?:^|\/)(?:docs?|developers?|api|guides?)(?:\/|$)/i)
     || pageTypes.has('documentation');
-  const commerceNavigation = hasLinkPath(homeLinks, /(?:^|\/)(?:cart|checkout|collections?|shop|store)(?:\/|$)/i)
-    || homeLinks.some(link => /^(?:cart|shop|store)\./i.test(link.target.hostname));
-  const productLanguage = /\b(platform|software|api|developers?|infrastructure|payments?|billing|product)\b/i
+  const commercePath = /(?:^|\/)(?:cart|checkout|collections|shop|store|catalog|products?)(?:\/|$)/i;
+  const primaryCommerceLinkCount = uniqueLinkTargetCount(
+    navigationLinks,
+    link => commercePath.test(link.target.pathname),
+  );
+  const cartOrCheckoutNavigation = hasLinkPath(navigationLinks, /(?:^|\/)(?:cart|checkout)(?:\/|$)/i)
+    || navigationLinks.some(link => /^cart\./i.test(link.target.hostname));
+  const commerceIdentity = /\b(?:shop|store|shopping|retail|catalog|products?|buy online)\b|商城|商店|购物|产品目录/i
+    .test(`${homeIdentity} ${homeIntro}`);
+  const shoppingActionLinkCount = uniqueLinkTargetCount(
+    homeLinks,
+    link => /\b(?:shop now|shop all|buy now|add to cart)\b/i.test(link.text),
+  );
+  const commerceNavigation = cartOrCheckoutNavigation
+    || primaryCommerceLinkCount >= 2
+    || (primaryCommerceLinkCount >= 1 && commerceIdentity)
+    || shoppingActionLinkCount >= 2;
+  const productLanguage = /\b(platform|software|api|infrastructure|payments?|billing|productivity|workspace|collaboration)\b/i
     .test(`${homeIdentity} ${homeIntro}`);
   const organizationBacked = hasHomeType('Organization', 'Corporation', 'WebSite', 'OnlineBusiness');
   const homeHostname = (() => {
@@ -310,7 +342,8 @@ function classifyArchetype(
   const restaurantLanguage = /\b(?:restaurant|cafe|café|bistro|brasserie|dining)\b|餐厅|餐馆|咖啡馆/i
     .test(`${homeIdentity} ${homeIntro}`);
   const reservationAction = hasLinkPath(homeLinks, /(?:^|\/)(?:reservations?|bookings?|book-a-table|book-table)(?:\/|$)/i)
-    || hasLinkText(visibleHomeHtml, /\b(?:reservations?|booking|reserve(?: a| your)? table|book (?:a|your) table)\b|预订|预约/i);
+    || hasLinkText(visibleHomeHtml, /\b(?:reservations?|booking|reserve|reserve(?: a| your)? table|book (?:a|your) table)\b|预订|预约/i);
+  const diningAction = hasLinkText(visibleHomeHtml, /\b(?:dine|dining|menu)\b|用餐|菜单/i);
   const localIdentity = /\b(?:hotel|clinic|dental|dentist|physician|pharmacy|salon|attorney|law firm|accountant|real estate|veterinary)\b|酒店|诊所|牙科|律师事务所|美容院/i.test(homeIdentity);
   const localContactAction = hasLinkPath(homeLinks, /(?:^|\/)(?:contact|locations?|hours|book(?:ing)?)(?:\/|$)/i);
   const nonprofitIdentity = /\b(?:nonprofit|non-profit|not[- ]for[- ]profit|not profit|charity|foundation)\b/i.test(homeIdentity);
@@ -334,10 +367,12 @@ function classifyArchetype(
       && !(communityHeadlineIdentity && discussionNavigation)
       && !pricingNavigation
       && !productAccountNavigation);
-  const productPlatformSignals = [pricingNavigation, productAccountNavigation, developerNavigation, productLanguage]
+  const productPlatformSignals = [pricingNavigation, productAccountNavigation, productFeatureNavigation, developerNavigation, productLanguage]
     .filter(Boolean).length;
-  const commercialPlatformMatch = organizationBacked && pricingNavigation
-    && (developerNavigation || productLanguage || productAccountNavigation);
+  const productCoreAction = pricingNavigation || productAccountNavigation || productFeatureLinkCount >= 2;
+  const commercialPlatformMatch = productCoreAction
+    && (organizationBacked || productFeatureLinkCount >= 3)
+    && (developerNavigation || productLanguage || productFeatureLinkCount >= 3);
 
   if (documentationMatch) {
     return strong('documentation', 'Documentation hostname or primary site identity', pageUrl, 0.86);
@@ -366,6 +401,9 @@ function classifyArchetype(
     && (personalProfileLanguage || /\b(?:articles?|blog|essays?|tutorials?|writing)\b/i.test(homeIdentity))) {
     return strong('personal_blog', 'Named author publication with personal About and editorial navigation', pageUrl, 0.78);
   }
+  if (titledPerson && !organizationBacked && personalProfileLanguage && personalEditorialNavigation) {
+    return strong('personal_blog', 'Named first-person publication with editorial navigation', pageUrl, 0.76);
+  }
   if (!organizationBacked && aboutNavigation && personalProfileLanguage && personalEditorialLinkCount >= 3) {
     return strong('personal_blog', 'First-person profile with a substantial article library', pageUrl, 0.76);
   }
@@ -391,30 +429,42 @@ function classifyArchetype(
   if (!organizationBacked && aboutNavigation && personalProjectNavigation && personalEditorialLinkCount >= 3) {
     return strong('personal_blog', 'Personal profile navigation with a substantial blog archive', pageUrl, 0.76);
   }
-  if (organizationBacked && productPlatformSignals >= 2) {
+  if (commercialPlatformMatch && productPlatformSignals >= 2) {
     return strong('saas', 'Product platform navigation and site-level organization schema', pageUrl, 0.88);
   }
   if (professionalServicesNavigation && (industriesNavigation || clientWorkNavigation || professionalServicesLanguage)) {
     return strong('professional_services', 'Professional services and client work navigation', pageUrl, 0.8);
   }
-  if ((restaurantLanguage && reservationAction) || (localIdentity && localContactAction)) {
+  if ((restaurantLanguage && reservationAction) || (diningAction && reservationAction) || (localIdentity && localContactAction)) {
     return strong('local_business', 'Local venue identity with menu, booking, or contact actions', pageUrl, 0.82);
   }
   if (nonprofitIdentity || (/\b(?:nonprofit|non-profit|charity)\b/i.test(homeLower) && nonprofitAction)) {
     return strong('nonprofit', 'Nonprofit page copy', pageUrl, 0.66);
   }
-  if (commerceNavigation) {
-    return strong('ecommerce', 'Commerce navigation', pageUrl, 0.78);
-  }
-
   const editorialIdentity = /\b(?:blog|news|magazine|journal|publication)\b|博客|新闻|杂志|期刊/i.test(homeHeadline);
   const editorialNavigation = hasLinkPathAndText(
     navigationLinks,
     /(?:^|\/)(?:articles?|magazine|posts?|stories|topics?)(?:\/|$)/i,
     /\b(?:articles?|magazine|posts?|stories|topics?)\b|文章|杂志|主题/i,
   );
+  const primaryEditorialNavigation = hasLinkPathAndText(
+    navigationLinks,
+    /(?:^|\/)(?:articles?|magazine|posts?|news)(?:\/|$)/i,
+    /\b(?:articles?|magazine|posts?|news)\b|文章|杂志|新闻/i,
+  );
+  const homeArticleCount = (visibleHomeHtml.match(/<article\b/gi) ?? []).length;
+  const editorialContentLinkCount = uniqueLinkTargetCount(
+    homeLinks,
+    link => /(?:^|\/)(?:articles?|blog|magazine|posts?|stories|story)(?:\/|$)/i.test(link.target.pathname),
+  );
+  if (primaryEditorialNavigation && (homeArticleCount >= 2 || editorialContentLinkCount >= 3)) {
+    return strong('editorial', 'Article-led homepage with primary publication navigation', pageUrl, 0.82);
+  }
   if (editorialIdentity && editorialNavigation) {
     return strong('editorial', 'Visible publication identity with primary article navigation', pageUrl, 0.82);
+  }
+  if (commerceNavigation) {
+    return strong('ecommerce', 'Primary commerce navigation', pageUrl, 0.78);
   }
   if (hasHomeType('Blog') || (hasHomeType('BlogPosting', 'Article', 'TechArticle') && editorialIdentity)) {
     return strong('editorial', 'Homepage editorial JSON-LD and site identity', pageUrl, 0.9);

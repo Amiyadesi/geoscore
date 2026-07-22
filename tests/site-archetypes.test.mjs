@@ -710,4 +710,112 @@ describe('golden site archetype fixtures', () => {
 
     assert.equal(context.site_archetype, 'professional_services');
   });
+
+  it('recognizes an article-led publication without mistaking guides and developer copy for SaaS', () => {
+    const domain = 'frontend-notes.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Frontend Notes - Learning for designers and developers</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Frontend Notes"}</script>
+      </head><body><nav><a href="/articles/">Articles</a><a href="/guides/">Guides</a><a href="/almanac/">Almanac</a></nav>
+      <main><h1>Latest articles</h1>
+        <article><a href="/articles/layout-one/">Layout one</a></article>
+        <article><a href="/articles/layout-two/">Layout two</a></article>
+        <article><a href="/articles/layout-three/">Layout three</a></article>
+      </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'editorial');
+  });
+
+  it('does not let one merchandise or campus-store link redefine the whole site', () => {
+    const publication = `<!doctype html><html lang="en"><head><title>Northwind Review</title></head><body>
+      <nav><a href="/politics/">Politics</a><a href="/science/">Science</a><a href="/magazine/">Magazine</a></nav>
+      <main><article><h1>Lead investigation</h1></article><article><h2>Latest analysis</h2></article></main>
+      <footer><a href="https://shop.review.example.com/">Merch</a></footer></body></html>`;
+    const university = `<!doctype html><html lang="en"><head><title>Northwind University</title></head><body>
+      <nav><a href="/academics/">Academics</a><a href="/research/">Research</a><a href="/about/">About</a></nav>
+      <main><h1>Northwind University</h1><p>Teaching, research, and public service.</p></main>
+      <footer><a href="https://shop.university.example.com/">Campus store</a></footer></body></html>`;
+
+    const publicationContext = core.buildAuditContext({
+      domain: 'review.example.com',
+      pages: [page('review.example.com', publication)],
+    });
+    const universityContext = core.buildAuditContext({
+      domain: 'university.example.com',
+      pages: [page('university.example.com', university)],
+    });
+
+    assert.equal(publicationContext.site_archetype, 'editorial');
+    assert.notEqual(universityContext.site_archetype, 'ecommerce');
+  });
+
+  it('recognizes a feature-rich product platform without requiring schema or pricing', () => {
+    const domain = 'workspace.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northwind | AI work platform</title></head><body>
+      <nav><a href="/features/channels/">Channels</a><a href="/features/automation/">Automation</a>
+        <a href="/features/ai/">AI</a><a href="/integrations/">Integrations</a></nav>
+      <main><h1>All your people and AI agents working together</h1><p>A software platform for team productivity.</p></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'saas');
+  });
+
+  it('recognizes a named first-person publication without requiring an About link', () => {
+    const domain = 'person.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Tobias Example</title></head><body>
+      <main><h1>Tobias Example</h1><p>I design, tinker, and teach.</p>
+        <a href="/blog/">Blog</a><a href="/tutorials/">Tutorials</a><a href="/writing/design-systems/">Writing</a>
+      </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'personal_blog');
+  });
+
+  it('recognizes a dining group from paired dine and reserve actions', () => {
+    const domain = 'dining.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Blue Hill Farm</title></head><body>
+      <div class="menu"><a href="#dine">Dine</a><a href="#reserve">Reserve</a></div>
+      <main><h1>Blue Hill Farm</h1><a href="/family-meal/">Family Meal</a>
+        <a href="https://booking.example.net/table">Blue Hill at Stone Barns</a></main>
+    </body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'local_business');
+  });
+
+  it('recognizes ecommerce from repeated shopping actions outside a nav element', () => {
+    const domain = 'retail-home.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Northwind | Save more every day</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Northwind"}</script>
+      </head><body><main><h1>Tech, fashion, beauty and more</h1>
+        <section><a href="/shop/college/">Shop now</a></section>
+        <section><a href="/browse/home/">Shop now</a></section>
+        <section><a href="/browse/brands/">Shop all</a></section>
+      </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'ecommerce');
+  });
+
+  it('does not classify a corporate stories hub as an editorial publication', () => {
+    const domain = 'brand.example.com';
+    const html = `<!doctype html><html lang="en"><head><title>Welcome to Northwind Global</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Northwind"}</script>
+      </head><body><nav><a href="/global/stories/">Stories</a><a href="/global/jobs/">Jobs</a>
+        <a href="/global/our-business/">Our business</a></nav><main><h1>Welcome to Northwind Global</h1>
+        <a href="/global/stories/design/one/">Designer story</a>
+        <a href="/global/stories/design/two/">Product story</a>
+        <a href="/global/stories/ideas/three/">Home inspiration</a>
+      </main></body></html>`;
+
+    const context = core.buildAuditContext({ domain, pages: [page(domain, html)] });
+
+    assert.equal(context.site_archetype, 'other');
+  });
 });
