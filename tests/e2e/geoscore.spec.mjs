@@ -5,17 +5,19 @@ import { auditFixture, evidenceMapFixture } from './fixtures.mjs';
 const UI_COPY = {
   en: {
     lang: 'en',
-    title: 'Make your website easier for search and AI to understand',
+    title: 'Check verifiable SEO and GEO issues',
+    rankingLimit: 'no score predicts or guarantees ranking',
     docsTitle: 'From audit to a verifiable repair',
     audit: 'Audit',
-    customApi: 'Custom API',
+    customApi: 'Optional custom API',
   },
   zh: {
     lang: 'zh-CN',
-    title: '让搜索引擎和 AI 更容易理解你的网站',
+    title: '检查网站中可验证的 SEO 与 GEO 问题',
+    rankingLimit: '分数不预测也不保证排名',
     docsTitle: '从审查走到可以复验的修复',
     audit: '开始审查',
-    customApi: '自定义 API',
+    customApi: '可选：自定义 API',
   },
 };
 
@@ -55,7 +57,6 @@ async function mockApi(page) {
         },
       });
     }
-    if (url.pathname === '/api/stats') return route.fulfill({ json: { audits: 1200 } });
     if (url.pathname === '/api/businesses' || url.pathname === '/api/search') return route.fulfill({ json: [] });
     if (url.pathname === '/api/lighthouse') {
       return route.fulfill({
@@ -103,9 +104,15 @@ test('homepage follows browser language and fits the viewport', async ({ page },
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('h1')).toHaveText(copy.title);
+  await expect(page.locator('#hero-description')).toContainText(copy.rankingLimit);
   await expect(page.locator('#audit-btn')).toContainText(copy.audit);
   await expect(page.locator('#custom-api-panel > summary')).toContainText(copy.customApi);
   await expect(page.locator('#custom-api-panel')).not.toHaveAttribute('open', '');
+  await expect(page.locator('.feature-chip')).toHaveCount(0);
+  await expect(page.locator('#meta-facts')).toHaveCount(0);
+  await expect(page.locator('#homepage-info > details')).not.toHaveAttribute('open', '');
+  await page.locator('#homepage-info > details > summary').click();
+  await expect(page.locator('[data-i18n="scope.ranking"]')).toBeVisible();
   await page.locator('#custom-api-panel > summary').click();
   await expect(page.locator('#custom-api-key')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);

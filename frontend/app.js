@@ -42,46 +42,6 @@ applyUiLanguage();
 document.title = uiText('app.documentTitle');
 window.addEventListener('geoscore:ui-language-change', () => window.location.reload());
 
-// Product facts are served by the same Worker as audits so static claims do not drift.
-async function loadProductMeta() {
-  const status = document.getElementById('meta-facts-status');
-  try {
-    const response = await fetch(`${API}/api/meta`, { headers: { accept: 'application/json' } });
-    if (!response.ok) throw new Error(`meta ${response.status}`);
-    const meta = await response.json();
-    const rate = meta.rate_limit || {};
-    const checks = meta.checks || {};
-    const optionalModules = meta.capabilities?.optional_modules_not_run;
-    const values = {
-      version: meta.version || meta.score_version || uiText('common.unknown'),
-      pages: meta.max_pages ? uiText('meta.pages.value', { count: meta.max_pages }) : uiText('common.unknown'),
-      modes: Array.isArray(meta.audit_modes) ? meta.audit_modes.join(' / ') : uiText('common.unknown'),
-      checks: Number.isFinite(Number(checks.scoring))
-        ? uiText('meta.checks.value', { scoring: checks.scoring, informational: checks.informational ?? 0, predicted: checks.predicted ?? 0 })
-        : uiText('common.unknown'),
-      optional: Array.isArray(optionalModules)
-        ? uiText('meta.optional.value', { count: optionalModules.length })
-        : uiText('common.unknown'),
-      rate: rate.fresh_audits && rate.window_hours ? uiText('meta.rate.value', { count: rate.fresh_audits, hours: rate.window_hours }) : uiText('common.unknown'),
-      license: meta.license || 'MIT',
-      source: meta.source_url || 'GitHub',
-    };
-    document.querySelectorAll('[data-meta-fact]').forEach(el => {
-      const key = el.dataset.metaFact;
-      if (key === 'source') {
-        el.href = values.source;
-        el.textContent = 'GitHub';
-      } else if (values[key] != null) {
-        el.textContent = values[key];
-      }
-    });
-    if (status) status.textContent = '';
-  } catch {
-    if (status) status.textContent = uiText('meta.unavailable');
-  }
-}
-loadProductMeta();
-
 // ── "How it works?" modal ─────────────────────────────────────────────────
 const hiwModal  = document.getElementById('hiw-modal');
 const hiwClose  = document.getElementById('hiw-close');
@@ -132,18 +92,6 @@ document.querySelectorAll('.hiw-tab').forEach(tab => {
     }, 0);
   }
 })();
-// ── Social proof: fetch audit count + recently scanned feed ──────────────
-(function () {
-  const el = document.getElementById('audits-count');
-  fetch(`${API}/api/stats`).then(r => r.json()).then(({ audits }) => {
-    if (el && audits) {
-      const formatted = audits >= 1000 ? (audits / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : audits;
-      el.textContent = UI_LANGUAGE === 'zh' ? `${formatted}+ 个站点已审查` : `${formatted}+ sites audited`;
-    }
-  }).catch(() => {});
-
-})();
-
 // ── Progress counter ──────────────────────────────────────────────────────
 const PROGRESS_MODULES = new Set([
   'technical_seo','schema_audit','content_quality','authority','geo_predicted',
@@ -367,8 +315,6 @@ function tickProgress() {
 // ── Semantic Search (Transformers.js v3 + WebGPU) ─────────────────────────
 semanticSearchController = window.GeoScoreSemanticSearch.create({ apiBase: API, uiText });
 void semanticSearchController.init();
-// Show recent audit history on page load
-renderRecentAudits();
 
 // ── Scroll-to-top ──────────────────────────────────────────────────────────
 {
@@ -390,35 +336,6 @@ function toggleCardBody(headerEl) {
   if (!body) return;
   const isNowHidden = body.classList.toggle('hidden');
   headerEl.querySelector('.chevron')?.classList.toggle('rotated', isNowHidden);
-}
-
-// ── Recent audits ──────────────────────────────────────────────────────────
-function saveRecentAudit(domain) {
-  try {
-    const key = 'geoscore:recent';
-    let recent = JSON.parse(localStorage.getItem(key) || '[]');
-    recent = recent.filter(d => d !== domain);
-    recent.unshift(domain);
-    localStorage.setItem(key, JSON.stringify(recent.slice(0, 5)));
-  } catch { /* non-critical */ }
-}
-
-function renderRecentAudits() {
-  try {
-    const wrap = document.getElementById('recent-audits-wrap');
-    if (!wrap) return;
-    const recent = JSON.parse(localStorage.getItem('geoscore:recent') || '[]');
-    if (!recent.length) { wrap.classList.add('hidden'); return; }
-    wrap.innerHTML = `<div class="flex items-center gap-2 flex-wrap justify-center">
-      <span class="text-xs text-slate-400 shrink-0">Recent:</span>
-      ${recent.map(d => `<button data-quick="${esc(d)}"
-        class="inline-flex items-center gap-1.5 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2.5 py-1 rounded-full transition-colors font-medium text-slate-600 shadow-sm">
-        <img src="https://www.google.com/s2/favicons?sz=16&domain_url=${encodeURIComponent(d)}" alt="" class="w-3.5 h-3.5 rounded-sm" onerror="this.style.display='none'">
-        ${esc(d)}
-      </button>`).join('')}
-    </div>`;
-    wrap.classList.remove('hidden');
-  } catch { /* non-critical */ }
 }
 
 function parsePublicDomainInput(rawInput) {
@@ -1616,13 +1533,8 @@ function renderScoreSummaryNote(data) {
   } else {
     insightText.textContent = `${Math.round(summary.overall)}/100${meta ? ` · ${meta}` : ''}`;
     insightSub.textContent = t.scoreEvidence;
-    const [bg, border, color] = summary.overall >= 80
-      ? ['#f0fdf4', '#bbf7d0', '#15803d']
-      : summary.overall >= 60
-        ? ['#eff6ff', '#bfdbfe', '#1d4ed8']
-        : ['#fffbeb', '#fde68a', '#92400e'];
-    insightEl.style.cssText = `background:${bg};border:1px solid ${border};border-radius:12px;`;
-    insightText.style.color = color;
+    insightEl.style.cssText = 'background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;';
+    insightText.style.color = '#334155';
   }
   insightEl.lang = reportLanguage === 'zh' ? 'zh-CN' : 'en';
   insightEl.classList.remove('hidden');
@@ -1992,10 +1904,6 @@ function renderFullAudit(data) {
   const auditDate = data.created_at
     ? new Date(data.created_at).toLocaleString(UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en-US')
     : new Date().toLocaleString(UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en-US');
-  // Track recent audits in localStorage
-  saveRecentAudit(data.domain);
-  renderRecentAudits();
-
   // Update domain header
   const nameEl = document.getElementById('domain-name');
   const dateEl = document.getElementById('audit-date');
@@ -2082,8 +1990,10 @@ function renderFullAudit(data) {
       if (!ctxEl) return;
       const delta = Math.abs(_seo - _geo);
       if (delta >= 20) {
-        const weaker = _seo < _geo ? 'SEO' : 'AI visibility';
-        ctxEl.textContent = scoreContext(scoreSummary.overall) + ` · improve ${weaker}`;
+        const weaker = _seo < _geo
+          ? (reportLanguage === 'zh' ? '复核 SEO 证据' : 'review SEO evidence')
+          : (reportLanguage === 'zh' ? '复核 GEO 证据' : 'review GEO evidence');
+        ctxEl.textContent = scoreContext(scoreSummary.overall) + ` · ${weaker}`;
       }
     });
 
@@ -2108,30 +2018,14 @@ function renderFullAudit(data) {
     const insightEl = document.getElementById('score-insight');
     const insightText = document.getElementById('score-insight-text');
     const insightSub = document.getElementById('score-insight-sub');
-    if (insightEl && insightText && !scoreSummary.present && scoreSummary.overall !== null) {
-      const _iseo = scoreSummary.seo ?? 0, _igeo = scoreSummary.geo ?? 0;
+    if (insightEl && insightText && insightSub && !scoreSummary.present && scoreSummary.overall !== null) {
       const pctLabel = scoreContext(scoreSummary.overall);
-      insightText.textContent = `${scoreSummary.overall}/100 overall · ${pctLabel}`;
-      // Dynamic colour tint based on score
-      const s = scoreSummary.overall;
-      const [bg, border, textCls] = s >= 80 ? ['#f0fdf4','#bbf7d0','#15803d']
-                                   : s >= 60 ? ['#eff6ff','#bfdbfe','#1d4ed8']
-                                   :           ['#fffbeb','#fde68a','#92400e'];
-      insightEl.style.cssText = `background:${bg};border:1px solid ${border};border-radius:12px;`;
-      insightText.style.color = textCls;
-      let sub = '';
-      if (_iseo > _igeo + 15) {
-        sub = `SEO fundamentals are solid (${_iseo}/100) but AI search visibility lags behind (${_igeo}/100). Adding structured data, E-E-A-T signals, and llms.txt can close the gap.`;
-      } else if (_igeo > _iseo + 15) {
-        sub = `Strong AI visibility signals (${_igeo}/100). Shoring up technical SEO (${_iseo}/100) will unlock top-tier ranking performance across both traditional and AI search.`;
-      } else if (scoreSummary.overall >= 80) {
-        sub = `Excellent foundation — fine-tune the highest-impact signals below to enter the top tier.`;
-      } else if (scoreSummary.overall >= 60) {
-        sub = `Good base to build from. The prioritised action plan below shows where each fix will move your score most.`;
-      } else {
-        sub = `Multiple foundational issues found. Follow the ranked action plan below — even fixing the top 3 will noticeably improve your visibility.`;
-      }
-      insightSub.textContent = sub;
+      insightText.textContent = `${scoreSummary.overall}/100 · ${pctLabel}`;
+      insightEl.style.cssText = 'background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;';
+      insightText.style.color = '#334155';
+      insightSub.textContent = reportLanguage === 'zh'
+        ? '这是当前可验证检查的就绪度摘要，不是排名预测。请优先处理下方证据充分的失败项。'
+        : 'This is a readiness summary for the checks GeoScore could verify, not a ranking forecast. Start with the evidenced failures below.';
       insightEl.classList.remove('hidden');
       document.getElementById('data-provenance-row')?.classList.remove('hidden');
     }
@@ -2358,7 +2252,7 @@ function wireActionButtons(data) {
       const geo = scoreSummary.geo;
       const text = score === null
         ? `${data.domain} has insufficient evidence for a defensible GeoScore yet.\n\nCheck the evidence coverage and audit yours:`
-        : `My ${data.domain} scored ${Math.round(score)}/100 on GeoScore\n\nSEO: ${seo === null ? 'insufficient evidence' : Math.round(seo)} · AI Visibility: ${geo === null ? 'insufficient evidence' : Math.round(geo)}\n\nCheck yours:`;
+        : `My ${data.domain} scored ${Math.round(score)}/100 on GeoScore\n\nSEO: ${seo === null ? 'insufficient evidence' : Math.round(seo)} · GEO readiness: ${geo === null ? 'insufficient evidence' : Math.round(geo)}\n\nEvidence-based guidance, not a ranking forecast:`;
       const url = `https://geo.sayori.org/?d=${encodeURIComponent(data.domain)}`;
       window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener');
     });
@@ -2842,7 +2736,7 @@ function renderSection(d) {
         <!-- Stats -->
         <div class="flex-1 space-y-2">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-bold text-slate-900">AI Visibility</span>
+            <span class="text-sm font-bold text-slate-900">Predicted visibility</span>
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${visLabelColor} ${visLabelBg}">${visLabel}</span>
           </div>
           <p class="text-xs text-slate-500 leading-relaxed">${verdict}</p>
@@ -2866,7 +2760,7 @@ function renderSection(d) {
           <div class="space-y-2">${queryCards}</div>
         </div>` : queryCards && confPct < 25 ? `
         <div class="text-xs text-slate-400 italic bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-          AI confidence too low (${confPct}%) for reliable query-level predictions. Build domain authority, add structured data, and deepen your content to improve this score.
+          Prediction confidence is too low (${confPct}%) for a useful query-level result. Treat this module as unavailable rather than changing the site for its score.
         </div>` : ''}
 
     </div>`;
@@ -3618,7 +3512,7 @@ function renderRecommendations(recs) {
     <div class="flex items-center justify-between mb-4">
       <div>
         <div class="font-bold text-sm text-slate-900">📋 Action Plan</div>
-        <div class="text-[10px] text-slate-400 mt-0.5">Ranked by impact-to-effort ratio · check off as you fix</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">Ordered by impact and effort · check off as you verify each fix</div>
       </div>
       <span class="text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full" id="recs-done-count"></span>
     </div>
@@ -3700,7 +3594,7 @@ const TECH_TIPS = {
   'llms\\.txt': 'A file that helps AI models like ChatGPT and Claude understand your site',
   'Open Graph': 'Meta tags that control how your page looks when shared on social media',
   'schema markup': 'Structured data code that helps search engines understand your content',
-  'backlinks': 'Links from other websites to yours — a major Google ranking factor',
+  'backlinks': 'Links from other websites to yours — one possible authority and discovery signal',
   'SERP': 'Search Engine Results Page — what users see after a Google search',
   'CLS': 'Cumulative Layout Shift — measures unexpected layout shifts while the page loads',
   'LCP': 'Largest Contentful Paint — time for the main content block to appear on screen',
@@ -3709,7 +3603,7 @@ const TECH_TIPS = {
   'IPv6': 'Latest internet protocol version with a much larger address space than IPv4',
   'CDN': 'Content Delivery Network — servers around the world that serve your site faster',
   'hreflang': 'HTML attribute telling search engines which language and region a page targets',
-  'Core Web Vitals': "Google's key page experience metrics that affect search rankings",
+  'Core Web Vitals': "Page experience metrics for loading, responsiveness, and visual stability; they do not guarantee rankings",
 };
 
 function tipify(escapedHtml) {
@@ -3734,7 +3628,7 @@ function moduleName(key) {
     schema_audit:         '🗂️ Schema Markup',
     content_quality:      '📝 Content Quality',
     authority:            '🏛️ Domain Authority',
-    geo_predicted:        '🤖 AI Visibility · Predicted Citation Simulation',
+    geo_predicted:        'Predicted visibility simulation',
     recommendations:      '📋 Recommendations',
     keywords:             '🔑 Keyword Opportunities',
     on_page_seo:          '📄 On-Page SEO · Core Web Vitals',
@@ -4380,13 +4274,13 @@ function renderComputedSections(data) {
   {
     addCard('card-geo-probe', 'geo', `
       <div class="flex items-center justify-between mb-2">
-        <div class="font-semibold text-sm">🔭 AI Entity Visibility
+        <div class="font-semibold text-sm">Public entity references
           <span class="text-xs text-slate-400 font-normal ml-2">Free · powered by Wikipedia/DuckDuckGo</span>
         </div>
         <button id="geo-probe-btn"
           data-domain="${esc(data.domain)}"
           data-name="${esc(businessName)}"
-          class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium shrink-0">Check visibility</button>
+          class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium shrink-0">Check references</button>
       </div>
       <div class="text-xs text-slate-500 mb-3">Checks public entity references and structured knowledge signals. Wikipedia/Wikidata presence is treated as supporting evidence, not proof of AI training or citation.</div>
       <div id="geo-probe-output" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -4415,7 +4309,7 @@ function renderComputedSections(data) {
         </div>
         <div class="flex flex-col items-center">
           <div class="text-2xl font-bold text-${aiScoreColor}-600">${aiScore}</div>
-          <div class="text-[9px] text-slate-400 uppercase tracking-wide">AI Visibility</div>
+          <div class="text-[9px] text-slate-400 uppercase tracking-wide">Legacy GEO signal</div>
         </div>
       </div>
       <div class="bg-slate-50 rounded-lg p-3 mb-3">
@@ -4871,9 +4765,8 @@ function renderComputedSections(data) {
     if (httpsOk) positives.push('Secure connection (HTTPS) — browsers and visitors trust your site');
     if (!contentData?.has_noindex) positives.push('Visible to search engines — pages are not blocked from indexing');
     if (techData?.checks?.find(c => c.name === 'Mobile viewport meta')?.passed) positives.push('Mobile-friendly — works properly on phones and tablets');
-    if (respMs > 0 && respMs <= 1000) positives.push(`Fast server response (${respMs}ms) — good for rankings and user experience`);
-    if (wc >= 600) positives.push('Good content depth — enough text for search engines to understand your topic');
-    else if (wc >= 300) positives.push('Reasonable content length — some pages could use more detail');
+    if (respMs > 0 && respMs <= 1000) positives.push(`Fast server response (${respMs}ms) — supports a responsive user experience`);
+    if (wc >= 50) positives.push('Readable page text was found — review its usefulness and completeness in context');
     if ((contentData?.h2_count ?? 0) >= 2) positives.push('Well-structured content — headings help search engines parse topics');
     // Use the raw-HTML image_audit (techData) rather than content_quality's stripped count —
     // content_quality strips nav/footer before counting, which can overstate coverage when
@@ -4896,22 +4789,20 @@ function renderComputedSections(data) {
     if (contentData?.has_noindex) critical.push('Pages are hidden from all search engines — a "noindex" tag is blocking Google and AI crawlers');
     if ((techData?.blocked_ai_bots?.length ?? 0) > 0) critical.push(`Automated readers are blocked (${(techData.blocked_ai_bots).join(', ')}) — review whether this matches your publishing policy`);
     if (sslDefinitelyBad) critical.push('SSL certificate is invalid or expired — browsers warn visitors about security risks');
-    if (wc > 0 && wc < 50) critical.push(`Almost no readable text found (${wc} words) — the page likely requires JavaScript to load, which most search engines cannot see`);
+    if (wc > 0 && wc < 50) critical.push(`Almost no readable text found (${wc} words) — verify the rendered page, indexing, and whether the page communicates its purpose`);
 
-    if (!hasAnySchema) important.push('No structured data — search and AI engines cannot reliably extract business name, address, or services');
-    if (llmsState === 'missing') important.push('No llms.txt file — an optional content index could make selected pages easier for automated readers to discover');
-    if (wc >= 50 && wc < 300) important.push(`Very little content (${wc} words) — search engines need at least 300 words to understand what you offer`);
+    if (!hasAnySchema) important.push('No structured data found — add schema only when it matches the page type and facts already published');
+    if (wc >= 50 && wc < 300) important.push(`Limited readable text found (${wc} words) — review whether this page answers its intended visitor need`);
     if (techData?.checks?.find(c => c.name === 'Open Graph tags complete' && !c.passed)) important.push('No social preview tags — shared links show no image or description on social media');
-    if ((techData?.sitemap_url_count ?? 0) === 0) important.push('No XML sitemap — search engines must discover pages by guessing, and may miss some');
-    if (wc >= 300 && wc < 600) important.push(`Content is thin (${wc} words) — aim for 600+ words on key pages to compete for rankings`);
-    if ((contentData?.h2_count ?? 0) === 0 && wc >= 100) important.push('No section headings — content lacks structure, making it harder for search engines to parse topics');
+    if ((techData?.sitemap_url_count ?? 0) === 0) important.push('No XML sitemap found — page discovery relies more heavily on internal links and other signals');
+    if ((contentData?.h2_count ?? 0) === 0 && wc >= 100) important.push('No section headings — readers and parsers have less structure to scan');
 
     const imgMissing = imgAudit?.missing_alt ?? 0;
     if (imgMissing > 0) minor.push(`${imgMissing} image${imgMissing > 1 ? 's' : ''} missing descriptive text — screen readers and image search cannot interpret these`);
     if (isLocal && !contentData?.has_phone) minor.push('No phone number on homepage — local customers often look for this before visiting');
     if (isLocal && !contentData?.has_address) minor.push('No address or location text — weakens local search and map listing signals');
     if (!contentData?.lang_attr) minor.push('Language not declared on the page — browsers and search engines cannot auto-detect your target language');
-    if (respMs > 2000) minor.push(`Slow server response (${respMs}ms) — aim for under 800ms for better rankings and crawl efficiency`);
+    if (respMs > 2000) minor.push(`Slow server response (${respMs}ms) — verify the cause with field and lab data because it may affect users and crawling`);
 
     if (!positives.length && !critical.length && !important.length) return;
 
@@ -4971,7 +4862,7 @@ function renderComputedSections(data) {
   // ── Competitor Comparison ─────────────────────────────────────────────────
   addCard('card-competitor', 'geo', `
     <div class="font-semibold text-sm mb-1">⚡ Compare vs Competitor</div>
-    <p class="text-xs text-slate-500 mb-3">See exactly how your SEO &amp; AI visibility stacks up against any competitor — side by side.</p>
+    <p class="text-xs text-slate-500 mb-3">Compare the observed SEO and GEO checks for two public sites. This is not a ranking comparison.</p>
     <div class="flex gap-2">
       <div class="relative flex-1">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35"/></svg>

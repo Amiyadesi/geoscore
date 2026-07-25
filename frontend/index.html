@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Evidence-first SEO and GEO audit for public websites. Review site context, sampled pages, factual checks, PageSpeed data, coverage, confidence, and grounded fixes.">
+  <meta name="description" content="Evidence-based SEO and GEO audit for public websites. Find verifiable issues and grounded fixes without predicting or guaranteeing search rankings.">
   <title>GeoScore — Evidence-first SEO &amp; GEO Audit</title>
   <link rel="canonical" href="https://geo.sayori.org/">
   <meta property="og:title" content="GeoScore — Evidence-first SEO &amp; GEO Audit">
-  <meta property="og:description" content="Audit public websites with bounded page sampling, factual readiness checks, PageSpeed evidence, coverage, confidence, and grounded fixes.">
+  <meta property="og:description" content="Find verifiable SEO and GEO issues from public-page evidence. Results are optimization guidance, not a search-ranking forecast.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://geo.sayori.org/">
   <meta property="og:site_name" content="GeoScore">
@@ -16,7 +16,7 @@
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="GeoScore — Evidence-first SEO &amp; GEO Audit">
-  <meta name="twitter:description" content="Factual SEO/GEO readiness, bounded site sampling, PageSpeed evidence, and fixes tied to observed failures.">
+  <meta name="twitter:description" content="Verifiable SEO/GEO checks and evidence-linked fixes, without ranking promises.">
   <meta name="twitter:image" content="https://geo.sayori.org/og-image.svg">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563eb'/><path d='M8 22 L13 14 L18 18 L23 10' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='23' cy='10' r='2.5' fill='%2334d399'/></svg>">
   <!-- Inter font — primary typeface matching SEOptimer's professional aesthetic -->
@@ -148,18 +148,6 @@
       transform: translateY(-1px);
     }
 
-    /* ── Hero animated gradient background ──────────────────────────── */
-    @keyframes heroShift {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    .hero-animated {
-      background: linear-gradient(-45deg, #eff6ff, #f8fafc, #f0fdf4, #faf5ff);
-      background-size: 400% 400%;
-      animation: heroShift 14s ease infinite;
-    }
-
     /* ── Skeleton shimmer loading placeholders ──────────────────────── */
     @keyframes shimmer {
       0%   { background-position: -600px 0; }
@@ -186,20 +174,6 @@
     .src-slate  { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
     .src-teal   { background: #f0fdfa; color: #134e4a; border-color: #99f6e4; }
     .src-amber  { background: #fffbeb; color: #92400e; border-color: #fde68a; }
-
-    /* ── Feature grid chips in hero ──────────────────────────────────── */
-    .feature-chip {
-      background: rgba(255,255,255,0.9);
-      border: 1px solid rgba(226,232,240,0.9);
-      border-radius: 12px; padding: 12px 14px;
-      backdrop-filter: blur(8px);
-      transition: box-shadow 0.2s, transform 0.15s;
-      text-align: left;
-    }
-    .feature-chip:hover {
-      box-shadow: 0 4px 16px rgba(0,0,0,0.07);
-      transform: translateY(-2px);
-    }
 
     /* ── Animated status pulse dot ───────────────────────────────────── */
     @keyframes statusPulse {
@@ -303,7 +277,7 @@
       max-width: 1120px;
     }
 
-    .hero-animated {
+    .hero-sheet {
       position: relative;
       overflow: hidden;
       text-align: left !important;
@@ -319,7 +293,7 @@
       padding-right: min(33vw, 21rem) !important;
     }
 
-    .hero-animated::after {
+    .hero-sheet::after {
       content: "";
       position: absolute;
       right: clamp(0.75rem, 4vw, 3rem);
@@ -332,37 +306,36 @@
       pointer-events: none;
     }
 
-    .hero-animated > * {
+    .hero-sheet > * {
       position: relative;
       z-index: 1;
     }
 
-    .hero-animated .justify-center {
+    .hero-sheet .justify-center {
       justify-content: flex-start !important;
     }
 
-    .hero-animated h1 {
+    .hero-sheet h1 {
       color: var(--ink) !important;
       letter-spacing: 0 !important;
       max-width: 42rem;
     }
 
-    .hero-animated p {
+    .hero-sheet p {
       margin-left: 0 !important;
       margin-right: 0 !important;
       color: #5f5a55 !important;
     }
 
-    .hero-animated .max-w-xl {
+    .hero-sheet .max-w-xl {
       margin-left: 0 !important;
       margin-right: 0 !important;
     }
 
-    .feature-chip,
     .module-card,
     #score-header,
     #cat-tabs,
-    #homepage-info > div,
+    #homepage-info > details,
     #modules > div {
       border-radius: 6px !important;
       background: rgba(253,252,247,0.94) !important;
@@ -370,16 +343,6 @@
       box-shadow: 0 14px 32px rgba(40,50,60,0.1);
     }
 
-    .feature-chip {
-      backdrop-filter: none;
-      transform: rotate(0.35deg);
-    }
-
-    .feature-chip:nth-child(2) {
-      transform: rotate(-0.35deg);
-    }
-
-    .feature-chip:hover,
     #modules > div:hover {
       box-shadow: 0 18px 38px rgba(40,50,60,0.14);
       transform: translateY(-1px);
@@ -444,12 +407,12 @@
     }
 
     @media (max-width: 768px) {
-      .hero-animated {
+      .hero-sheet {
         padding-right: 2rem !important;
         transform: none;
       }
 
-      .hero-animated::after {
+      .hero-sheet::after {
         width: 9rem;
         right: 0.25rem;
         bottom: -2.2rem;
@@ -467,7 +430,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "GeoScore",
-    "description": "Evidence-first SEO and GEO audit for public websites, with bounded page sampling and fixes linked to observed failures.",
+    "description": "Evidence-based SEO and GEO audit for public websites, with bounded page sampling and fixes linked to observed failures. Results are guidance, not ranking predictions.",
     "url": "https://geo.sayori.org",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -482,7 +445,7 @@
     "name": "GeoScore",
     "alternateName": "GeoScore SEO & GEO Audit",
     "url": "https://geo.sayori.org",
-    "description": "Evidence-first SEO and GEO audit with factual readiness checks, coverage, confidence, PageSpeed evidence, and separately labelled predictions.",
+    "description": "Evidence-based SEO and GEO audit with factual readiness checks, coverage, confidence, and PageSpeed evidence. It does not predict or guarantee rankings.",
     "inLanguage": ["en", "zh-CN"],
     "potentialAction": {
       "@type": "SearchAction",
@@ -510,62 +473,6 @@
       "name": "Home",
       "item": "https://geo.sayori.org/"
     }]
-  }
-  </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "Is GeoScore free?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. The public service applies a fair-use limit to fresh audits. Cached report views do not consume the fresh-audit quota."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Does GeoScore monitor real AI citations?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No. GeoScore audits factual SEO and GEO readiness. Optional simulations are labelled Predicted, have zero scoring weight, and are not presented as observed third-party citations."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How are GeoScore scores calculated?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Known, applicable pass/fail checks form a raw weighted score. Critical, major, and minor failures cap a category at 49, 79, and 94. Incomplete coverage or confidence can lower it further, while evidence below the minimum returns no overall score."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Which language does the GeoScore report use?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "The product follows the saved interface language. The report defaults to the audited page language and has an independent saved English or Chinese switch."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What data does GeoScore store?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "GeoScore stores public audit results plus operational rate-limit and cache data. It does not require an account or accept confidential or private URLs."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can GeoScore audit localhost or private networks?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No. GeoScore accepts public domain hostnames and public HTTP(S) URLs. Localhost, internal hostnames, private networks, IP literals, credentials, and custom ports are rejected."
-        }
-      }
-    ]
   }
   </script>
 </head>
@@ -688,61 +595,14 @@
 <main id="main-content" class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
   <!-- Hero ──────────────────────────────────────────────────────── -->
-  <div class="hero-animated rounded-2xl p-8 sm:p-10 mb-8 text-center border border-blue-100/50 shadow-sm print:hidden">
-
-    <!-- Badge row -->
-    <div class="flex items-center justify-center gap-3 mb-6 flex-wrap">
-      <span id="hero-free-label" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-sm">
-        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        <span data-i18n="hero.eyebrow">Evidence-first SEO + GEO audit</span>
-      </span>
-      <span id="hero-limit-label" data-i18n="hero.limit" class="text-xs text-slate-400 font-medium hidden sm:inline">No signup · fair-use fresh audits · cached reports do not consume fresh-audit quota</span>
-    </div>
-
-    <!-- Headline -->
+  <div class="hero-sheet rounded-2xl p-8 sm:p-10 mb-8 text-center border border-blue-100/50 shadow-sm print:hidden">
     <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.1] tracking-tight">
-      <span id="hero-title-prefix" data-i18n="hero.title" class="bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 bg-clip-text text-transparent">Make your website easier for search and AI to understand</span>
+      <span id="hero-title-prefix" data-i18n="hero.title">Check verifiable SEO and GEO issues</span>
     </h1>
-    <p id="hero-description" data-i18n="hero.description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">Audit public sites with bounded page sampling, factual SEO/GEO checks, PageSpeed data, and evidence-linked fixes. Predictions are shown separately and never change the factual score.</p>
-
-    <!-- Feature chips -->
-    <div class="grid grid-cols-3 gap-2 sm:gap-3 max-w-xl mx-auto mt-6">
-      <div class="feature-chip">
-        <div class="text-xl mb-1.5">⚙️</div>
-        <div id="feature-seo-title" data-i18n="hero.feature.seo.title" class="text-xs font-bold text-slate-800">Factual SEO</div>
-        <div id="feature-seo-sub" data-i18n="hero.feature.seo.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Indexability, metadata, structure, schema and performance</div>
-      </div>
-      <div class="feature-chip">
-        <div class="text-xl mb-1.5">🤖</div>
-        <div id="feature-ai-title" data-i18n="hero.feature.geo.title" class="text-xs font-bold text-slate-800">GEO readiness</div>
-        <div id="feature-ai-sub" data-i18n="hero.feature.geo.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Entity clarity, extractability, authorship and source support</div>
-      </div>
-      <div class="feature-chip">
-        <div class="text-xl mb-1.5">🏛️</div>
-        <div id="feature-authority-title" data-i18n="hero.feature.evidence.title" class="text-xs font-bold text-slate-800">Evidence first</div>
-        <div id="feature-authority-sub" data-i18n="hero.feature.evidence.body" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Every action names the page, observation, fix and re-check</div>
-      </div>
-    </div>
-
-    <!-- Stats trust row -->
-    <p class="text-slate-400 mt-5 text-xs flex items-center justify-center gap-2 flex-wrap">
-      <span id="audits-count" class="font-semibold text-slate-600"></span>
-      <span class="text-slate-200">·</span>
-      <span class="flex items-center gap-1">
-        <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        <span id="trust-tracking-label" data-i18n="hero.trust.noTracking">No advertising profiles</span>
-      </span>
-      <span class="text-slate-200">·</span>
-      <span class="flex items-center gap-1">
-        <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        <span id="trust-account-label" data-i18n="hero.trust.noAccount">No account needed</span>
-      </span>
-      <span class="text-slate-200">·</span>
-      <span id="trust-open-label" data-i18n="hero.trust.open">MIT open source</span>
-    </p>
+    <p id="hero-description" data-i18n="hero.description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">GeoScore reviews public-page evidence and suggests fixes. Search engines, regions and queries use different systems, so no score predicts or guarantees ranking.</p>
 
     <!-- Search box -->
-    <div class="mt-7 max-w-xl mx-auto">
+    <div class="mt-6 max-w-xl mx-auto">
       <div class="relative">
         <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -763,7 +623,7 @@
       </div>
       <details id="custom-api-panel" class="group mt-2.5 rounded-xl border border-slate-200 bg-white/80 text-left shadow-sm">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2">
-          <span data-i18n="customApi.summary">Custom API</span>
+          <span data-i18n="customApi.summary">Optional custom API</span>
           <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
         </summary>
         <div class="border-t border-slate-100 px-3.5 pb-3.5 pt-3">
@@ -802,96 +662,24 @@
           <p id="custom-api-status" role="status" aria-live="polite" class="mt-2 hidden text-[11px] leading-relaxed"></p>
         </div>
       </details>
-      <div class="flex items-center justify-between mt-2.5 px-1 flex-wrap gap-2">
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <span id="try-label" data-i18n="hero.try" class="text-xs text-slate-400">Try:</span>
-          <button class="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors font-medium text-slate-600 shadow-sm" data-quick="stripe.com">
-            <img src="https://www.google.com/s2/favicons?sz=16&domain_url=stripe.com" alt="" class="w-3 h-3 rounded-sm" onerror="this.style.display='none'">stripe.com</button>
-          <button class="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors font-medium text-slate-600 shadow-sm" data-quick="booking.com">
-            <img src="https://www.google.com/s2/favicons?sz=16&domain_url=booking.com" alt="" class="w-3 h-3 rounded-sm" onerror="this.style.display='none'">booking.com</button>
-          <button class="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors font-medium text-slate-600 shadow-sm" data-quick="timeout.com">
-            <img src="https://www.google.com/s2/favicons?sz=16&domain_url=timeout.com" alt="" class="w-3 h-3 rounded-sm" onerror="this.style.display='none'">timeout.com</button>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span id="semantic-badge" class="text-xs px-2 py-0.5 rounded"></span>
-          <kbd class="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-300 border border-slate-200 rounded px-1.5 py-0.5 font-mono select-none" title="Keyboard shortcut: press / to focus search">/</kbd>
-        </div>
-      </div>
-      <div class="mt-4 text-center">
-        <a href="/?d=stripe.com" class="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          <span data-i18n="hero.example">See a live example audit →</span>
-        </a>
-      </div>
-      <!-- Recent audits — populated from localStorage -->
-      <div id="recent-audits-wrap" class="hidden mt-3"></div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════════════
-       HOMEPAGE INFO SECTIONS — visible only when no audit is running.
-       Hidden via CSS :has() rule when #audit becomes visible.
-  ═══════════════════════════════════════════════════════════════════ -->
-<section id="homepage-info" class="mb-8 space-y-6 print:hidden">
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 data-i18n="meta.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">GeoScore at a glance</h2>
-      <p data-i18n="meta.subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">Live product facts come from the deployed API.</p>
-      <dl id="meta-facts" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-center"><dt data-i18n="meta.version" class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Version</dt><dd data-meta-fact="version" class="text-sm font-bold text-blue-800">...</dd></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.pages" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Site sample</dt><dd data-meta-fact="pages" class="text-sm font-bold text-slate-800">...</dd></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.modes" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Audit modes</dt><dd data-meta-fact="modes" class="text-sm font-bold text-slate-800">...</dd></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.checks" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Check registry</dt><dd data-meta-fact="checks" class="text-[11px] leading-relaxed font-bold text-slate-800">...</dd></div>
-        <div class="rounded-xl bg-amber-50 border border-amber-100 p-4 text-center"><dt data-i18n="meta.optional" class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Optional modules</dt><dd data-meta-fact="optional" class="text-[11px] leading-relaxed font-bold text-amber-800">...</dd></div>
-        <div class="rounded-xl bg-green-50 border border-green-100 p-4 text-center"><dt data-i18n="meta.rate" class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Fresh-audit limit</dt><dd data-meta-fact="rate" class="text-sm font-bold text-green-800">...</dd></div>
-        <div class="rounded-xl bg-purple-50 border border-purple-100 p-4 text-center"><dt data-i18n="meta.license" class="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">License</dt><dd data-meta-fact="license" class="text-sm font-bold text-purple-800">MIT</dd></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center"><dt data-i18n="meta.source" class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Source</dt><dd><a data-meta-fact="source" href="https://github.com/Amiyadesi/geoscore" class="text-sm font-bold text-blue-700 underline hover:text-blue-600 transition-colors">GitHub</a></dd></div>
-      </dl>
-      <p id="meta-facts-status" data-i18n="meta.loading" class="text-xs text-slate-400 mt-4 text-center">Loading live product facts...</p>
-    </div>
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 data-i18n="scope.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Scope and data sources</h2>
-      <p data-i18n="scope.subtitle" class="text-sm text-slate-500 mb-5 leading-relaxed">GeoScore audits public HTTP(S) sites. Private networks, IP literals, credentials and custom ports are rejected.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.fetch.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Bounded public fetches</div><p data-i18n="scope.fetch.body" class="text-xs text-slate-500 leading-relaxed">Site mode samples the homepage, About page and representative internal pages. URL mode audits the target and may read the homepage for context.</p></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.sources.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Optional evidence sources</div><p data-i18n="scope.sources.body" class="text-xs text-slate-500 leading-relaxed">PageSpeed, CrUX, W3C Nu, Common Crawl, DNS, certificate logs and other public APIs can add evidence. Provider failure is reported as unknown or error, not as a penalty.</p></div>
-        <div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div data-i18n="scope.advice.title" class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Informational, not professional advice</div><p data-i18n="scope.advice.body" class="text-xs text-slate-500 leading-relaxed">Results are SEO/GEO signals, not legal, financial, compliance, penetration-testing or professional security conclusions.</p></div>
+  <section id="homepage-info" class="mb-8 print:hidden">
+    <details class="group bg-white rounded-2xl border border-slate-200 shadow-sm">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-slate-700">
+        <span data-i18n="scope.title">Audit scope and limits</span>
+        <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div class="border-t border-slate-100 px-5 py-4 text-sm text-slate-600">
+        <ul class="space-y-2.5 leading-relaxed">
+          <li data-i18n="scope.pages">Site mode samples up to five public HTML pages. URL mode checks one target and may read the homepage for context.</li>
+          <li data-i18n="scope.evidence">Only observed, applicable checks enter the factual score. Missing provider data is shown as unknown or error.</li>
+          <li data-i18n="scope.ranking">Recommendations can improve clarity, crawlability and usability, but search algorithms differ and rankings are never guaranteed.</li>
+        </ul>
+        <a href="/docs" data-i18n="scope.docs" class="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline">Read the full documentation →</a>
       </div>
-    </div>
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 data-i18n="checks.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">What GeoScore checks</h2>
-      <p data-i18n="checks.subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">Known, applicable factual checks determine readiness scores. Unknown, error and not-applicable states do not reduce them.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.index.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Indexability and discovery</div><p data-i18n="checks.index.body" class="text-xs text-slate-500 leading-relaxed">robots.txt, sitemap discovery, canonical URLs, noindex directives and public fetch status.</p></div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.page.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Page semantics</div><p data-i18n="checks.page.body" class="text-xs text-slate-500 leading-relaxed">Titles, descriptions, headings, language, links, images and cross-page consistency.</p></div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.schema.title" class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Schema fit</div><p data-i18n="checks.schema.body" class="text-xs text-slate-500 leading-relaxed">JSON-LD presence is separated from whether a schema type fits the detected site and page type.</p></div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.geo.title" class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">Factual GEO readiness</div><p data-i18n="checks.geo.body" class="text-xs text-slate-500 leading-relaxed">Entity and author consistency, direct answers, extractability, claim/source support, statistic provenance and freshness.</p></div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.performance.title" class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">Performance evidence</div><p data-i18n="checks.performance.body" class="text-xs text-slate-500 leading-relaxed">PageSpeed lab data and CrUX field data retain source, status and partial-failure details.</p></div>
-        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><div data-i18n="checks.predicted.title" class="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">Predicted visibility</div><p data-i18n="checks.predicted.body" class="text-xs text-slate-500 leading-relaxed">AI simulations are clearly labelled Predicted, carry zero scoring weight and are not presented as real citations.</p></div>
-      </div>
-    </div>
-    <div class="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border border-blue-100 p-6 sm:p-8">
-      <h2 data-i18n="why.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-3">SEO and GEO work together</h2>
-      <p data-i18n="why.body" class="text-sm text-slate-600 leading-relaxed mb-5">Search and answer systems both need crawlable pages, clear entities, extractable answers and well-supported claims. GeoScore turns those observable signals into a prioritized repair list without inventing business facts.</p>
-      <h3 data-i18n="report.includes.title" class="text-sm font-bold text-slate-800 mb-3">What the report includes</h3>
-      <ul class="space-y-2.5 text-sm text-slate-700">
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.profile">Site profile and confidence before scores</span></li>
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.pages">The sampled pages and evidence source for each finding</span></li>
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.actions">Three priority actions on screen, plus every failed check in one Markdown repair report</span></li>
-        <li class="flex items-start gap-2.5"><span class="text-blue-500 font-bold mt-0.5 shrink-0">?</span><span data-i18n="report.includes.fixpack">Per-item AI fix packs remain optional advanced details for recorded failures</span></li>
-      </ul>
-    </div>
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-      <h2 data-i18n="faq.title" class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Frequently asked questions</h2>
-      <p data-i18n="faq.subtitle" class="text-sm text-slate-500 mb-6">Short answers about scoring, predictions, privacy and limits.</p>
-      <div class="space-y-3">
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.free.q">Is GeoScore free?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.free.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Yes. The public service uses fair-use limits for fresh audits. Cached report views do not consume the fresh-audit quota.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.predicted.q">Does GeoScore monitor real AI citations?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.predicted.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. It audits factual SEO/GEO readiness and may show a separate Predicted simulation. It does not claim to observe live citations from third-party answer engines.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.score.q">How are scores calculated?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.score.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">Known, applicable pass/fail checks form the raw weighted score. Critical, major and minor failures cap a category at 49, 79 and 94; incomplete coverage or confidence can lower it further. Evidence below the minimum returns no overall score.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.language.q">Which language does the report use?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.language.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">The product follows your saved UI language. The report defaults to the audited page language and has its own saved English/Chinese switch.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.data.q">What data is stored?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.data.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">GeoScore stores public audit results and operational rate-limit/cache data. Do not submit confidential or private URLs.</div></details>
-        <details class="group rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-50/70 transition-colors open:bg-white open:border-blue-200"><summary class="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800 select-none"><span data-i18n="faq.local.q">Can it audit localhost or private networks?</span><span aria-hidden="true">+</span></summary><div data-i18n="faq.local.a" class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">No. Only public domain hostnames and public HTTP(S) URLs are accepted.</div></details>
-      </div>
-    </div>
+    </details>
   </section>
 
 

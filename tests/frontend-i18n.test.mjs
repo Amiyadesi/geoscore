@@ -84,18 +84,25 @@ test('frontend CSP permits every declared runtime resource without inline execut
   assert.match(headers, /connect-src[^;\n]*https:\/\/\*\.xethub\.hf\.co/);
 });
 
-test('app uses persisted UI/report language and public meta facts', () => {
+test('app uses persisted UI/report language without removed homepage telemetry', () => {
   const app = read('app.js');
   assert.match(app, /GeoScoreI18n/);
   assert.match(app, /getUiLanguage\(\)/);
   assert.match(app, /getReportLanguage\(\)/);
   assert.match(app, /setReportLanguage/);
-  assert.match(app, /\/api\/meta/);
-  assert.match(app, /data-meta-fact/);
+  assert.doesNotMatch(app, /\/api\/meta|\/api\/stats|geoscore:recent|data-meta-fact/);
 });
 
-test('static product copy contains no stale check, speed, cache, fixed-model, or real-citation claims', () => {
-  const publicCopy = `${read('index.html')}\n${read('llms.txt')}\n${read('app.js')}`;
+test('static product copy contains no stale facts, ranking promises, or real-citation claims', () => {
+  const publicCopy = [
+    read('index.html'),
+    read('i18n.js'),
+    read('llms.txt'),
+    read('app.js'),
+    read('report-ui.js'),
+    read('report-export.js'),
+    read('docs/index.html'),
+  ].join('\n');
   for (const pattern of [
     /39\+?\s+(?:individual\s+)?checks/i,
     /15\s+modules/i,
@@ -107,7 +114,16 @@ test('static product copy contains no stale check, speed, cache, fixed-model, or
     /would cite your website/i,
     /AI citation probability/i,
     /low AI citation rate/i,
+    /unlock top-tier/i,
+    /enter the top tier/i,
+    /noticeably improve your visibility/i,
+    /600\+ words .* compete for rankings/i,
+    /good for rankings/i,
+    /better rankings/i,
+    /estimated score after fixes/i,
   ]) assert.doesNotMatch(publicCopy, pattern);
+  assert.match(publicCopy, /does not predict or guarantee rankings/i);
+  assert.match(publicCopy, /分数不预测也不保证排名/);
 });
 
 test('report UI consumes the shared catalog and exposes a persistent report-language switch', () => {

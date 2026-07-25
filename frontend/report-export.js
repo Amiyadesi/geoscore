@@ -329,26 +329,10 @@ Or for Vercel, add to \`vercel.json\`:
     }
   }
 
-  // ── MEDIUM: content ────────────────────────────────────────────────────
-  if ((content.word_count ?? 0) > 0 && (content.word_count ?? 0) < 400) {
-    addChange('🟡 MEDIUM', 'Add more content to the homepage',
-`Only ${content.word_count} words detected. ${isPersonalEditorial
-  ? 'Expand only the pages that need real context; do not manufacture filler for a score.'
-  : 'Pages with fewer than 400 words may be considered thin by Google.'}
-
-Add substantive sections to the homepage:
-- **What this page covers** and who wrote it
-- **First-hand context** for the work, project, or topic
-- **Links to primary material** where claims need support
-- **Clear navigation** to related posts or project pages
-
-Keep additions factual and useful. Do not add made-up testimonials, FAQs, prices, or outcomes.`);
-  }
-
   // ── MEDIUM: alt text ───────────────────────────────────────────────────
   if ((imgAudit.missing_alt ?? 0) > 0) {
     addChange('🟡 MEDIUM', `Fix ${imgAudit.missing_alt} images missing alt text`,
-`Alt text is required for accessibility (WCAG AA) and helps images rank in Google Image Search.
+`Alt text is required for accessibility (WCAG AA) and helps readers and image search understand the image.
 
 Find every \`<img>\` without an \`alt\` attribute and add one:
 \`\`\`html
@@ -408,7 +392,7 @@ Fix each link: update the href to the correct URL, or remove the link if the pag
   // ── LOW: contact info ──────────────────────────────────────────────────
   if (!content.has_phone && !content.has_email && !content.has_address && (content.word_count ?? 0) > 0) {
     addChange('🟢 LOW', 'Add contact information to homepage or footer',
-`No contact details found. Google's E-E-A-T guidelines and AI engines weight pages with verifiable contact info higher.
+`No contact details found. Add contact details only when they are accurate and useful for visitors. They are more relevant to contact, local business, and service pages than to every page type.
 
 Add to your footer or a contact section:
 \`\`\`html
@@ -419,26 +403,11 @@ Add to your footer or a contact section:
 \`\`\``);
   }
 
-  // ── GEO: llms.txt / AI visibility note ────────────────────────────────
-  const citatRate = mods.geo_predicted?.data?.citation_rate ?? -1;
-  const geoReliable = mods.geo_predicted?.data?.is_reliable !== false;
-  if (!isPersonalEditorial && geoReliable && citatRate >= 0 && citatRate < 0.3) {
-    addChange('🟡 MEDIUM', 'Improve AI search visibility (GEO)',
-`The separate simulation found weak predicted visibility. Beyond the llms.txt file above, these actions can improve machine-readable discovery and entity corroboration:
-
-1. **Get a Wikidata entry**: Create a Wikidata item for your brand at https://www.wikidata.org/wiki/Special:NewItem — this is the single highest-impact GEO action
-2. **Get cited on authoritative sites**: Press mentions, directory listings, and .edu/.gov links all boost LLM training data inclusion
-3. **Add an About page** with specific, verifiable facts (founding date, mission, team)
-4. **Publish FAQ content** matching questions people search for in your space`);
-  }
-
   // SPF, DKIM, and DMARC depend on the active mail provider and sending routes.
   // Do not emit copy-paste DNS records until those facts are confirmed.
 
   // ── Build the markdown output ─────────────────────────────────────────
   const noChanges = changes.length === 0;
-  const estimatedNewScore = Math.min(100, overall + Math.round(changes.filter(c => c.impact.includes('HIGH') || c.impact.includes('CRITICAL')).length * 6));
-
   const changeBlocks = changes.map(c =>
     `---\n\n### Change ${c.num} — ${c.title} ${c.impact}\n\n${c.body}\n`
   ).join('\n');
@@ -455,8 +424,9 @@ ${dnsChanges.map((d, i) => `### DNS ${i + 1} — ${d}`).join('\n\n')}
 
   const stackNote = stack !== 'vite' ? `\n> **Detected stack:** ${stack} — file paths and code examples are tailored accordingly.` : '';
 
-  return `# SEO & GEO Fix Prompt — ${domain}
-> **Audit date:** ${date} | **Current score:** ${overall}/100 (SEO ${seo} · GEO ${geo}) | **Estimated score after fixes:** ~${estimatedNewScore}/100
+  return `# SEO & GEO repair checklist — ${domain}
+> **Audit date:** ${date} | **Current score:** ${overall}/100 (SEO ${seo} · GEO ${geo})
+> **Scope:** These are evidence-based suggestions, not a ranking forecast or guarantee.
 > **${changes.length} code change${changes.length !== 1 ? 's' : ''} below** · ${dnsChanges.length > 0 ? dnsChanges.length + ' DNS change' + (dnsChanges.length > 1 ? 's' : '') + ' (at end)' : 'No DNS changes needed'}
 ${stackNote}
 
@@ -474,13 +444,13 @@ ${stackNote}
 
 ## The Prompt (paste from here)
 
-I need you to apply the following SEO and GEO fixes to my website at **${domain}**. Please implement all ${changes.length} code change${changes.length !== 1 ? 's' : ''} in one go. Each change includes the exact content or code — use it as-is, adjusting file paths only if your project structure differs.
+Review the following evidence-based SEO and GEO suggestions for **${domain}**. Apply only changes that fit the site's real page type and published facts. Do not invent authors, FAQs, services, prices, entities, or claims. Confirm each change against the relevant page before editing.
 
-${noChanges ? '**No code changes needed — this site is in great shape!**' : changeBlocks}
+${noChanges ? '**No legacy checks produced a code task. Review the current evidence report before assuming there is nothing to improve.**' : changeBlocks}
 ${dnsBlock}
 ---
 
-*End of prompt. After applying these changes, the site should score approximately **${estimatedNewScore}/100** (up from ${overall}/100).*
+*Re-run the audit after changes. A later score reflects only the checks that can then be verified; it does not predict rankings.*
 
 ---
 

@@ -11,6 +11,7 @@ GeoScore audits public websites for verifiable SEO and generative-engine readine
 - Critical, major, and minor failures cap an affected score at 49, 79, and 94 respectively. Reports expose both raw and final scores and the exact cap reasons.
 - AI visibility simulations are labelled `Predicted`, have zero scoring weight, and are kept separate from the factual readiness score.
 - GeoScore does not monitor or verify real citations in ChatGPT, Perplexity, Google AI Overview, or other answer engines.
+- Search engines, regions, and individual queries use different ranking systems. GeoScore provides optimization guidance, not a ranking forecast or guarantee.
 
 ## Repair reports and FixPacks
 

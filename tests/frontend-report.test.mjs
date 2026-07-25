@@ -481,6 +481,63 @@ test('evidence-first summary renders site context, sampled pages, and top action
   assert.match(source, /t\.browserRendered/);
 });
 
+test('top actions group related repairs without hiding the complete action list', () => {
+  const recommendations = [
+    { id: 'seo.schema_presence', title: 'Add baseline schema', severity: 'major', priority: 90, page_url: 'https://example.com/', evidence: 'No JSON-LD', why: 'Identity is unclear.', fix: 'Add matching WebSite schema.', verify: 'Validate JSON-LD.' },
+    { id: 'seo.schema_fit', title: 'Use fitting schema', severity: 'major', priority: 88, page_url: 'https://example.com/', evidence: 'No fitting schema', why: 'Page type is unclear.', fix: 'Use a schema type that matches the page.', verify: 'Validate JSON-LD.' },
+    { id: 'geo.entity_identity', title: 'Define the site entity', severity: 'major', priority: 84, page_url: 'https://example.com/', evidence: 'No trusted entity', why: 'The entity is unresolved.', fix: 'Publish a truthful entity identity.', verify: 'Re-audit the page.' },
+  ];
+  const data = {
+    domain: 'example.com',
+    audit_context: { site_archetype: 'documentation', confidence: 0.8, locale: 'en' },
+    pages_audited: [{ url: 'https://example.com/', page_type: 'home', status: 'complete' }],
+    score_summary: {
+      score_version: '2.4.7',
+      overall: { score: 58, coverage: 0.75, confidence: 0.9 },
+      seo: { score: 58, coverage: 0.75, confidence: 0.9 },
+      geo: { score: 58, coverage: 0.75, confidence: 0.9 },
+    },
+    recommendations_v2: recommendations,
+    repair_groups: [
+      {
+        id: 'repair-parse-home',
+        stage: 'parse',
+        page_url: 'https://example.com/',
+        severity: 'major',
+        priority: 90,
+        evidence_items: [
+          { check_id: 'seo.schema_presence', source: 'HTML parse', confidence: 0.95, observed: ['No JSON-LD'] },
+          { check_id: 'seo.schema_fit', source: 'HTML parse', confidence: 0.95, observed: ['No fitting schema'] },
+        ],
+        tasks: recommendations.slice(0, 2),
+        verification_steps: ['Validate JSON-LD.'],
+      },
+      {
+        id: 'repair-selection-home',
+        stage: 'selection',
+        page_url: 'https://example.com/',
+        severity: 'major',
+        priority: 84,
+        evidence_items: [{ check_id: 'geo.entity_identity', source: 'Site context', confidence: 0.8, observed: ['No trusted entity'] }],
+        tasks: [recommendations[2]],
+        verification_steps: ['Re-audit the page.'],
+      },
+    ],
+  };
+
+  const summary = report.renderEvidenceSummary(data, 'en', 'en');
+  assert.match(summary, /Address 2 findings on the same page/);
+  assert.match(summary, /grouped instead of occupying several priority slots/);
+  assert.match(summary, /seo\.schema_presence/);
+  assert.match(summary, /seo\.schema_fit/);
+  assert.equal((summary.match(/data-disclosure="top-action-details"/g) || []).length, 2);
+
+  const fullPlan = report.renderEvidenceRecommendations(data, 'en');
+  assert.match(fullPlan, /Add baseline schema/);
+  assert.match(fullPlan, /Use fitting schema/);
+  assert.match(fullPlan, /Define the site entity/);
+});
+
 test('Lighthouse null scores render as failure with retry and sanitized detail', () => {
   const data = {
     status: 'complete',

@@ -18,6 +18,8 @@ test('bilingual docs cover the public monitoring and BYOK workflow without runti
   assert.match(html, /automatic <code>\/v1<\/code>/);
   assert.match(html, /API Key .* Base URL .* model/s);
   assert.match(html, /https:\/\/geo-api\.sayori\.org\/openapi\.json/);
+  assert.match(html, /does not predict or guarantee rankings/i);
+  assert.match(html, /不预测或保证排名/);
   assert.doesNotMatch(html, /cdn\.tailwindcss\.com|unpkg\.com|jsdelivr\.net/);
   assert.match(script, /geoscore:ui-language/);
   assert.match(script, /navigator\.language/);

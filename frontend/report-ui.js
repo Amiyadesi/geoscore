@@ -40,7 +40,7 @@
       error: 'Error',
       metrics: 'Lab metrics',
       opportunities: 'performance opportunities',
-      scoreEvidence: 'Scores include only known, applicable checks.',
+      scoreEvidence: 'This readiness summary uses only known, applicable checks. It is not a ranking forecast.',
       scoreInsufficient: 'There is not enough known, applicable evidence to publish a defensible overall score.',
       auditedLocale: 'Audited locale',
       correctType: 'Correct type',
@@ -178,7 +178,7 @@
       error: '失败',
       metrics: '实验室指标',
       opportunities: '项性能优化机会',
-      scoreEvidence: '分数只计算已知且适用的检查项。',
+      scoreEvidence: '这份就绪度摘要只计算已知且适用的检查项，不是排名预测。',
       scoreInsufficient: '当前缺少足够的已知、适用证据，因此不发布可能误导的总分。',
       auditedLocale: '被测页面语言',
       correctType: '纠正类型',
@@ -638,7 +638,67 @@
   }
 
   function normalizeActions(data, lang) {
-    return normalizeAllActions(data, lang).slice(0, 3);
+    const grouped = normalizeRepairGroupActions(data, lang);
+    return (grouped.length ? grouped : normalizeAllActions(data, lang)).slice(0, 3);
+  }
+
+  function normalizeRepairGroupActions(data, lang) {
+    const groups = Array.isArray(data?.repair_groups) ? [...data.repair_groups] : [];
+    if (!groups.length) return [];
+    const selected = language(lang);
+    const severityRank = { critical: 4, major: 3, minor: 2, info: 1 };
+    groups.sort((left, right) => {
+      const priorityDelta = (finiteNumber(right?.priority) ?? -1) - (finiteNumber(left?.priority) ?? -1);
+      if (priorityDelta) return priorityDelta;
+      return (severityRank[String(right?.severity ?? '').toLowerCase()] ?? 0)
+        - (severityRank[String(left?.severity ?? '').toLowerCase()] ?? 0);
+    });
+    return groups.map((group, index) => {
+      const tasks = Array.isArray(group?.tasks) ? group.tasks : [];
+      const taskCopies = tasks.map(task => {
+        const copy = task?.localized?.[selected] && typeof task.localized[selected] === 'object'
+          ? task.localized[selected]
+          : task;
+        return {
+          title: localized(copy?.title ?? task?.title ?? task?.check_id, selected),
+          why: localized(copy?.why ?? task?.why, selected),
+          fix: localized(copy?.fix ?? task?.fix, selected),
+          verify: localized(copy?.verify ?? task?.verify, selected),
+        };
+      });
+      const evidenceItems = Array.isArray(group?.evidence_items) ? group.evidence_items : [];
+      const observed = evidenceItems.flatMap(item => Array.isArray(item?.observed) ? item.observed : [])
+        .map(item => localized(item, selected)).filter(Boolean);
+      const sources = [...new Set(evidenceItems.map(item => localized(item?.source, selected)).filter(Boolean))];
+      const confidences = evidenceItems.map(item => finiteNumber(item?.confidence)).filter(value => value !== null);
+      const verification = Array.isArray(group?.verification_steps)
+        ? group.verification_steps.map(item => localized(item, selected)).filter(Boolean)
+        : taskCopies.map(item => item.verify).filter(Boolean);
+      const related = tasks.length > 1;
+      return {
+        id: group?.id ?? `repair-group-${index + 1}`,
+        title: related
+          ? (selected === 'zh' ? `处理同一页面的 ${tasks.length} 项检查结果` : `Address ${tasks.length} findings on the same page`)
+          : (taskCopies[0]?.title || localized(group?.id, selected)),
+        page: localized(group?.page_url, selected),
+        observed: observed.slice(0, 3).join(' · '),
+        reason: related
+          ? (selected === 'zh' ? '这些失败项位于同一页面和检测阶段，合并展示，避免重复占据优先行动。' : 'These failures share a page and audit stage, so they are grouped instead of occupying several priority slots.')
+          : taskCopies[0]?.why,
+        fix: taskCopies.map(item => [item.title, item.fix].filter(Boolean).join(': ')).filter(Boolean).join(selected === 'zh' ? '；' : '; '),
+        verify: [...new Set(verification)].join(selected === 'zh' ? '；' : '; '),
+        priority: String(group?.priority ?? ''),
+        severity: String(group?.severity ?? '').toLowerCase(),
+        source: sources.join(' · '),
+        confidence: confidences.length ? percentValue(Math.max(...confidences)) : null,
+        code: '',
+        relatedTasks: related ? taskCopies.map((task, taskIndex) => ({
+          id: String(tasks[taskIndex]?.check_id ?? tasks[taskIndex]?.recommendation_id ?? tasks[taskIndex]?.id ?? `check-${taskIndex + 1}`),
+          ...task,
+        })) : null,
+        predicted: false,
+      };
+    }).filter(action => action.title);
   }
 
   function normalizeAllActions(data, lang) {
@@ -1283,11 +1343,20 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
         ? `${t.page}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(actionPage)}</a>` : escapeHtml(actionPage)}`
         : '';
       const severity = action.severity || action.priority || t.unknown;
+      const relatedTasks = Array.isArray(action.relatedTasks) ? action.relatedTasks : [];
+      const relatedTaskRows = relatedTasks.length > 1 ? `<ul class="space-y-2 border-t border-slate-200 pt-2 mt-2">${relatedTasks.map(task => `
+        <li class="break-words">
+          <div class="flex items-start gap-2"><code class="shrink-0 text-[10px] text-slate-400">${escapeHtml(task.id)}</code><span class="font-semibold text-slate-600">${escapeHtml(task.title || task.id)}</span></div>
+          ${task.why ? `<p><strong class="text-slate-600">${escapeHtml(t.reason)}:</strong> ${escapeHtml(compact(task.why, 180))}</p>` : ''}
+          ${task.fix ? `<p><strong class="text-slate-600">${escapeHtml(t.fix)}:</strong> ${escapeHtml(compact(task.fix, 220))}</p>` : ''}
+          ${task.verify ? `<p><strong class="text-slate-600">${escapeHtml(t.verify)}:</strong> ${escapeHtml(compact(task.verify, 160))}</p>` : ''}
+        </li>`).join('')}</ul>` : '';
       const lines = [
         action.observed ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.observed)}:</span> ${escapeHtml(compact(action.observed, 220))}</p>` : '',
         action.reason ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.reason)}:</span> ${escapeHtml(compact(action.reason, 200))}</p>` : '',
-        action.fix ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.fix)}:</span> ${escapeHtml(compact(action.fix, 240))}</p>` : '',
-        action.verify ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.verify)}:</span> ${escapeHtml(compact(action.verify, 180))}</p>` : '',
+        relatedTaskRows,
+        relatedTasks.length > 1 ? '' : action.fix ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.fix)}:</span> ${escapeHtml(compact(action.fix, 240))}</p>` : '',
+        relatedTasks.length > 1 ? '' : action.verify ? `<p><span class="font-semibold text-slate-600">${escapeHtml(t.verify)}:</span> ${escapeHtml(compact(action.verify, 180))}</p>` : '',
       ].filter(Boolean).join('');
       return `<li class="grid grid-cols-[24px_minmax(0,1fr)] gap-3 py-3 border-t border-slate-100 first:border-t-0">
         <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">${index + 1}</span>

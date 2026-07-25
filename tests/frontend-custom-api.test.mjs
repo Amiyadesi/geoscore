@@ -29,11 +29,10 @@ function loadI18n(language = 'en-US') {
 test('custom API panel is directly below the main target input and closed by default', () => {
   const search = index.indexOf('id="search-input"');
   const panel = index.indexOf('id="custom-api-panel"');
-  const examples = index.indexOf('id="try-label"');
-  assert.ok(search >= 0 && search < panel && panel < examples);
+  assert.ok(search >= 0 && search < panel);
   assert.match(index, /<details id="custom-api-panel"[^>]*>/);
   assert.doesNotMatch(index, /<details id="custom-api-panel"[^>]*\sopen(?:\s|>)/);
-  assert.match(index, /data-i18n="customApi\.summary">Custom API</);
+  assert.match(index, /data-i18n="customApi\.summary">Optional custom API</);
   assert.match(index, /id="custom-api-key" type="password"[^>]*autocomplete="off"/);
   assert.match(index, /id="custom-api-base-url" type="url"[^>]*inputmode="url"/);
   assert.match(index, /id="custom-api-model" type="text" list="custom-api-model-list"/);
@@ -43,8 +42,8 @@ test('custom API panel is directly below the main target input and closed by def
 
 test('custom API copy is bilingual and states the zero-score and no-storage boundaries', () => {
   const i18n = loadI18n();
-  assert.equal(i18n.t('customApi.summary', {}, 'en'), 'Custom API');
-  assert.equal(i18n.t('customApi.summary', {}, 'zh'), '自定义 API');
+  assert.equal(i18n.t('customApi.summary', {}, 'en'), 'Optional custom API');
+  assert.equal(i18n.t('customApi.summary', {}, 'zh'), '可选：自定义 API');
   assert.equal(i18n.t('customApi.fetchModels', {}, 'en'), 'Fetch models');
   assert.equal(i18n.t('customApi.fetchModels', {}, 'zh'), '拉取模型');
   assert.match(i18n.t('customApi.body', {}, 'en'), /never changes the factual score/i);

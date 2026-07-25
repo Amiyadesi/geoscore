@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://geo.sayori.org">
-    <img src="https://geo.sayori.org/og-image.svg" alt="GeoScore — Free SEO & AI Visibility Audit" width="100%"/>
+    <img src="https://geo.sayori.org/og-image.svg" alt="GeoScore — Evidence-based SEO and GEO audit" width="100%"/>
   </a>
 </p>
 
@@ -12,6 +12,11 @@ An open-source, evidence-first SEO and GEO audit service built on Cloudflare
 Workers, Pages, D1, KV, Vectorize, Workers AI, and optional public evidence
 providers. It reports what was observed, what could not be verified, and which
 failed checks are worth fixing first.
+
+Search engines, regions, and individual queries use different ranking systems.
+GeoScore therefore provides evidence-based optimization guidance, not a ranking
+forecast or guarantee. A higher readiness score means more of the checks GeoScore
+could verify passed; it does not promise a particular search position.
 
 **Live demo → [geo.sayori.org](https://geo.sayori.org)**  
 **Documentation → [geo.sayori.org/docs](https://geo.sayori.org/docs)**  

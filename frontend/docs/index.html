@@ -60,7 +60,7 @@
         <header class="doc-intro">
           <p class="eyebrow">GeoScore 2.4.7</p>
           <h1>From audit to a verifiable repair</h1>
-          <p>Use the factual audit first, then add dated search or API observations when you need them. Evidence Map, monitoring, and custom-model output never change the factual score.</p>
+          <p>Use the factual audit first, then add dated search or API observations when you need them. Evidence Map, monitoring, and custom-model output never change the factual score. GeoScore does not predict or guarantee rankings.</p>
           <div class="intro-actions">
             <a class="primary-action" href="/">Run an audit</a>
             <a href="https://github.com/Amiyadesi/geoscore">View source</a>
@@ -77,6 +77,7 @@
             <li>Open detailed checks only when you need the raw evidence</li>
           </ol>
           <div class="note"><strong>Scoring rule</strong><span>Only known and applicable pass/fail checks enter the weighted score. Unknown, error, and not-applicable states do not become zero.</span></div>
+          <div class="note"><strong>Ranking limit</strong><span>Search engines, regions, and queries use different systems. Treat every result as optimization guidance and confirm outcomes with indexing, search-console, and traffic data.</span></div>
           <div class="note"><strong>Interrupted audit</strong><span>Verified modules remain available for 30 minutes. A retry refetches the pages, reuses page evidence only when semantic fingerprints still match, and reruns failed or skipped modules.</span></div>
         </section>
 
@@ -162,7 +163,7 @@
         <header class="doc-intro">
           <p class="eyebrow">GeoScore 2.4.7</p>
           <h1>从审查走到可以复验的修复</h1>
-          <p>先用事实审查确认网站真实缺什么，再按需要加入带日期的搜索或 API 观察记录。Evidence Map、监控和自定义模型回答都不会改变事实分</p>
+          <p>先用事实审查确认网站真实缺什么，再按需要加入带日期的搜索或 API 观察记录。Evidence Map、监控和自定义模型回答都不会改变事实分，GeoScore 也不预测或保证排名</p>
           <div class="intro-actions">
             <a class="primary-action" href="/">开始审查</a>
             <a href="https://github.com/Amiyadesi/geoscore">查看源码</a>
@@ -179,6 +180,7 @@
             <li>需要定位问题时再展开详细检查与原始证据</li>
           </ol>
           <div class="note"><strong>评分规则</strong><span>只有已知且适用的 pass 和 fail 会进入加权分，unknown、error 和 not_applicable 不会被当成 0 分</span></div>
+          <div class="note"><strong>排名边界</strong><span>不同搜索引擎、地区和查询使用的系统并不相同。请把结果当作优化建议，并用实际收录、Search Console 与流量数据验证效果</span></div>
           <div class="note"><strong>审计中断</strong><span>已验证模块会保留 30 分钟。重试仍会重新抓取页面，仅在语义指纹一致时复用页面证据，失败或跳过的模块会继续执行</span></div>
         </section>
 

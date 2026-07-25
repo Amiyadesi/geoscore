@@ -12,6 +12,10 @@ GeoScore 是一个开源、证据优先的 SEO / GEO 审计服务，运行在 Cl
 Workers、Pages、D1、KV、Vectorize 和 Workers AI 上，也可以接入可选的公共证据源。
 它区分“已经观察到的事实”“无法验证的内容”和“值得优先修复的失败项”，不把缺失证据伪装成 0 分。
 
+不同搜索引擎、地区和具体查询使用的排序系统并不相同。GeoScore 给出的是基于证据的优化建议，
+不是排名预测或保证。就绪度分数更高，只表示 GeoScore 能够验证的检查通过得更多，
+不代表网站一定会获得某个搜索位置。
+
 **在线体验：[geo.sayori.org](https://geo.sayori.org)**  
 **使用文档：[geo.sayori.org/docs](https://geo.sayori.org/docs)**  
 **OpenAPI：[geo-api.sayori.org/openapi.json](https://geo-api.sayori.org/openapi.json)**  
