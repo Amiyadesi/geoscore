@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2ePort = Number(process.env.GEOSCORE_E2E_PORT || 4174);
+const e2eBaseUrl = `http://127.0.0.1:${e2ePort}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -10,14 +13,15 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: e2eBaseUrl,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
   webServer: {
     command: 'node scripts/serve-frontend.mjs',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    env: { ...process.env, PORT: String(e2ePort) },
+    url: e2eBaseUrl,
+    reuseExistingServer: false,
     timeout: 15_000,
   },
   projects: [
