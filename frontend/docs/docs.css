@@ -69,6 +69,7 @@ main { min-width: 0; }
 .eyebrow { margin: 0 0 .7rem; color: #0b7d74; font-size: .78rem; font-weight: 800; }
 h1 { margin: 0; max-width: 18ch; color: #111827; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.08; }
 .doc-intro > p:not(.eyebrow) { max-width: 68ch; color: #566173; font-size: 1.02rem; line-height: 1.75; }
+.doc-updated { margin-top: .65rem; color: #7b8797; font-size: .78rem; }
 .intro-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.25rem; }
 .intro-actions a { border: 1px solid #c7d2e2; border-radius: 7px; padding: .62rem .85rem; background: #fff; font-size: .84rem; font-weight: 700; text-decoration: none; }
 .intro-actions .primary-action { border-color: #1659b7; background: #1659b7; color: #fff; }
