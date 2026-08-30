@@ -34,6 +34,7 @@ Thumbs.db
 .env
 .env.local
 .env.*
+server/data/
 
 # Test output
 *.log
