@@ -1,6 +1,6 @@
 {
   "name": "sayori-geoscore",
-  "version": "2.4.7",
+  "version": "2.5.0",
   "private": false,
   "license": "MIT",
   "homepage": "https://geo.sayori.org",
@@ -28,7 +28,8 @@
     "deploy:ui-worker:no-routes": "node scripts/deploy-no-routes.mjs wrangler.ui.jsonc",
     "db:migrate": "wrangler d1 migrations apply sayori-geoscore-db --remote --config wrangler.generated.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply sayori-geoscore-db --local --config wrangler.jsonc",
-    "deploy:pages": "npm run build:css && wrangler pages deploy frontend --project-name=sayori-geoscore --branch main"
+    "deploy:pages": "npm run build:css && wrangler pages deploy frontend --project-name=sayori-geoscore --branch main",
+    "site-pass:server": "node server/site-pass-server.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250510.0",

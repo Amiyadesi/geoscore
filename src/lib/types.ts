@@ -67,6 +67,8 @@ export interface Env {
   RESEND_API_KEY?: string;
   CF_TEMP_MAIL_BASE_URL?: string;
   CF_TEMP_MAIL_SEND_API_KEY?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
 }
 
 export type FixPackLanguage = 'en' | 'zh';
