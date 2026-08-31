@@ -723,6 +723,16 @@
       <!-- Evidence-first report summary. Hidden for legacy audit payloads. -->
       <div id="evidence-summary" class="hidden border-b border-slate-100"></div>
 
+      <div id="site-pass-card" class="hidden border-b border-slate-100 bg-blue-50/60 px-5 py-4 print:hidden">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-slate-900">GeoScore Site Pass · HK$49</div>
+            <div id="site-pass-body" class="mt-1 text-xs leading-relaxed text-slate-600">Unlock the full repair pack, shareable report, and 3 re-audits.</div>
+          </div>
+          <a id="site-pass-buy" href="https://buy.stripe.com/7sY28t61t9OE3WA9ah38400" target="_blank" rel="noreferrer" class="inline-flex shrink-0 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700">Get Site Pass</a>
+        </div>
+      </div>
+
       <!-- Score gauges ─────────────────────────────────────────── -->
       <div id="scores" class="hidden px-5 py-6">
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -1035,6 +1045,7 @@
 <script src="assistant-ui.js"></script>
 <script src="audit-runner.js"></script>
 <script src="competitor-ui.js"></script>
+<script src="site-pass.js"></script>
 <script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "faab01a9e51d436c9d34f5902b5567e9"}'></script><!-- End Cloudflare Web Analytics -->
 </body>

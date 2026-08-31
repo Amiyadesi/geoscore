@@ -1886,6 +1886,7 @@ function renderFullAudit(data) {
   if (!data?.domain) return;
   currentAuditData = data;
   currentAuditId = data.audit_id ?? currentAuditId;
+  window.GeoScoreSitePass?.onAudit(data);
   evidenceMapController.hydrate(data.evidence_map);
   if (!reportLanguageManuallySet) {
     reportLanguage = REPORT_UI?.inferReportLanguage(data, UI_LANGUAGE) ?? UI_LANGUAGE;
