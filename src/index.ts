@@ -22,7 +22,7 @@ import {
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
 import { handleSearch } from './routes/search';
 import { handleAudit, normaliseDomain, projectLegacyScores } from './routes/audit';
-import { LighthouseUpstreamError, runLighthouse, type LighthouseResult } from './modules/lighthouse';
+import { LighthouseUpstreamError, runLighthouse, runSelfHostedLighthouse, type LighthouseResult } from './modules/lighthouse';
 import { handleChat } from './routes/chat';
 import { handleFix } from './routes/fix';
 import { handleBusinesses } from './routes/businesses';
@@ -519,11 +519,11 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
-      if (!env.PAGESPEED_API_KEY) {
+      if (!env.LIGHTHOUSE_RUNNER_URL && !env.PAGESPEED_API_KEY) {
         return new Response(JSON.stringify({
           ok: false,
           status: 'error',
-          source: 'Google PageSpeed Insights API',
+          source: 'Lighthouse',
           error: {
             code: 'PAGESPEED_NOT_CONFIGURED',
             message: 'PageSpeed Insights is not configured',
@@ -537,13 +537,15 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       }
       let result: LighthouseResult;
       try {
-        result = await runLighthouse(domain, env.PAGESPEED_API_KEY);
+        result = env.LIGHTHOUSE_RUNNER_URL
+          ? await runSelfHostedLighthouse(domain, env.LIGHTHOUSE_RUNNER_URL, env.LIGHTHOUSE_RUNNER_TOKEN ?? '')
+          : await runLighthouse(domain, env.PAGESPEED_API_KEY ?? '');
       } catch (err: unknown) {
         const upstream = err instanceof LighthouseUpstreamError ? err : null;
         return new Response(JSON.stringify({
           ok: false,
           status: 'error',
-          source: 'Google PageSpeed Insights API',
+          source: env.LIGHTHOUSE_RUNNER_URL ? 'Self-hosted Lighthouse' : 'Google PageSpeed Insights API',
           error: {
             code: upstream?.code ?? 'PAGESPEED_UPSTREAM_ERROR',
             message: upstream?.message ?? 'PageSpeed Insights request failed',
