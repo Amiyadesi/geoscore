@@ -336,7 +336,7 @@ export async function runSelfHostedLighthouse(
   try {
     const response = await fetch(url, {
       headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(180_000),
     });
     const body = await response.json().catch(() => null) as (Partial<LighthouseResult> & { error?: LighthouseProviderError }) | null;
     if (!response.ok || !body?.mobile || !body.desktop || typeof body.score !== 'number') {
