@@ -626,7 +626,7 @@ export async function requestEvidenceSearch(
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(new URL('/v1/evidence-search', base).toString(), {
+    response = await fetchWithTimeout(new URL('/api/v1/evidence-search', base).toString(), {
       method: 'POST',
       timeoutMs: timeoutMs + 1_000,
       headers: {
@@ -710,7 +710,7 @@ export async function requestAnswerSnapshots(
   const boundedTimeout = Math.min(32_000, Math.max(1_000, timeoutMs));
   let response: Response;
   try {
-    response = await fetchWithTimeout(new URL('/v1/answer-snapshots', base).toString(), {
+    response = await fetchWithTimeout(new URL('/api/v1/answer-snapshots', base).toString(), {
       method: 'POST',
       timeoutMs: boundedTimeout + 1_000,
       headers: {
@@ -817,7 +817,7 @@ export async function requestAnswerModels(
   const privateValues = [config.apiKey, config.apiBaseUrl];
   let response: Response;
   try {
-    response = await fetchWithTimeout(new URL('/v1/answer-models', base).toString(), {
+    response = await fetchWithTimeout(new URL('/api/v1/answer-models', base).toString(), {
       method: 'POST',
       timeoutMs: boundedTimeout + 1_000,
       headers: {
@@ -876,7 +876,7 @@ export async function searchGateway(
   if (!base || !apiKey || q.length < 2) return [];
   if (!isValidHttpUrl(base)) return [];
 
-  const url = new URL('/search', base);
+  const url = new URL('/api/search', base);
   url.searchParams.set('q', q.slice(0, 500));
   url.searchParams.set('provider', options.provider || 'auto');
   url.searchParams.set('max_results', String(Math.min(10, Math.max(1, options.maxResults ?? 3))));

@@ -477,10 +477,10 @@ describe('accountless monitoring privacy', () => {
     const kvWrites = [];
 
     globalThis.fetch = async (url, init = {}) => {
-      if (String(url).endsWith('/v1/evidence-search')) {
+      if (String(url).endsWith('/api/v1/evidence-search')) {
         return Response.json(evidenceResponse(query));
       }
-      if (String(url).endsWith('/v1/answer-snapshots')) {
+      if (String(url).endsWith('/api/v1/answer-snapshots')) {
         outboundAnswerSecrets.push(new Headers(init.headers).get('X-Answer-API-Key'));
         outboundAnswerBodies.push(JSON.parse(init.body));
         return Response.json(answerResponseWithEcho(query, byokSecret, apiBaseUrl, apiModel));
@@ -668,8 +668,8 @@ describe('monitoring baseline compatibility', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (url, init = {}) => {
       calls.push(String(url));
-      if (String(url).endsWith('/v1/evidence-search')) return Response.json(evidenceResponse(query));
-      if (String(url).endsWith('/v1/answer-snapshots')) return Response.json(cleanAnswerResponse(query));
+      if (String(url).endsWith('/api/v1/evidence-search')) return Response.json(evidenceResponse(query));
+      if (String(url).endsWith('/api/v1/answer-snapshots')) return Response.json(cleanAnswerResponse(query));
       if (String(url) === 'https://api.resend.com/emails') {
         persistedBeforeEmail = db.writes.some(write => write.sql.startsWith('UPDATE monitor_runs SET status ='));
         resendIdempotencyKeys.push(new Headers(init.headers).get('Idempotency-Key'));

@@ -208,7 +208,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
         maxResults: 99,
       });
       assert.equal(result.status, 'complete');
-      assert.equal(captured.url, 'https://gateway.example.com/v1/evidence-search');
+      assert.equal(captured.url, 'https://gateway.example.com/api/v1/evidence-search');
       assert.equal(captured.options.method, 'POST');
       assert.equal(captured.options.headers.Authorization, 'Bearer server-secret-value');
       assert.equal(captured.body.budget.max_provider_calls, 2);
@@ -261,7 +261,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
     const beforeScores = structuredClone(db.state.audit.score_summary);
     const beforeChecks = structuredClone(db.state.audit.normalized_checks);
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url) => String(url).endsWith('/v1/evidence-search')
+    globalThis.fetch = async (url) => String(url).endsWith('/api/v1/evidence-search')
       ? Response.json(gatewayBody())
       : Response.json(answerBody());
     try {
@@ -319,7 +319,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (url, init = {}) => {
       captured.push({ url: String(url), headers: new Headers(init.headers), body: JSON.parse(init.body) });
-      if (String(url).endsWith('/v1/evidence-search')) return Response.json(gatewayBody());
+      if (String(url).endsWith('/api/v1/evidence-search')) return Response.json(gatewayBody());
       return Response.json(answerBody(apiModel, `${apiKey} ${apiBaseUrl}`));
     };
     try {
@@ -333,8 +333,8 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       ), AUDIT_ID, env(db));
       const responseText = await response.text();
       const body = JSON.parse(responseText);
-      const searchCall = captured.find(call => call.url.endsWith('/v1/evidence-search'));
-      const answerCall = captured.find(call => call.url.endsWith('/v1/answer-snapshots'));
+      const searchCall = captured.find(call => call.url.endsWith('/api/v1/evidence-search'));
+      const answerCall = captured.find(call => call.url.endsWith('/api/v1/answer-snapshots'));
 
       assert.equal(response.status, 200);
       assert.equal(searchCall.body.queries.length, 3);
@@ -360,7 +360,7 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
     const apiKey = 'request-scoped-evidence-key-value';
     const apiBaseUrl = 'https://api.example.com/v1';
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async url => String(url).endsWith('/v1/evidence-search')
+    globalThis.fetch = async url => String(url).endsWith('/api/v1/evidence-search')
       ? Response.json(gatewayBody())
       : Response.json({
           success: false,

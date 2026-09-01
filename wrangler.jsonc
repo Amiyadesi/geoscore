@@ -14,7 +14,7 @@
     "RESEND_FROM": "Sayori GeoScore <alerts@sayori.org>",
     "NOMINATIM_USER_AGENT": "SayoriGeoScore/2.2 (+https://geo.sayori.org)",
     "SEARXNG_URL": "",
-    "SEARCH_GATEWAY_URL": "https://search.sayori.org",
+    "SEARCH_GATEWAY_URL": "https://gateway.sayori.org",
     "DAILY_BROWSER_BUDGET_SECONDS": "540",
     "AUDIT_RATE_LIMIT_PER_HOUR": "8",
     "SEARCH_RATE_LIMIT_PER_MINUTE": "60"

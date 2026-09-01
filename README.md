@@ -343,7 +343,7 @@ URL in `wrangler.jsonc` or `wrangler.toml`, then set the API key as a Worker
 secret:
 
 ```toml
-SEARCH_GATEWAY_URL = "https://search.sayori.org"
+SEARCH_GATEWAY_URL = "https://gateway.sayori.org"
 ```
 
 ```bash

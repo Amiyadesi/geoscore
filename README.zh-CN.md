@@ -183,7 +183,7 @@ Playwright 使用固定 API fixture，覆盖中英文桌面端和移动端流程
 关键词研究可选调用受保护的 Search Gateway，生成主题簇和内容机会；搜索结果不是 AI 引用监控。
 
 ```toml
-SEARCH_GATEWAY_URL = "https://search.sayori.org"
+SEARCH_GATEWAY_URL = "https://gateway.sayori.org"
 ```
 
 ```bash

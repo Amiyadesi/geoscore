@@ -61,7 +61,7 @@ describe('request-scoped answer model listing', () => {
 
       assert.equal(result.status, 'complete');
       assert.deepEqual(result.models, ['model-a', 'org/model-b']);
-      assert.equal(captured.url, 'https://gateway.example.com/v1/answer-models');
+      assert.equal(captured.url, 'https://gateway.example.com/api/v1/answer-models');
       assert.equal(captured.headers.get('X-Answer-API-Key'), API_KEY);
       assert.equal(captured.headers.get('X-API-Key'), 'gateway-server-secret');
       assert.deepEqual(captured.body, { api_base_url: API_BASE_URL });
