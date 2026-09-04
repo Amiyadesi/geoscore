@@ -15,7 +15,6 @@
     "NOMINATIM_USER_AGENT": "SayoriGeoScore/2.2 (+https://geo.sayori.org)",
     "SEARXNG_URL": "",
     "SEARCH_GATEWAY_URL": "https://gateway.sayori.org",
-    "LIGHTHOUSE_RUNNER_URL": "https://lighthouse.sayori.org",
     "DAILY_BROWSER_BUDGET_SECONDS": "540",
     "AUDIT_RATE_LIMIT_PER_HOUR": "8",
     "SEARCH_RATE_LIMIT_PER_MINUTE": "60"

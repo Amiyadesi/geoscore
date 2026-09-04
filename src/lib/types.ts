@@ -55,8 +55,6 @@ export interface Env {
   ADMIN_TOKEN?: string;
   GOOGLE_API_KEY?: string;
   PAGESPEED_API_KEY?: string;
-  LIGHTHOUSE_RUNNER_URL?: string;
-  LIGHTHOUSE_RUNNER_TOKEN?: string;
   OPENPAGERANK_KEY?: string;
   SEARCH_GATEWAY_API_KEY?: string;
   MONITOR_TOKEN_PEPPER?: string;

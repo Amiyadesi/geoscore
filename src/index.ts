@@ -3,7 +3,7 @@ import { CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './li
 import { callLlm, sanitizeLlmProviderError } from './lib/llm';
 import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from './prompts';
 import { fetchWithTimeout } from './lib/http';
-import { auditRateLimit, searchRateLimit, getClientIp } from './lib/rate-limit';
+import { auditRateLimit, searchRateLimit, getClientIp, getBrowserFingerprint } from './lib/rate-limit';
 import { getCachedAudit, cacheKey } from './lib/cache';
 import {
   buildAuditContext,
@@ -22,7 +22,7 @@ import {
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
 import { handleSearch } from './routes/search';
 import { handleAudit, normaliseDomain, projectLegacyScores } from './routes/audit';
-import { LighthouseUpstreamError, runLighthouse, runSelfHostedLighthouse, type LighthouseResult } from './modules/lighthouse';
+import { LighthouseUpstreamError, runLighthouse, type LighthouseResult } from './modules/lighthouse';
 import { handleChat } from './routes/chat';
 import { handleFix } from './routes/fix';
 import { handleBusinesses } from './routes/businesses';
@@ -257,6 +257,7 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
     const { pathname } = url;
 
     const ip = getClientIp(req);
+    const browserFingerprint = getBrowserFingerprint(req);
 
     if (pathname === '/api/meta' && req.method === 'GET') {
       return new Response(JSON.stringify(buildPublicMeta(env)), {
@@ -447,7 +448,7 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const cached = await getCachedAudit(env, domain, auditOptions);
       const adminBypass = !!env.ADMIN_TOKEN && req.headers.get('Authorization') === `Bearer ${env.ADMIN_TOKEN}`;
       if (!cached && !adminBypass) {
-        const { limited, retryAfter } = await auditRateLimit(env, ip);
+        const { limited, retryAfter } = await auditRateLimit(env, ip, browserFingerprint);
         if (limited) return rateLimitedResponse(retryAfter);
       }
       return handleAudit(domain, env, auditOptions);
@@ -519,11 +520,11 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
-      if (!env.LIGHTHOUSE_RUNNER_URL && !env.PAGESPEED_API_KEY) {
+      if (!env.PAGESPEED_API_KEY) {
         return new Response(JSON.stringify({
           ok: false,
           status: 'error',
-          source: 'Lighthouse',
+          source: 'Google PageSpeed Insights API',
           error: {
             code: 'PAGESPEED_NOT_CONFIGURED',
             message: 'PageSpeed Insights is not configured',
@@ -537,15 +538,13 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       }
       let result: LighthouseResult;
       try {
-        result = env.LIGHTHOUSE_RUNNER_URL
-          ? await runSelfHostedLighthouse(domain, env.LIGHTHOUSE_RUNNER_URL, env.LIGHTHOUSE_RUNNER_TOKEN ?? '')
-          : await runLighthouse(domain, env.PAGESPEED_API_KEY ?? '');
+        result = await runLighthouse(domain, env.PAGESPEED_API_KEY);
       } catch (err: unknown) {
         const upstream = err instanceof LighthouseUpstreamError ? err : null;
         return new Response(JSON.stringify({
           ok: false,
           status: 'error',
-          source: env.LIGHTHOUSE_RUNNER_URL ? 'Self-hosted Lighthouse' : 'Google PageSpeed Insights API',
+          source: 'Google PageSpeed Insights API',
           error: {
             code: upstream?.code ?? 'PAGESPEED_UPSTREAM_ERROR',
             message: upstream?.message ?? 'PageSpeed Insights request failed',
@@ -665,7 +664,7 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const domains = submittedDomains.map(parseStrictPublicDomain);
       if (domains.some(domain => !domain)) return jsonError(PUBLIC_DOMAIN_ERROR, 400);
       if (domains.length < 2) return jsonError('Provide at least 2 comma-separated domains', 400);
-      const { limited } = await auditRateLimit(env, ip);
+      const { limited } = await auditRateLimit(env, ip, browserFingerprint);
       if (limited) return rateLimitedResponse(60);
       return handleCompare(domains as string[], env);
     }

@@ -84,6 +84,16 @@ test('audit input preserves a complete target URL and request-local archetype hi
   assert.equal(url.searchParams.get('archetype_hint'), 'personal_blog');
 });
 
+test('audit endpoint carries the computed browser fingerprint without using UA as identity', () => {
+  const endpoint = report.buildAuditEndpoint('https://geo-api.sayori.org', {
+    domain: 'example.com',
+    browserFingerprint: 'a'.repeat(32),
+  }, { fresh: true });
+  const url = new URL(endpoint);
+  assert.equal(url.searchParams.get('visitor_id'), 'a'.repeat(32));
+  assert.equal(url.searchParams.get('fresh'), '1');
+});
+
 test('site audit endpoint does not opt into URL mode', () => {
   const endpoint = report.buildAuditEndpoint('https://geo-api.sayori.org', report.parseAuditInput('blog.sayori.org'));
   const url = new URL(endpoint);

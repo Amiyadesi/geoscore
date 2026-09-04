@@ -24,6 +24,39 @@ let auditRunner = null;
 let competitorController = null;
 const recMap = new Map(); // index → rec object, rebuilt on each audit
 
+async function createBrowserFingerprint() {
+  const storageKey = 'geoscore.browser-nonce.v1';
+  let nonce = '';
+  try { nonce = localStorage.getItem(storageKey) || ''; } catch { /* storage may be blocked */ }
+  if (!nonce) {
+    nonce = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    try { localStorage.setItem(storageKey, nonce); } catch { /* best-effort persistence */ }
+  }
+  const values = [
+    navigator.userAgent,
+    navigator.language,
+    navigator.platform,
+    navigator.hardwareConcurrency || '',
+    navigator.deviceMemory || '',
+    navigator.maxTouchPoints || '',
+    screen.width,
+    screen.height,
+    screen.colorDepth,
+    globalThis.devicePixelRatio || '',
+    Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+    nonce,
+  ].join('\x1f');
+  if (globalThis.crypto?.subtle && globalThis.TextEncoder) {
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(values));
+    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  }
+  let hash = 2166136261;
+  for (let index = 0; index < values.length; index += 1) hash = Math.imul(hash ^ values.charCodeAt(index), 16777619);
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+const browserFingerprintPromise = createBrowserFingerprint();
+
 function applyUiLanguage() {
   I18N?.apply?.(document, UI_LANGUAGE);
   I18N?.bindUiLanguageSelect?.(document);
@@ -1261,6 +1294,7 @@ async function startAudit(rawInput, options = {}) {
     targetUrl: parsed.mode === 'url' ? parsed.targetUrl : null,
     archetypeHint: options.archetypeHint || null,
     customApiRunId,
+    browserFingerprint: await browserFingerprintPromise,
   };
   const pageQuery = REPORT_UI?.buildAuditPageQuery(currentAuditRequest) || `?d=${encodeURIComponent(domain)}`;
   history.pushState({}, '', pageQuery);

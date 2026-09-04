@@ -445,6 +445,8 @@
       params.set('url', normalized.targetUrl);
     }
     if (normalized.archetypeHint) params.set('archetype_hint', normalized.archetypeHint);
+    const visitorId = String(request?.browserFingerprint ?? '');
+    if (/^[a-f0-9]{16,64}$/i.test(visitorId)) params.set('visitor_id', visitorId.toLowerCase());
     if (options?.fresh) params.set('fresh', '1');
     const query = params.toString();
     return `${String(apiBase || '').replace(/\/$/, '')}/api/audit/${encodeURIComponent(normalized.domain)}${query ? `?${query}` : ''}`;

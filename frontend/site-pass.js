@@ -6,6 +6,10 @@
   let lastDomain = '';
   let pending = null;
 
+  function t(key, vars) {
+    return global.GeoScoreI18n?.t?.(key, vars) ?? key;
+  }
+
   function currentDomain(data) {
     return String(data?.domain || data?.root_domain || '')
       .trim().replace(/^www\./i, '').toLowerCase();
@@ -35,13 +39,14 @@
     card.classList.remove('hidden');
     if (pass?.active) {
       const date = new Date(pass.expires_at * 1000).toLocaleDateString();
-      body.textContent = `Site Pass active until ${date}. ${pass.reruns_remaining} re-audits left.`;
+      body.textContent = t('audit.sitePass.active', { date, count: pass.reruns_remaining });
       buy?.classList.add('hidden');
       return;
     }
-    body.textContent = 'Unlock the full repair pack, shareable report, and 3 re-audits.';
+    body.textContent = t('audit.sitePass.body');
     if (buy) {
       buy.classList.remove('hidden');
+      buy.textContent = t('audit.sitePass.buy');
       buy.href = paymentUrl(domain);
     }
   }

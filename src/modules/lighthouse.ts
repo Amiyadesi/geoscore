@@ -29,7 +29,7 @@ export interface LighthouseStrategyResult {
 
 export interface LighthouseResult {
   status: LighthouseStatus;
-  source: 'Google PageSpeed Insights API' | 'Self-hosted Lighthouse';
+  source: 'Google PageSpeed Insights API';
   url: string;
   mobile: LighthouseStrategyResult;
   desktop: LighthouseStrategyResult;
@@ -325,37 +325,4 @@ export async function runLighthouse(domain: string, apiKey: string): Promise<Lig
     score,
     issues,
   };
-}
-
-export async function runSelfHostedLighthouse(
-  domain: string,
-  endpoint: string,
-  token: string,
-): Promise<LighthouseResult> {
-  const url = `${endpoint.replace(/\/$/, '')}/audit?domain=${encodeURIComponent(domain)}`;
-  try {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(180_000),
-    });
-    const body = await response.json().catch(() => null) as (Partial<LighthouseResult> & { error?: LighthouseProviderError }) | null;
-    if (!response.ok || !body?.mobile || !body.desktop || typeof body.score !== 'number') {
-      const error = body?.error ?? {
-        code: response.status === 504 ? 'PAGESPEED_TIMEOUT' : 'PAGESPEED_RUNNER_ERROR',
-        message: `Self-hosted Lighthouse returned HTTP ${response.status}`,
-        retryable: response.status >= 500 || response.status === 429,
-        upstream_status: response.status,
-      };
-      throw new LighthouseUpstreamError(error, []);
-    }
-    return { ...body as LighthouseResult, source: 'Self-hosted Lighthouse' };
-  } catch (error: unknown) {
-    if (error instanceof LighthouseUpstreamError) throw error;
-    throw new LighthouseUpstreamError({
-      code: 'PAGESPEED_TIMEOUT',
-      message: 'Self-hosted Lighthouse request timed out or failed',
-      retryable: true,
-      upstream_status: 0,
-    }, []);
-  }
 }

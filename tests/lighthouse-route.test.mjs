@@ -100,33 +100,6 @@ function auditDatabase(initialAudit) {
 }
 
 describe('Lighthouse API route', () => {
-  it('uses the configured self-hosted Lighthouse runner', async () => {
-    await withFetchMock(async (rawUrl, init) => {
-      assert.equal(String(rawUrl), 'https://lighthouse.sayori.org/audit?domain=blog.sayori.org');
-      assert.equal(init?.headers?.Authorization, 'Bearer runner-token');
-      return new Response(JSON.stringify({
-        status: 'complete',
-        source: 'Self-hosted Lighthouse',
-        url: 'https://blog.sayori.org/',
-        mobile: { strategy: 'mobile', status: 'complete', score: 80 },
-        desktop: { strategy: 'desktop', status: 'complete', score: 90 },
-        mobile_score: 80,
-        desktop_score: 90,
-        score: 84,
-        issues: [],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }, async () => {
-      const { response, body } = await lighthouseResponse({
-        LIGHTHOUSE_RUNNER_URL: 'https://lighthouse.sayori.org',
-        LIGHTHOUSE_RUNNER_TOKEN: 'runner-token',
-      });
-      assert.equal(response.status, 200);
-      assert.equal(body.ok, true);
-      assert.equal(body.data.source, 'Self-hosted Lighthouse');
-      assert.equal(body.data.score, 84);
-    });
-  });
-
   it('returns complete numeric mobile and desktop results', async () => {
     await withFetchMock(async rawUrl => {
       const strategy = new URL(String(rawUrl)).searchParams.get('strategy');
