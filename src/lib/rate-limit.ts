@@ -1,6 +1,6 @@
 import type { Env } from './types';
 
-const DEFAULT_AUDIT_LIMIT = 8;
+export const DEFAULT_AUDIT_LIMIT = 2;
 const DEFAULT_SEARCH_LIMIT = 60;
 
 function positiveInt(value: string | undefined, fallback: number): number {

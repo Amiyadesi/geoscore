@@ -237,7 +237,7 @@ async function overview(env: Env): Promise<Response> {
   }
 
   const todayAudits = numberValue(today?.count);
-  const publicAuditCap = positiveInt(env.AUDIT_RATE_LIMIT_PER_HOUR, 8);
+  const publicAuditCap = positiveInt(env.AUDIT_RATE_LIMIT_PER_HOUR, 2);
   return json({
     totals: {
       audits: Object.values(auditsByStatus).reduce((sum, count) => sum + numberValue(count), 0),

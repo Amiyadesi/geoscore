@@ -24,6 +24,7 @@ import {
 import { publicAppUrl } from '../lib/security';
 import { sendEmail, type EmailDeliveryResult } from '../lib/email';
 import type { Env } from '../lib/types';
+import { hasActiveSitePass } from '../lib/site-pass';
 import { monotonicFactory } from 'ulid';
 
 const ulid = monotonicFactory();
@@ -438,6 +439,13 @@ async function createProject(req: Request, env: Env): Promise<Response> {
   if (!auditRow?.full_json) return error('AUDIT_NOT_FOUND', 'Completed audit not found.', 404);
   const audit = parseStoredAudit(auditRow.full_json, auditId);
   if (!audit) return error('AUDIT_VERSION_UNSUPPORTED', 'This audit cannot create a monitoring project.', 409);
+  if (!(await hasActiveSitePass(env, audit.audit_context.root_domain))) {
+    return error(
+      'SITE_PASS_REQUIRED',
+      'A Site Pass is required to create continuous monitoring for this domain.',
+      402,
+    );
+  }
   const defaultPlan = planEvidenceQueries(audit.audit_context);
   const queries = normalizeMonitorQueries(body.queries, defaultPlan.queries);
   if (!queries) return error('INVALID_QUERIES', 'Provide one to three unique bounded queries.', 400);
@@ -969,6 +977,9 @@ export async function handleMonitorProjects(req: Request, env: Env): Promise<Res
     return retryScoreAlert(env, authorized, decodeURIComponent(alertRetry[1]));
   }
   if (action === 'runs' && req.method === 'POST') {
+    if (!(await hasActiveSitePass(env, authorized.root_domain))) {
+      return error('SITE_PASS_REQUIRED', 'A Site Pass is required to run monitoring for this domain.', 402);
+    }
     const body = await boundedRequestBody(req);
     if (!body || Object.keys(body).length > 0) {
       return error('MONITOR_OPTIONS_FORBIDDEN', 'Provider, model, and endpoint settings are server-owned.', 400);
@@ -976,6 +987,9 @@ export async function handleMonitorProjects(req: Request, env: Env): Promise<Res
     return (await executeMonitorRun(env, authorized, 'default')).response;
   }
   if (action === 'byok-runs' && req.method === 'POST') {
+    if (!(await hasActiveSitePass(env, authorized.root_domain))) {
+      return error('SITE_PASS_REQUIRED', 'A Site Pass is required to run monitoring for this domain.', 402);
+    }
     const body = await boundedRequestBody(req);
     if (!body || Object.keys(body).some(key => key !== 'api_base_url' && key !== 'api_model')) {
       return error('CUSTOM_API_CONFIG_INVALID', 'Custom API configuration is invalid.', 400);
@@ -1021,6 +1035,9 @@ export async function runWeeklyMonitorProjects(
   let failed = 0;
   for (const project of projects) {
     try {
+      if (!(await hasActiveSitePass(env, project.root_domain))) {
+        continue;
+      }
       const result = await executeMonitorRun(env, project, 'weekly');
       if (result.run) completed += 1;
       else failed += 1;

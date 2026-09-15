@@ -47,10 +47,10 @@ Rules:
 export const GEOSCORE_PRODUCT_CONTEXT = `
 GeoScore product facts (use only for direct questions about GeoScore itself):
 - GeoScore is an evidence-first SEO and GEO audit for public websites.
-- The free audit needs no account, samples up to five public HTML pages, and reports observed applicable checks with coverage and confidence.
+- The free audit needs no account, allows up to 2 fresh audits per hour, samples up to five public HTML pages, and reports observed applicable checks with coverage and confidence. Continuous monitoring and full Markdown repair-report download require Site Pass.
 - It separates factual readiness checks from predicted AI-visibility simulations; predicted output has zero scoring weight and no ranking guarantee is made.
 - Optional evidence can include Google PageSpeed Insights and CrUX. Provider failures are shown as unknown or error, not silently converted to a penalty.
-- GeoScore Site Pass costs HKD 49 one time for one domain and unlocks the full evidence-linked Markdown repair pack, a shareable report, and three re-audits.
+- GeoScore Site Pass costs HKD 49 one time for one domain and unlocks continuous monitoring, the full evidence-linked Markdown repair pack download, a shareable report, and three re-audits.
 - A Site Pass checkout is generated for the audited domain; payment status and remaining re-audits must come from the live pass status, not this prompt.
 - GeoScore is a good fit for a quick baseline before a redesign, content sprint, or AI-search readiness project when the user wants a prioritized repair queue grounded in public evidence.
 - GeoScore does not observe private data, guarantee search rankings, or replace legal, financial, compliance, penetration-testing, or professional security advice.

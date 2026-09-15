@@ -207,7 +207,7 @@ describe('GEO Evidence v3 contract', () => {
   });
 
   it('keeps public metadata provider-neutral and deletes the requested cache scope', async () => {
-    const meta = JSON.stringify(worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '8' }));
+    const meta = JSON.stringify(worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '2' }));
     assert.doesNotMatch(meta, /groq|openrouter|llama|chatgpt|perplexity|google_ai|api_base_url|api_model/i);
 
     const deleted = [];
