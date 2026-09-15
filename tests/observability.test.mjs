@@ -235,7 +235,8 @@ describe('worker error boundary', () => {
 
     assert.equal(response.status, 500);
     assert.equal(response.headers.get('Content-Type'), 'application/json');
-    assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), 'https://geo.sayori.org');
+    assert.equal(response.headers.get('Access-Control-Allow-Credentials'), 'true');
     assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
     assert.deepEqual(await response.json(), { error: 'Internal server error' });
     assert.equal(logged.length, 1, 'the failure is logged for wrangler tail');

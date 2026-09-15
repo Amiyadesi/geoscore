@@ -53,6 +53,10 @@ export interface Env {
   ALLOWED_ORIGINS: string;
   RESEND_FROM: string;
   ADMIN_TOKEN?: string;
+  ADMIN_SESSION_SECRET?: string;
+  ADMIN_GITHUB_LOGINS?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
   GOOGLE_API_KEY?: string;
   PAGESPEED_API_KEY?: string;
   OPENPAGERANK_KEY?: string;

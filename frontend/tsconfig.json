@@ -18,6 +18,8 @@
     "globals.d.ts",
     "cdn-modules.d.ts",
     "audit-runner.js",
+    "admin.js",
+    "admin-session.js",
     "assistant-ui.js",
     "competitor-ui.js",
     "custom-api.js",

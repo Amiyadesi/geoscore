@@ -79,7 +79,7 @@
 
       let source;
       try {
-        source = new EventSourceRef(endpoint);
+        source = new EventSourceRef(endpoint, { withCredentials: true });
       } catch {
         fail(run, {
           code: 'AUDIT_STREAM_CONNECT_FAILED',

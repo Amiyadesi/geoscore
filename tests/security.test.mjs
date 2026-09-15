@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { describe, it } from 'node:test';
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geoscore-security-'));
-fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"type":"module"}\n');
+fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"type":"commonjs"}\n');
 fs.symlinkSync(path.resolve('node_modules'), path.join(tmpDir, 'node_modules'), 'junction');
 
 execFileSync(
@@ -16,9 +16,9 @@ execFileSync(
     '--target',
     'ES2022',
     '--module',
-    'ES2022',
+    'CommonJS',
     '--moduleResolution',
-    'bundler',
+    'node',
     '--lib',
     'ES2022',
     '--types',
@@ -26,6 +26,7 @@ execFileSync(
     '--skipLibCheck',
     '--outDir',
     tmpDir,
+    'src/lib/admin-auth.ts',
     'src/lib/security.ts',
   ],
   { stdio: 'inherit' },

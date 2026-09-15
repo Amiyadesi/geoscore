@@ -15,6 +15,11 @@ interface Window {
     PAY_URL?: string;
     [key: string]: any;
   };
+  GeoScoreAdmin?: {
+    api?: string;
+    session?: Record<string, unknown> | null;
+    [key: string]: any;
+  };
   GeoScoreCustomApi?: {
     [key: string]: any;
   };
