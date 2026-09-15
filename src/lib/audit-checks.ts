@@ -645,26 +645,26 @@ export function buildNormalizedChecks(
   }));
   const claimPages = contentSignals.filter(page => page.claims.length > 0);
   const claims = claimPages.flatMap(page => page.claims.map(claim => ({ ...claim, pageUrl: page.pageUrl })));
-  const supportedClaims = claims.filter(claim => claim.supported);
+  const citedClaims = claims.filter(claim => claim.citationSignal);
   output.push(check({
-    id: 'geo.claim_source_support', category: 'geo', title: zh ? '声明与来源关联' : 'Claim-to-source support', weight: 2,
-    status: claims.length === 0 ? 'not_applicable' : supportedClaims.length / claims.length >= 0.6 ? 'pass' : 'fail',
+    id: 'geo.claim_source_support', category: 'geo', title: zh ? '声明与引文邻接' : 'Claim citation proximity', weight: 2,
+    status: claims.length === 0 ? 'not_applicable' : citedClaims.length / claims.length >= 0.6 ? 'pass' : 'fail',
     confidence: claims.length > 0 ? 0.78 : 0,
     source: 'content_sources', pageUrl: claims[0]?.pageUrl ?? pageUrl,
     evidence: claims.length === 0
       ? ['No source-dependent claims were detected in sampled content']
-      : [`${supportedClaims.length}/${claims.length} detected claims have an adjacent source or citation`, ...claims.slice(0, 6).map(claim => `${claim.pageUrl}: ${claim.supported ? 'supported' : 'unsupported'} — ${claim.text.slice(0, 160)}`)],
+      : [`${citedClaims.length}/${claims.length} detected claims contain a same-block citation signal`, ...claims.slice(0, 6).map(claim => `${claim.pageUrl}: ${claim.citationSignal ? 'citation signal' : 'no adjacent citation'} — ${claim.text.slice(0, 160)}`)],
   }));
-  const statistics = claimPages.flatMap(page => page.statistics.map(stat => ({ ...stat, pageUrl: page.pageUrl })));
-  const sourcedStatistics = statistics.filter(stat => stat.supported);
+  const statistics = contentSignals.flatMap(page => page.statistics.map(stat => ({ ...stat, pageUrl: page.pageUrl })));
+  const citedStatistics = statistics.filter(stat => stat.citationSignal);
   output.push(check({
     id: 'geo.statistic_provenance', category: 'geo', title: zh ? '统计数据来源' : 'Statistic provenance', weight: 1,
-    status: statistics.length === 0 ? 'not_applicable' : sourcedStatistics.length === statistics.length ? 'pass' : 'fail',
+    status: statistics.length === 0 ? 'not_applicable' : citedStatistics.length === statistics.length ? 'pass' : 'fail',
     confidence: statistics.length > 0 ? 0.8 : 0,
     source: 'content_sources', pageUrl: statistics[0]?.pageUrl ?? pageUrl,
     evidence: statistics.length === 0
       ? ['No numeric or statistical claims were detected']
-      : [`${sourcedStatistics.length}/${statistics.length} detected statistics have a source signal`, ...statistics.slice(0, 6).map(stat => `${stat.pageUrl}: ${stat.supported ? 'sourced' : 'no source'} — ${stat.text.slice(0, 160)}`)],
+      : [`${citedStatistics.length}/${statistics.length} detected statistics contain a same-block citation signal`, ...statistics.slice(0, 6).map(stat => `${stat.pageUrl}: ${stat.citationSignal ? 'citation signal' : 'no adjacent citation'} — ${stat.text.slice(0, 160)}`)],
   }));
   const freshnessPages = contentSignals.filter(page => page.pageType === 'article' || page.pageType === 'documentation');
   const datedPages = freshnessPages.filter(page => page.dates.length > 0);

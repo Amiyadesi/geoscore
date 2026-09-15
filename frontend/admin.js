@@ -11,6 +11,7 @@
       : PRODUCTION_API
   );
   const $ = id => global.document.getElementById(id);
+  const field = id => /** @type {HTMLInputElement | HTMLSelectElement | null} */ ($(id));
 
   function show(id, visible) {
     $(id)?.classList.toggle('hidden', !visible);
@@ -113,6 +114,163 @@
     renderRecent(data?.recent_audits);
   }
 
+  function adminPageUrl() {
+    return (location.origin || PRODUCTION_API) + (location.pathname || '/admin.html');
+  }
+
+  function gscConnectUrl() {
+    return API + '/api/admin/gsc/connect?next=' + encodeURIComponent(adminPageUrl());
+  }
+
+  function formatDecimal(value, digits) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed.toFixed(digits) : '—';
+  }
+
+  function renderGscRows(id, rows, key) {
+    const body = $(id);
+    if (!body) return;
+    body.replaceChildren();
+    if (!Array.isArray(rows) || !rows.length) {
+      const row = global.document.createElement('tr');
+      const cell = global.document.createElement('td');
+      cell.colSpan = 4;
+      cell.className = 'py-3 text-center text-slate-400';
+      cell.textContent = '暂无数据';
+      row.append(cell);
+      body.append(row);
+      return;
+    }
+    for (const item of rows) {
+      const row = global.document.createElement('tr');
+      row.className = 'border-b border-slate-50 last:border-0';
+      const values = [
+        item?.[key] || '—',
+        number(item?.clicks),
+        number(item?.impressions),
+        formatDecimal(item?.position, 1),
+      ];
+      for (const value of values) {
+        const cell = global.document.createElement('td');
+        cell.className = 'max-w-[260px] truncate py-2 pr-2 text-slate-700';
+        cell.textContent = String(value);
+        cell.title = String(value);
+        row.append(cell);
+      }
+      body.append(row);
+    }
+  }
+
+  async function loadGscPerformance() {
+    const property = field('gsc-property')?.value || '';
+    if (!property) return;
+    showError('gsc-error', '');
+    const result = await fetchJson(API + '/api/admin/gsc/performance?days=28&site_url=' + encodeURIComponent(property));
+    if (!result.response.ok) {
+      showError('gsc-error', result.body?.message || '无法读取 Search Console 数据。');
+      return;
+    }
+    const totals = result.body?.totals || {};
+    $('gsc-clicks').textContent = String(number(totals.clicks));
+    $('gsc-impressions').textContent = String(number(totals.impressions));
+    $('gsc-ctr').textContent = formatDecimal(number(totals.ctr) * 100, 1) + '%';
+    $('gsc-position').textContent = formatDecimal(totals.position, 1);
+    $('gsc-range').textContent = (result.body?.start_date || '—') + ' 至 ' + (result.body?.end_date || '—') + '；Search Analytics 只保证返回顶部数据。';
+    renderGscRows('gsc-query-rows', result.body?.top_queries, 'query');
+    renderGscRows('gsc-page-rows', result.body?.top_pages, 'page');
+  }
+
+  async function loadGsc() {
+    const statusResult = await fetchJson(API + '/api/admin/gsc/status');
+    if (!statusResult.response.ok) {
+      showError('gsc-error', statusResult.body?.message || '无法读取 GSC 连接状态。');
+      return;
+    }
+    const status = statusResult.body || {};
+    const statusLabel = $('gsc-status');
+    const connectUrl = gscConnectUrl();
+    if ($('gsc-callback-url')) $('gsc-callback-url').textContent = status.callback_url || '';
+    $('gsc-connect-link')?.setAttribute('href', connectUrl);
+    $('gsc-reconnect-link')?.setAttribute('href', connectUrl);
+    const storageReady = status.storage_ready !== false;
+    show('gsc-migration-needed', !storageReady);
+    show('gsc-unconfigured', !status.configured);
+    show('gsc-connect', Boolean(storageReady && status.configured && !status.connected));
+    show('gsc-connected', Boolean(storageReady && status.connected));
+    if (statusLabel) {
+      statusLabel.textContent = !storageReady ? '需迁移' : !status.configured ? '待配置' : status.connected ? '已连接' : '未连接';
+    }
+
+    const query = new URLSearchParams(location.search);
+    if (query.get('gsc_error')) {
+      showError('gsc-error', 'Google 授权失败：' + query.get('gsc_error'));
+    } else if (query.get('gsc') === 'connected') {
+      showError('gsc-error', '');
+    }
+    if (!storageReady || !status.connected) return;
+
+    const propertiesResult = await fetchJson(API + '/api/admin/gsc/properties');
+    if (!propertiesResult.response.ok) {
+      showError('gsc-error', propertiesResult.body?.message || '无法读取 Search Console 站点资源。');
+      return;
+    }
+    const properties = Array.isArray(propertiesResult.body?.properties) ? propertiesResult.body.properties : [];
+    const select = field('gsc-property');
+    if (!select) return;
+    select.replaceChildren();
+    for (const property of properties) {
+      const option = global.document.createElement('option');
+      option.value = property.site_url;
+      option.textContent = property.site_url + ' · ' + property.permission_level;
+      select.append(option);
+    }
+    const preferred = properties.find(property => String(property.site_url).includes('geo.sayori.org')) || properties[0];
+    if (!preferred) {
+      showError('gsc-error', '此 Google 账号没有可读取的 Search Console 站点资源。');
+      return;
+    }
+    select.value = preferred.site_url;
+    const inspectionInput = field('gsc-inspection-url');
+    if (inspectionInput && !inspectionInput.value) {
+      inspectionInput.value = preferred.site_url.startsWith('sc-domain:')
+        ? 'https://' + preferred.site_url.slice('sc-domain:'.length) + '/'
+        : preferred.site_url;
+    }
+    await loadGscPerformance();
+  }
+
+  async function inspectGscUrl(event) {
+    event.preventDefault();
+    const property = field('gsc-property')?.value || '';
+    const inspectionUrl = field('gsc-inspection-url')?.value?.trim() || '';
+    if (!property || !inspectionUrl) return;
+    showError('gsc-error', '');
+    const result = await fetchJson(API + '/api/admin/gsc/inspect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site_url: property, inspection_url: inspectionUrl }),
+    });
+    if (!result.response.ok) {
+      showError('gsc-error', result.body?.message || 'URL 检查失败。');
+      return;
+    }
+    const index = result.body?.index || {};
+    const output = $('gsc-inspection-result');
+    if (!output) return;
+    output.textContent = [
+      'Verdict: ' + (index.verdict || '—'),
+      'Coverage: ' + (index.coverage_state || '—'),
+      'Fetch: ' + (index.page_fetch_state || '—'),
+      'Indexing: ' + (index.indexing_state || '—'),
+      'Last crawl: ' + (index.last_crawl_time || '—'),
+      'User canonical: ' + (index.user_canonical || '—'),
+      'Google canonical: ' + (index.google_canonical || '—'),
+      '',
+      result.body?.limitation || '',
+    ].join('\n');
+    show('gsc-inspection-result', true);
+  }
+
   async function fetchJson(url, options) {
     const response = await global.fetch(url, { credentials: 'include', ...(options || {}) });
     let body = null;
@@ -141,6 +299,7 @@
       }
       if (!overviewResult.response.ok) throw new Error('overview failed');
       renderOverview(overviewResult.body, session.login);
+      await loadGsc();
       showError('admin-dashboard-error', '');
     } catch {
       showError('admin-dashboard-error', '无法加载控制台数据。');
@@ -150,6 +309,10 @@
   $('admin-logout')?.addEventListener('click', async () => {
     try { await fetchJson(`${API}/api/admin/logout`, { method: 'POST' }); } finally { global.location.reload(); }
   });
+
+  $('gsc-load')?.addEventListener('click', loadGscPerformance);
+  $('gsc-property')?.addEventListener('change', loadGscPerformance);
+  $('gsc-inspect-form')?.addEventListener('submit', inspectGscUrl);
 
   if (global.document.readyState === 'loading') global.document.addEventListener('DOMContentLoaded', load, { once: true });
   else void load();

@@ -59,6 +59,8 @@ export interface Env {
   ADMIN_GITHUB_LOGINS?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  GSC_CLIENT_ID?: string;
+  GSC_CLIENT_SECRET?: string;
   GOOGLE_API_KEY?: string;
   PAGESPEED_API_KEY?: string;
   OPENPAGERANK_KEY?: string;

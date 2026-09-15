@@ -25,3 +25,12 @@ test('bilingual docs cover the public monitoring and BYOK workflow without runti
   assert.match(script, /navigator\.language/);
   assert.ok(css.length > 1000);
 });
+
+test('manual service actions keep provider acquisition boundaries explicit', () => {
+  const manual = fs.readFileSync(path.join(root, 'docs', 'manual-service-actions.md'), 'utf8');
+  assert.match(manual, /Google Analytics Data API \(planned owner-only extension\)/);
+  assert.match(manual, /Bing Webmaster Tools/);
+  assert.match(manual, /DataForSEO SERP API \(paid depth, not free audit\)/);
+  assert.match(manual, /0006_google_search_console\.sql/);
+  assert.match(manual, /do not run it on the free anonymous path/i);
+});

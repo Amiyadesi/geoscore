@@ -515,7 +515,7 @@ test('top actions group related repairs without hiding the complete action list'
     audit_context: { site_archetype: 'documentation', confidence: 0.8, locale: 'en' },
     pages_audited: [{ url: 'https://example.com/', page_type: 'home', status: 'complete' }],
     score_summary: {
-      score_version: '2.4.7',
+      score_version: '2.4.8',
       overall: { score: 58, coverage: 0.75, confidence: 0.9 },
       seo: { score: 58, coverage: 0.75, confidence: 0.9 },
       geo: { score: 58, coverage: 0.75, confidence: 0.9 },

@@ -1,6 +1,6 @@
 import type { FetchedAuditPage } from './audit-pages';
 
-export const SCORE_VERSION = '2.4.7';
+export const SCORE_VERSION = '2.4.8';
 
 export const SCORE_POLICY = {
   minimum_category_coverage: 0.6,
@@ -103,7 +103,7 @@ export const CHECK_TITLES: Record<string, LocalizedAuditText> = {
   'geo.author_signal': { en: 'Content responsibility', zh: '内容责任归属' },
   'geo.extractability': { en: 'Content extractability', zh: '内容可提取性' },
   'geo.direct_answer': { en: 'Direct answer structure', zh: '直接回答结构' },
-  'geo.claim_source_support': { en: 'Claim-to-source support', zh: '声明与来源关联' },
+  'geo.claim_source_support': { en: 'Claim citation proximity', zh: '声明与引文邻接' },
   'geo.statistic_provenance': { en: 'Statistic provenance', zh: '统计数据来源' },
   'geo.freshness': { en: 'Content freshness signals', zh: '内容时效信号' },
   'geo.cross_page_consistency': { en: 'Cross-page site identity consistency', zh: '跨页面站点身份一致性' },

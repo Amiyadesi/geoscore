@@ -625,8 +625,8 @@ export interface GeoPageSignals {
   publisherNames: string[];
   siteLabels: string[];
   dates: string[];
-  claims: Array<{ text: string; supported: boolean }>;
-  statistics: Array<{ text: string; supported: boolean }>;
+  claims: Array<{ text: string; citationSignal: boolean }>;
+  statistics: Array<{ text: string; citationSignal: boolean }>;
 }
 
 function decodeHtmlText(value: string): string {
@@ -661,6 +661,30 @@ function dateValuesFromNode(node: JsonObject): string[] {
     .map(value => value.trim());
 }
 
+function contentBlocks(html: string): Array<{ markup: string; text: string }> {
+  return [...html.matchAll(/<(p|blockquote|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)]
+    .map(match => ({ markup: match[0], text: decodeHtmlText(match[2]) }))
+    .filter(block => block.text.length >= 20);
+}
+
+function hasAdjacentCitationSignal(markup: string, documentHtml: string): boolean {
+  if (/<cite\b|\b(?:cite|data-source)\s*=/i.test(markup)) return true;
+  return [...markup.matchAll(/<a\b([^>]*)>/gi)].some(match => {
+    const attributes = match[1] ?? '';
+    const href = attributes.match(/(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>\x60]+))/i);
+    const value = href?.[1] ?? href?.[2] ?? href?.[3] ?? '';
+    if (/^https?:\/\//i.test(value)) return true;
+    if (/\b(?:rel|class)\s*=\s*["'][^"']*(?:cite|citation|source|footnote|reference)[^"']*["']/i.test(attributes)) return true;
+    if (!value.startsWith('#') || value.length < 2) return false;
+    const id = value.slice(1).toLowerCase();
+    const lower = documentHtml.toLowerCase();
+    return lower.includes('id="' + id + '"')
+      || lower.includes("id='" + id + "'")
+      || lower.includes('name="' + id + '"')
+      || lower.includes("name='" + id + "'");
+  });
+}
+
 export function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
   const html = page.html || '';
   const nodes = extractJsonLdNodes([page]).map(item => item.node);
@@ -669,9 +693,8 @@ export function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
     .replace(/<(nav|footer|header)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
   const text = decodeHtmlText(textHtml);
   const title = page.title?.trim() || decodeHtmlText((html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i) ?? [])[1] ?? '');
-  const paragraphs = [...html.matchAll(/<(?:p|blockquote|li)\b[^>]*>([\s\S]*?)<\/(?:p|blockquote|li)>/gi)]
-    .map(match => decodeHtmlText(match[1]))
-    .filter(value => value.length >= 20);
+  const blocks = contentBlocks(html);
+  const paragraphs = blocks.map(block => block.text);
   const entityNames = nodes
     .filter(node => nodeTypes(node).some(type => ['Person', 'Organization', 'Corporation', 'WebSite', 'Blog'].includes(type)))
     .map(node => typeof node.name === 'string' ? node.name.trim() : '')
@@ -707,21 +730,17 @@ export function geoPageSignals(page: FetchedAuditPage): GeoPageSignals {
     ...metadataValues(html, ['article:published_time', 'article:modified_time', 'datepublished', 'datemodified']),
     ...[...html.matchAll(/<time\b[^>]*datetime=["']([^"']+)["'][^>]*>/gi)].map(match => match[1].trim()),
   ].filter(value => !Number.isNaN(Date.parse(value)));
-  const claims = paragraphs
-    .filter(value => /\baccording to\b|\b(research|study|report|survey|data|documentation)\b|根据|研究|报告|调查|数据显示/i.test(value))
-    .map(value => ({
-      text: value,
-      // The paragraph text is HTML-decoded, so its exact byte offset is not
-      // stable after tags/entities are removed. An external citation anywhere
-      // in the same content document is still auditable evidence; citation
-      // markers cover pages that use footnotes instead of anchors.
-      supported: /<a\b[^>]+href=["']https?:\/\//i.test(html) || /\[\d+\]|<cite\b|data-source/i.test(html),
+  const claims = blocks
+    .filter(block => /\baccording to\b|\b(research|study|report|survey|data|documentation)\b|根据|研究|报告|调查|数据显示/i.test(block.text))
+    .map(block => ({
+      text: block.text,
+      citationSignal: hasAdjacentCitationSignal(block.markup, html),
     }));
-  const statistics = paragraphs
-    .filter(value => /\b\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*(?:million|billion|thousand|users?|people|items?|ms|seconds?)\b|\d+(?:\.\d+)?\s*%/i.test(value) || /\d+(?:\.\d+)?\s*%/.test(value))
-    .map(value => ({
-      text: value,
-      supported: claims.find(claim => claim.text === value)?.supported ?? /\[\d+\]|<cite\b|data-source/i.test(value),
+  const statistics = blocks
+    .filter(block => /\b\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*(?:million|billion|thousand|users?|people|items?|ms|seconds?)\b|\d+(?:\.\d+)?\s*%/i.test(block.text) || /\d+(?:\.\d+)?\s*%/.test(block.text))
+    .map(block => ({
+      text: block.text,
+      citationSignal: hasAdjacentCitationSignal(block.markup, html),
     }));
   return { pageUrl: page.url, pageType: page.page_type, title, text, paragraphs, entityNames, authorNames, publisherNames, siteLabels, dates, claims, statistics };
 }

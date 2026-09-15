@@ -63,8 +63,8 @@ async function mockApi(page) {
     if (url.pathname === '/api/meta') {
       return route.fulfill({
         json: {
-          version: '2.4.7',
-          score_version: '2.4.7',
+          version: '2.4.8',
+          score_version: '2.4.8',
           max_pages: 5,
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },
@@ -108,6 +108,37 @@ async function mockApi(page) {
       });
     }
     return route.fulfill({ json: { ok: true } });
+  });
+}
+
+async function mockAdminApi(page, { storageReady = true } = {}) {
+  await page.route('http://127.0.0.1:8787/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/admin/session') {
+      return route.fulfill({ json: { authenticated: true, login: 'Amiyadesi', github_oauth: true, full_access: true } });
+    }
+    if (url.pathname === '/api/admin/overview') {
+      return route.fulfill({ json: {
+        totals: { unique_sites: 3, audits_by_status: { complete: 5 } },
+        today: { audits: 2 },
+        this_week: { audits: 4 },
+        quotas: {
+          browser_run: { used_seconds: 40, budget_seconds: 540, remaining_seconds: 500 },
+          public_audit: { limit_per_hour: 2, today_audits: 2 },
+        },
+        monitor_projects: 1,
+        recent_audits: [],
+      } });
+    }
+    if (url.pathname === '/api/admin/gsc/status') {
+      return route.fulfill({ json: {
+        configured: false,
+        connected: false,
+        storage_ready: storageReady,
+        callback_url: 'https://geo-api.sayori.org/api/admin/gsc/callback',
+      } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'not found' } });
   });
 }
 
@@ -159,6 +190,32 @@ test('docs follow browser language and fit the viewport', async ({ page }, testI
     await expect(activeTaskNav).toBeVisible();
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('owner console shows bounded Search Console setup and fits the viewport', async ({ page }) => {
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+  await mockAdminApi(page);
+  await page.goto('/admin.html', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.locator('#admin-dashboard')).toBeVisible();
+  await expect(page.locator('#gsc-unconfigured')).toBeVisible();
+  await expect(page.locator('#gsc-callback-url')).toHaveText('https://geo-api.sayori.org/api/admin/gsc/callback');
+  await expect(page.locator('#gsc-status')).toHaveText('待配置');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('owner console distinguishes a missing Search Console migration', async ({ page }) => {
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+  await mockAdminApi(page, { storageReady: false });
+  await page.goto('/admin.html', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.locator('#gsc-migration-needed')).toBeVisible();
+  await expect(page.locator('#gsc-status')).toHaveText('需迁移');
+  await expect(page.locator('#gsc-connect')).toBeHidden();
   expect(runtimeErrors).toEqual([]);
 });
 

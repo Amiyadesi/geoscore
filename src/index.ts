@@ -141,7 +141,7 @@ function reportUnhandledError(
 }
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
-const PRODUCT_VERSION = '2.4.7';
+const PRODUCT_VERSION = '2.4.8';
 const MAX_AUDIT_PAGES = 5;
 const OPTIONAL_ANONYMOUS_MODULES = [
   'keywords',

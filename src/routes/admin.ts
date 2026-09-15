@@ -11,6 +11,17 @@ import {
   signAdminSession,
 } from '../lib/admin-auth';
 import { requireAdmin } from '../lib/security';
+import {
+  exchangeGscAuthorizationCode,
+  googleSearchConsoleAuthorizationUrl,
+  googleSearchConsoleConfigured,
+  googleSearchConsoleStatus,
+  GoogleSearchConsoleError,
+  inspectGoogleSearchConsoleUrl,
+  listGoogleSearchConsoleProperties,
+  loadGoogleSearchPerformance,
+  saveGscConnection,
+} from '../lib/google-search-console';
 import type { Env } from '../lib/types';
 
 const JSON_HEADERS = {
@@ -18,6 +29,7 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store',
 };
 const OAUTH_STATE_TTL_SECONDS = 600;
+const GSC_OAUTH_STATE_TTL_SECONDS = 600;
 const DEFAULT_BROWSER_BUDGET_SECONDS = 540;
 
 function json(body: unknown, status = 200, headers: HeadersInit = {}): Response {
@@ -46,6 +58,12 @@ function randomToken(bytes = 32): string {
 function errorRedirect(next: string, code: string): string {
   const target = new URL(next);
   target.searchParams.set('error', code);
+  return target.toString();
+}
+
+function queryRedirect(next: string, name: string, value: string): string {
+  const target = new URL(next);
+  target.searchParams.set(name, value);
   return target.toString();
 }
 
@@ -147,6 +165,90 @@ async function sessionStatus(req: Request, env: Env): Promise<Response> {
     allowlist: adminAllowlist(env),
     full_access: Boolean(session),
   });
+}
+
+function gscError(error: unknown): Response {
+  if (error instanceof GoogleSearchConsoleError) {
+    return json({ error: error.code, message: error.message }, error.status);
+  }
+  return json({ error: 'GSC_UNAVAILABLE', message: 'Google Search Console is unavailable' }, 502);
+}
+
+async function gscConnect(req: Request, env: Env): Promise<Response> {
+  if (!googleSearchConsoleConfigured(env)) {
+    return json({ error: 'GSC_NOT_CONFIGURED', message: 'Google Search Console OAuth is not configured' }, 503);
+  }
+  const url = new URL(req.url);
+  const state = randomToken();
+  const next = safeNextUrl(url.searchParams.get('next'), env);
+  try {
+    await env.BUDGET_KV.put('admin:gsc:oauth:' + state, next, { expirationTtl: GSC_OAUTH_STATE_TTL_SECONDS });
+  } catch {
+    return json({ error: 'GSC_STATE_UNAVAILABLE', message: 'OAuth state storage is unavailable' }, 503);
+  }
+  return redirect(googleSearchConsoleAuthorizationUrl(env, state));
+}
+
+async function gscCallback(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const state = url.searchParams.get('state')?.trim() ?? '';
+  const code = url.searchParams.get('code')?.trim() ?? '';
+  if (!state || !code) {
+    return redirect(queryRedirect(safeNextUrl(null, env), 'gsc_error', 'invalid_state'));
+  }
+
+  let next: string | null = null;
+  try {
+    next = await env.BUDGET_KV.get('admin:gsc:oauth:' + state);
+    await env.BUDGET_KV.delete('admin:gsc:oauth:' + state);
+  } catch {
+    return redirect(queryRedirect(safeNextUrl(null, env), 'gsc_error', 'state_unavailable'));
+  }
+  if (!next) return redirect(queryRedirect(safeNextUrl(null, env), 'gsc_error', 'invalid_state'));
+  next = safeNextUrl(next, env);
+
+  try {
+    const token = await exchangeGscAuthorizationCode(env, code);
+    await saveGscConnection(env, token.refresh_token, token.scope);
+    return redirect(queryRedirect(next, 'gsc', 'connected'));
+  } catch (error) {
+    const codeValue = error instanceof GoogleSearchConsoleError ? error.code.toLowerCase() : 'unavailable';
+    return redirect(queryRedirect(next, 'gsc_error', codeValue));
+  }
+}
+
+async function gscPerformance(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const siteUrl = url.searchParams.get('site_url')?.trim() ?? '';
+  if (!siteUrl || siteUrl.length > 2048) return json({ error: 'GSC_SITE_REQUIRED' }, 400);
+  const days = Number.parseInt(url.searchParams.get('days') ?? '28', 10);
+  try {
+    return json(await loadGoogleSearchPerformance(env, siteUrl, days));
+  } catch (error) {
+    return gscError(error);
+  }
+}
+
+async function gscInspect(req: Request, env: Env): Promise<Response> {
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = await req.json();
+    body = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return json({ error: 'INVALID_JSON' }, 400);
+  }
+  const siteUrl = typeof body.site_url === 'string' ? body.site_url.trim() : '';
+  const inspectionUrl = typeof body.inspection_url === 'string' ? body.inspection_url.trim() : '';
+  if (!siteUrl || !inspectionUrl || siteUrl.length > 2048 || inspectionUrl.length > 2048) {
+    return json({ error: 'GSC_INSPECTION_URL_REQUIRED' }, 400);
+  }
+  try {
+    return json(await inspectGoogleSearchConsoleUrl(env, siteUrl, inspectionUrl));
+  } catch (error) {
+    return gscError(error);
+  }
 }
 
 function logout(env: Env): Response {
@@ -281,6 +383,24 @@ export async function handleAdmin(req: Request, env: Env): Promise<Response | nu
   if (pathname === '/api/admin/github/callback' && req.method === 'GET') return githubCallback(req, env);
   if (pathname === '/api/admin/session' && req.method === 'GET') return sessionStatus(req, env);
   if (pathname === '/api/admin/logout' && (req.method === 'GET' || req.method === 'POST')) return logout(env);
+  if (pathname.startsWith('/api/admin/gsc')) {
+    const denied = await requireAdmin(req, env);
+    if (denied) return denied;
+    if (pathname === '/api/admin/gsc/connect' && req.method === 'GET') return gscConnect(req, env);
+    if (pathname === '/api/admin/gsc/callback' && req.method === 'GET') return gscCallback(req, env);
+    if (pathname === '/api/admin/gsc/status' && req.method === 'GET') {
+      return json(await googleSearchConsoleStatus(env));
+    }
+    if (pathname === '/api/admin/gsc/properties' && req.method === 'GET') {
+      try {
+        return json({ properties: await listGoogleSearchConsoleProperties(env) });
+      } catch (error) {
+        return gscError(error);
+      }
+    }
+    if (pathname === '/api/admin/gsc/performance' && req.method === 'GET') return gscPerformance(req, env);
+    if (pathname === '/api/admin/gsc/inspect' && req.method === 'POST') return gscInspect(req, env);
+  }
   if (pathname === '/api/admin/overview' && req.method === 'GET') {
     const denied = await requireAdmin(req, env);
     if (denied) return denied;

@@ -1,6 +1,6 @@
 # Optional Service Checklist
 
-Updated: 2026-07-14
+Updated: 2026-09-16
 
 GeoScore must complete deterministic audits when every optional provider is
 offline. Provider absence, timeout, quota, or malformed data is reported as
@@ -52,14 +52,97 @@ free allowance. Before enabling it:
 
 ### Google Search Console
 
-Requires site ownership and OAuth. A future owner dashboard needs a verified
-property, OAuth client ID/secret, encrypted refresh-token storage, and explicit
-per-site consent. It must not be used for anonymous third-party audits.
+The private owner dashboard uses read-only OAuth. It lists verified properties,
+shows bounded 28-day Search Analytics, and inspects Google's indexed URL version.
+It never changes the public audit score or grants anonymous access to owner data.
+
+1. Verify the target property in
+   [Google Search Console](https://search.google.com/search-console/).
+2. In [Google Cloud Console](https://console.cloud.google.com/apis/library),
+   create or select a project and enable **Google Search Console API**.
+3. Configure the OAuth consent screen. Use an internal app when the account is
+   managed by an eligible Workspace organization. Otherwise use external and
+   add only the owner as a test user while setting up.
+4. Create **Credentials → OAuth client ID → Web application**.
+5. Add this exact Authorized redirect URI:
+   `https://geo-api.sayori.org/api/admin/gsc/callback`
+6. Save the client ID and secret as GitHub Actions repository secrets:
+   `GEOSCORE_GSC_CLIENT_ID` and `GEOSCORE_GSC_CLIENT_SECRET`.
+7. Apply migration `0006_google_search_console.sql` in the target D1 database.
+8. Deploy `main`, open `https://geo.sayori.org/admin.html`, sign in with the
+   allowlisted GitHub owner, then select **Connect Google Search Console**.
+
+The Worker requests only
+`https://www.googleapis.com/auth/webmasters.readonly`. The refresh token is
+AES-GCM encrypted in D1 using a domain-separated key derived from
+`ADMIN_SESSION_SECRET`; access tokens stay request-local. An external OAuth app
+left in Google's **Testing** status receives refresh tokens that expire after
+seven days for this scope, so publish/verify the app before relying on durable
+monitoring.
+
+### Google Analytics Data API (planned owner-only extension)
+
+GA4 can explain whether an observed page receives real users, but it is not a
+search-index or citation signal. Keep it separate from the public score. The
+current code does not send GA4 requests yet.
+
+To obtain access:
+
+1. In [Google Analytics](https://analytics.google.com/), grant the owner account
+   at least Viewer access to the GA4 property and note its numeric property ID.
+2. In [Google Cloud API Library](https://console.cloud.google.com/apis/library),
+   select a project and enable **Google Analytics Data API**.
+3. For an owner console, use user OAuth with the read-only scope
+   `https://www.googleapis.com/auth/analytics.readonly`. A service account is
+   also supported, but it must be added as a Viewer on the GA4 property; never
+   commit its JSON private key.
+4. Keep the property ID and refresh token server-side. Do not put GA4 data in
+   anonymous audits or use it to manufacture a ranking score.
+
+Google's [Data API quickstart](https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart)
+documents both user and service-account setup. Standard GA4 access is quota
+bounded; confirm current quotas before enabling recurring reports.
 
 ### Bing Webmaster Tools
 
-Requires a verified site and a per-owner API key. Store owner keys encrypted;
-do not configure one global key for anonymous audits.
+The API is a second owner-only discovery signal. It is not wired into the
+anonymous audit and should not share one global key across customers.
+
+1. Sign in to [Bing Webmaster Tools](https://www.bing.com/webmasters) with a
+   Microsoft, Google, or Facebook ID.
+2. Add and verify the site.
+3. Open **Settings → API Access**, accept the terms, and choose **Generate API
+   Key**. Microsoft states that one key is issued per user and can cover that
+   user's verified sites.
+4. Store the key encrypted per owner. If it is exposed, delete it in the same
+   panel and generate a replacement.
+
+See Microsoft's [API access guide](https://learn.microsoft.com/en-us/bingwebmaster/getting-access).
+The codebase currently has no `BING_*` secret; add storage and an owner consent
+flow only when a concrete Bing report is defined.
+
+### DataForSEO SERP API (paid depth, not free audit)
+
+Use this only for an explicitly paid, quota-metered SERP snapshot. It is not a
+replacement for Search Console and must never be presented as a guaranteed
+ranking result.
+
+1. Create an account at [DataForSEO](https://app.dataforseo.com/register).
+2. Open **API Access** and copy the generated API login and API password. The
+   API password is separate from the account password.
+3. Use HTTP Basic authentication over HTTPS; keep both values in Worker secrets
+   or an equivalent server-side vault.
+4. Start in the [Sandbox](https://docs.dataforseo.com/v3/appendix/sandbox/), then
+   choose the cheaper **Standard** task method for non-live reports. Reserve
+   **Live** tasks for a paid request that needs immediate data.
+5. Add a credit ceiling, per-project quota, result cache, and dated provenance
+   before exposing it to users. Do not run it on the free anonymous path.
+
+The [SERP API overview](https://docs.dataforseo.com/v3/serp/overview/) documents
+location/device parameters and Standard vs Live delivery. [Authentication](https://docs.dataforseo.com/v3/appendix/auth/)
+uses a Base64-encoded `login:password` in the `Authorization` header. Pricing
+changes; use the provider's [current pricing page](https://dataforseo.com/pricing/serp)
+when setting a paid quota.
 
 ### Gemini
 

@@ -60,6 +60,72 @@
       </section>
 
       <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="font-semibold">Google Search Console</h2>
+            <p class="mt-1 text-xs text-slate-500">只读站长数据；不进入公开审计分数。</p>
+          </div>
+          <span id="gsc-status" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">检查中</span>
+        </div>
+
+        <div id="gsc-unconfigured" class="mt-4 hidden rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p>先在 Google Cloud 启用 Search Console API，创建 Web OAuth client，并配置两个 Worker secret。</p>
+          <p class="mt-3 text-xs">Authorized redirect URI：</p>
+          <code id="gsc-callback-url" class="mt-1 block break-all rounded bg-white/70 p-2 text-xs">https://geo-api.sayori.org/api/admin/gsc/callback</code>
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800">打开 Google Cloud Credentials</a>
+        </div>
+
+        <div id="gsc-migration-needed" class="mt-4 hidden rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950">
+          <p>Search Console 数据表不可用；刚部署时通常是 D1 migration 尚未执行。完成 migration 后再连接 Google 账号。</p>
+          <code class="mt-2 block break-all rounded bg-white/70 p-2 text-xs">npx wrangler d1 migrations apply sayori-geoscore-db --remote --config wrangler.generated.jsonc</code>
+        </div>
+
+        <div id="gsc-connect" class="mt-4 hidden">
+          <a id="gsc-connect-link" href="#" class="inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">连接 Google Search Console</a>
+        </div>
+
+        <div id="gsc-connected" class="mt-4 hidden">
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="min-w-0 flex-1 text-sm text-slate-700">站点资源
+              <select id="gsc-property" class="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"></select>
+            </label>
+            <button id="gsc-load" type="button" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300">刷新 28 天数据</button>
+            <a id="gsc-reconnect-link" href="#" class="px-2 py-2 text-sm text-slate-500 hover:text-blue-700">重新授权</a>
+          </div>
+
+          <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <article class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">Clicks</p><p id="gsc-clicks" class="mt-1 text-xl font-semibold">—</p></article>
+            <article class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">Impressions</p><p id="gsc-impressions" class="mt-1 text-xl font-semibold">—</p></article>
+            <article class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">CTR</p><p id="gsc-ctr" class="mt-1 text-xl font-semibold">—</p></article>
+            <article class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">Avg position</p><p id="gsc-position" class="mt-1 text-xl font-semibold">—</p></article>
+          </div>
+          <p id="gsc-range" class="mt-2 text-xs text-slate-400"></p>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="overflow-x-auto">
+              <h3 class="mb-2 text-sm font-semibold">Top queries</h3>
+              <table class="w-full min-w-[400px] text-left text-xs"><thead class="border-b text-slate-500"><tr><th class="py-2">Query</th><th>Clicks</th><th>Impr.</th><th>Pos.</th></tr></thead><tbody id="gsc-query-rows"></tbody></table>
+            </div>
+            <div class="overflow-x-auto">
+              <h3 class="mb-2 text-sm font-semibold">Top pages</h3>
+              <table class="w-full min-w-[400px] text-left text-xs"><thead class="border-b text-slate-500"><tr><th class="py-2">Page</th><th>Clicks</th><th>Impr.</th><th>Pos.</th></tr></thead><tbody id="gsc-page-rows"></tbody></table>
+            </div>
+          </div>
+
+          <form id="gsc-inspect-form" class="mt-5 border-t border-slate-100 pt-4">
+            <label class="text-sm text-slate-700">检查 Google 已索引版本
+              <div class="mt-1 flex flex-col gap-2 sm:flex-row">
+                <input id="gsc-inspection-url" type="url" required placeholder="https://geo.sayori.org/" class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">检查 URL</button>
+              </div>
+            </label>
+          </form>
+          <pre id="gsc-inspection-result" class="mt-3 hidden overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-3 text-xs text-slate-100"></pre>
+        </div>
+        <p id="gsc-error" class="mt-3 hidden text-sm text-red-600" role="alert"></p>
+      </section>
+
+      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between gap-3"><h2 class="font-semibold">最近审查</h2><span id="week-label" class="text-xs text-slate-400"></span></div>
         <div class="mt-4 overflow-x-auto">
           <table class="w-full min-w-[560px] text-left text-sm"><thead class="border-b border-slate-100 text-xs text-slate-500"><tr><th class="px-2 py-2 font-medium">域名</th><th class="px-2 py-2 font-medium">状态</th><th class="px-2 py-2 font-medium">SEO</th><th class="px-2 py-2 font-medium">GEO</th><th class="px-2 py-2 font-medium">时间</th></tr></thead><tbody id="recent-audits"></tbody></table>

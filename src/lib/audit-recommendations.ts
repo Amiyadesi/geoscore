@@ -143,8 +143,8 @@ function recommendationCopy(checkItem: NormalizedCheck, zh: boolean) {
   }
   if (sourceQuality.has(checkItem.id)) {
     return zh
-      ? { title: `补齐${fallbackTitle}`, why: '检测到的主张或统计数字没有与可验证来源建立足够关联。', fix: '在相应句子附近链接原始资料、数据集或可信一手来源，并写明日期、口径和适用范围。', verify: '逐条检查证据中的主张或数字，确认相邻来源可访问且支持原文后重新审计。' }
-      : { title: `Complete ${fallbackTitle}`, why: 'Detected claims or statistics are not sufficiently connected to verifiable sources.', fix: 'Link the relevant sentence to primary material, datasets, or reliable first-party sources and state the date, methodology, and scope.', verify: 'Review each evidenced claim or number, confirm the adjacent source is accessible and supports it, then re-audit.' };
+      ? { title: `补齐${fallbackTitle}`, why: '检测到的主张或统计数字所在内容块缺少可机器识别的相邻引文。', fix: '在对应句子或同一段落链接原始资料、数据集或可信一手来源，并写明日期、口径和适用范围。', verify: '逐条确认相邻来源可访问且确实支持该主张；GeoScore 只核验引文邻接信号，然后重新审计。' }
+      : { title: `Complete ${fallbackTitle}`, why: 'Detected claim or statistic blocks lack a machine-observable adjacent citation.', fix: 'Link the relevant sentence or paragraph to primary material, datasets, or reliable first-party sources and state the date, methodology, and scope.', verify: 'Confirm each adjacent source is accessible and actually supports the claim; GeoScore checks citation proximity only, then re-audit.' };
   }
   if (checkItem.id === 'geo.freshness') {
     return zh

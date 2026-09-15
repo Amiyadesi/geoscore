@@ -88,8 +88,8 @@ function baselineModules() {
 
 describe('GEO Evidence v3 contract', () => {
   it('versions factual scoring and makes predicted checks score-inert', () => {
-    assert.equal(core.SCORE_VERSION, '2.4.7');
-    assert.match(cache.cacheKey('example.com'), /^recent:v28:/);
+    assert.equal(core.SCORE_VERSION, '2.4.8');
+    assert.match(cache.cacheKey('example.com'), /^recent:v29:/);
 
     const predicted = core.check({
       id: 'geo.predicted_test',
@@ -159,8 +159,8 @@ describe('GEO Evidence v3 contract', () => {
 
   it('serves non-stale public product facts from /api/meta', async () => {
     const meta = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '11' });
-    assert.equal(meta.version, '2.4.7');
-    assert.equal(meta.score_version, '2.4.7');
+    assert.equal(meta.version, '2.4.8');
+    assert.equal(meta.score_version, '2.4.8');
     assert.equal(meta.snapshot_version, '1.0.0');
     assert.equal(meta.max_pages, 5);
     assert.deepEqual(meta.audit_modes, ['site', 'url']);
@@ -200,12 +200,12 @@ describe('GEO Evidence v3 contract', () => {
     const env = { AUDIT_RATE_LIMIT_PER_HOUR: '11' };
     const response = await worker.default.fetch(new Request('https://geo-api.example/api/meta'), env, {});
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).score_version, '2.4.7');
+    assert.equal((await response.json()).score_version, '2.4.8');
 
     const openapiResponse = await worker.default.fetch(new Request('https://geo-api.example/openapi.json'), env, {});
     assert.equal(openapiResponse.status, 200);
     const openapi = await openapiResponse.json();
-    assert.equal(openapi.info.version, '2.4.7');
+    assert.equal(openapi.info.version, '2.4.8');
     assert.equal(openapi.paths['/api/audit/{domain}'].get.responses['200'].description.length > 0, true);
     assert.ok(openapi.components.securitySchemes.ProjectToken);
     assert.ok(openapi.components.securitySchemes.RequestApiKey);
@@ -351,7 +351,7 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(byId['geo.statistic_provenance']?.status, 'pass');
     assert.equal(byId['geo.freshness']?.status, 'pass');
     assert.equal(byId['geo.cross_page_consistency']?.status, 'pass');
-    assert.match(byId['geo.claim_source_support']?.evidence.join(' ') ?? '', /supported/i);
+    assert.match(byId['geo.claim_source_support']?.evidence.join(' ') ?? '', /citation signal/i);
   });
 
   it('marks content-only checks not applicable instead of penalizing a product homepage', () => {
@@ -390,5 +390,22 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(byId['geo.entity_consistency']?.page_url, 'https://example.com/posts/evidence');
     assert.equal(byId['geo.claim_source_support']?.status, 'fail');
     assert.equal(byId['geo.statistic_provenance']?.status, 'fail');
+  });
+
+  it('does not let an unrelated page link support a claim or standalone statistic', () => {
+    const cases = [
+      { type: 'article', body: '<p>根据 2026 年研究报告，这项方法可将错误率降低 35%。</p>' },
+      { type: 'documentation', body: '<p>Our documentation survey reports that 82% of users finish setup.</p>' },
+      { type: 'product', body: '<p>已有 1200 users deployed this product in production.</p>' },
+    ];
+    for (const [index, item] of cases.entries()) {
+      const language = index === 0 ? 'zh-CN' : 'en';
+      const html = `<!doctype html><html lang="${language}"><head><title>Case</title></head><body><main>${item.body}</main><footer><a href="https://unrelated.example.org/about">Unrelated link</a></footer></body></html>`;
+      const sampled = [auditPage(`https://example.com/case-${index}`, item.type, html)];
+      const context = core.buildAuditContext({ domain: 'example.com', pages: sampled });
+      const byId = Object.fromEntries(core.buildNormalizedChecks(context, sampled, baselineModules()).map(check => [check.id, check]));
+      assert.equal(byId['geo.statistic_provenance']?.status, 'fail', item.type);
+      if (item.type !== 'product') assert.equal(byId['geo.claim_source_support']?.status, 'fail', item.type);
+    }
   });
 });

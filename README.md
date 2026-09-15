@@ -30,7 +30,7 @@ source discussion and feedback culture. Community promotion posts should link
 back here so readers can inspect the complete source, license, and audit
 limitations.
 
-GeoScore 2.4.7 is evidence-first: site mode builds a site profile and deterministically
+GeoScore 2.4.8 is evidence-first: site mode builds a site profile and deterministically
 samples at most five HTML pages (home, About when found, and representative page
 types). URL mode audits one requested URL and reads the homepage only when it is
 needed for context. Scores are published only from known, applicable checks;
@@ -49,7 +49,7 @@ page evidence as current.
 
 ## What the anonymous audit actually checks
 
-GeoScore 2.4.7 exposes a normalized registry of **60 factual checks**: **54 scoring
+GeoScore 2.4.8 exposes a normalized registry of **60 factual checks**: **54 scoring
 checks** and **6 informational checks**. A separate **Predicted** simulation has
 weight zero. `/api/meta` is the runtime source of truth for these counts.
 
@@ -60,7 +60,7 @@ weight zero. `/api/meta` is the runtime source of truth for these counts.
 | **Structured data and site profile** | Schema presence separately from archetype fit, site type, entity, business model, locale, root domain, page roles, confidence, and the evidence used for classification |
 | **Mobile and accessibility** | Viewport, basic mobile usability, labels, landmarks, descriptive links, skip navigation, and image accessibility |
 | **Performance** | CrUX field metrics plus PageSpeed/Lighthouse lab metrics. `/api/lighthouse?audit_id=...` merges successful evidence back into the stored audit and recalculates the same score |
-| **Factual GEO readiness** | Entity identity/consistency, article-level content responsibility, extractability, direct-answer structure where applicable, claim/source linkage, statistic provenance, freshness, source links, and cross-page consistency |
+| **Factual GEO readiness** | Entity identity/consistency, article-level content responsibility, extractability, direct-answer structure where applicable, same-block claim/citation proximity, statistic provenance, freshness, source links, and cross-page consistency |
 | **Public discoverability evidence** | HTML conformance, RSS/Atom discovery, AI crawler policy, llms.txt presence, domain-matched knowledge-graph evidence, and Common Crawl capture presence |
 
 The report shows three evidence-backed priority actions on screen. The primary
@@ -111,12 +111,21 @@ the primary provider idempotency key. A fixed-sender `/v1/messages` service can
 act as a server-only fallback for authentication, rate-limit, network, and
 upstream failures. Rejected message parameters are not blindly retried.
 
+### Private owner Search Console
+
+The GitHub-allowlisted `/admin.html` dashboard can connect one Google Search
+Console account with the read-only `webmasters.readonly` scope. It lists verified
+properties, shows bounded 28-day Search Analytics, and checks Google's indexed
+version of a URL. Encrypted owner tokens and results never enter anonymous audit
+scores. Setup is documented in
+[docs/manual-service-actions.md](./docs/manual-service-actions.md#google-search-console).
+
 ### Retained code that is not run in the anonymous hot path
 
 The repository still contains upstream/legacy modules for keyword generation,
 AI content insights, off-page SEO/backlink work, full site intelligence, redirect
 chains, Mozilla Observatory security auditing, standalone SSL/domain intelligence,
-and broken-link crawling. GeoScore 2.4.7 reports these modules as `skipped` in the
+and broken-link crawling. GeoScore 2.4.8 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
 upstream work without claiming evidence that was never collected. They live in

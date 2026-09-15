@@ -28,7 +28,7 @@ GeoScore 感谢 [LINUX DO 社区](https://linux.do/) 对开源讨论、实践反
 
 ## GeoScore 审计什么
 
-GeoScore 2.4.7 有两种模式：
+GeoScore 2.4.8 有两种模式：
 
 - `site` 模式建立站点画像，并确定性抽样最多五个 HTML 页面：首页、可发现的 About 页面，以及代表性页面类型。
 - `url` 模式审计指定 URL；目标不是首页时，必要时额外读取首页建立上下文。
@@ -48,7 +48,7 @@ GeoScore 2.4.7 有两种模式：
 | 结构化数据与画像 | schema 是否存在、schema 是否适合站点类型、站点类型、实体、商业模式、语言、根域、页面角色、置信度和原始证据 |
 | 移动与无障碍 | viewport、基础移动体验、表单标签、landmark、描述性链接、跳过导航和图片可访问性 |
 | 性能 | CrUX 字段数据及 PageSpeed/Lighthouse 实验室数据；成功数据会合并回审计并重新计算同一份报告 |
-| 事实 GEO Readiness | 实体一致性、文章级内容责任归属、正文可提取性、适用时的直接回答结构、声明与来源关联、统计来源、时效性、来源链接和跨页面一致性 |
+| 事实 GEO Readiness | 实体一致性、文章级内容责任归属、正文可提取性、适用时的直接回答结构、声明与引文邻接、统计来源、时效性、来源链接和跨页面一致性 |
 | 公共发现证据 | HTML 规范校验、RSS/Atom、AI crawler policy、llms.txt、域名匹配的知识图谱证据和 Common Crawl 捕获记录 |
 
 每份报告展示 3 个有证据的优先行动。主下载按钮生成一个确定性的
@@ -77,6 +77,14 @@ Evidence Map 会把一份已完成审计转换为最多 3 条有界查询。受�
 run 级提醒接口重试失败邮件，后端会继续使用同一 run ID 作为主 provider 幂等键。鉴权、限流、网络
 或上游故障时，可以切换到服务端固定发件 `/v1/messages` 备用通道；参数被拒绝时不会盲目重试。
 
+### 私有站长 Search Console
+
+GitHub allowlist 内的 `/admin.html` 可用只读 `webmasters.readonly` scope
+连接一个 Google Search Console 账号。它列出已验证站点资源、显示有界的 28 天
+Search Analytics，并检查 Google 已索引版本；加密后的 owner token 和结果都不会进入匿名审计分数。
+申请与配置步骤见
+[docs/manual-service-actions.md](./docs/manual-service-actions.md#google-search-console)。
+
 ### 评分原则
 
 分数只使用“已知且适用”的 `pass` / `fail` 检查。`unknown`、provider error 和
@@ -90,7 +98,7 @@ Overview 的真实引用结果，也不影响 SEO、GEO 或 overall 主分。
 ### 保留但不进入匿名热路径的模块
 
 仓库仍保留关键词生成、AI 内容洞察、站外 SEO/反链、完整站点情报、重定向链、安全审计、SSL/域名情报和坏链扫描等上游或旧模块。
-GeoScore 2.4.7 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
+GeoScore 2.4.8 会将它们标为 `skipped`，不把它们放入评分分母，也不会把未收集的证据报告成通过。
 
 ## 架构
 
@@ -234,6 +242,8 @@ npx wrangler secret put OPENROUTER_API_KEY --config wrangler.generated.jsonc
 | `SEARXNG_URL` | 否 | SearXNG fallback 地址 |
 | `DAILY_BROWSER_BUDGET_SECONDS` | 否 | Browser Run 每日预算 |
 | `ADMIN_TOKEN` | 生产建议 | 管理/诊断端点保护 token |
+| `GSC_CLIENT_ID` | 使用站长控制台时必填 | Google Web OAuth client ID；只读 Search Console |
+| `GSC_CLIENT_SECRET` | 使用站长控制台时必填 | Google Web OAuth client secret；仅 Worker secret |
 | `GOOGLE_API_KEY` | 否 | Chrome UX Report API key |
 | `PAGESPEED_API_KEY` | 否 | PageSpeed Insights / Lighthouse API key |
 | `OPENPAGERANK_KEY` | 否 | OpenPageRank authority 数据 |

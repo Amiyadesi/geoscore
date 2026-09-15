@@ -7,7 +7,7 @@ import type { AuditCheckpoint } from './audit-checkpoint';
  * every cached key becomes a different string so old entries are ignored
  * and expire naturally (KV TTL) without needing a manual flush.
  */
-export const CACHE_VERSION = 'v28';
+export const CACHE_VERSION = 'v29';
 
 export interface AuditCacheScope {
   mode?: 'site' | 'url';

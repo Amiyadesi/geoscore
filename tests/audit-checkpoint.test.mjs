@@ -38,7 +38,7 @@ const scope = {
   mode: 'site',
   target_url: 'https://example.com/',
   archetype_hint: null,
-  score_version: '2.4.7',
+  score_version: '2.4.8',
 };
 
 function page(html = '<main><h1>Example</h1><p>Stable page evidence</p></main>') {
@@ -64,7 +64,7 @@ describe('interrupted audit checkpoints', () => {
 
     assert.equal(await checkpoint.isReusableCheckpoint(saved, scope, [page()], 2_000), true);
     assert.equal(await checkpoint.isReusableCheckpoint(saved, { ...scope, mode: 'url' }, [page()], 2_000), false);
-    assert.equal(await checkpoint.isReusableCheckpoint(saved, { ...scope, score_version: '2.4.8' }, [page()], 2_000), false);
+    assert.equal(await checkpoint.isReusableCheckpoint(saved, { ...scope, score_version: '2.4.7' }, [page()], 2_000), false);
     assert.equal(await checkpoint.isReusableCheckpoint(saved, scope, [page('<main>Changed</main>')], 2_000), false);
   });
 

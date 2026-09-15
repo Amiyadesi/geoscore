@@ -79,5 +79,9 @@ SIGNOZ_OTLP_ENDPOINT = ""
 #   wrangler secret put GITHUB_CLIENT_SECRET
 # ADMIN_SESSION_SECRET — HMAC key for the gs_admin session cookie
 #   wrangler secret put ADMIN_SESSION_SECRET
+# GSC_CLIENT_ID — Google Search Console Web OAuth client ID
+#   wrangler secret put GSC_CLIENT_ID
+# GSC_CLIENT_SECRET — Google Search Console Web OAuth client secret
+#   wrangler secret put GSC_CLIENT_SECRET
 # ADMIN_TOKEN — existing operator-token fallback for admin diagnostics
 #   wrangler secret put ADMIN_TOKEN
