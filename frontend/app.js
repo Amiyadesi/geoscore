@@ -493,10 +493,35 @@ async function fetchJson(url, options = {}) {
 }
 
 
+/**
+ * The anchoring card is owned by the evidence-map controller, so it is mounted as a
+ * sibling of the evidence card after every re-render instead of being part of the
+ * module innerHTML list. Absent anchoring data removes the card and changes nothing else.
+ */
+function mountAnchoringCard() {
+  const existing = document.getElementById('anchoring-section');
+  const html = evidenceMapController?.renderAnchoringCard?.(currentAuditData, reportLanguage) ?? '';
+  if (!html) {
+    if (existing) existing.remove();
+    return;
+  }
+  const host = document.getElementById('evidence-map-section');
+  if (!host) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) {
+    existing.outerHTML = html;
+    return;
+  }
+  host.insertAdjacentHTML('afterend', html);
+}
+
 function rerenderEvidencePanels() {
   if (!currentAuditData) return;
   renderEvidenceReportSections(currentAuditData);
   if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
+  mountAnchoringCard();
 }
 
 customApiController = window.GeoScoreCustomApi.create({
@@ -521,6 +546,7 @@ evidenceMapController = window.GeoScoreEvidenceMap.create({
   getAuditData: () => currentAuditData,
   setAuditData: data => { currentAuditData = data; },
   rerender: rerenderEvidencePanels,
+  onStateChange: mountAnchoringCard,
 });
 
 monitoringController = window.GeoScoreMonitoring.create({

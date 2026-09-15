@@ -589,3 +589,117 @@ test('Evidence Map anchoring view model reports the ladder without inventing a s
   assert.equal(missing.vaguestBrandFreeRung, null);
   assert.equal(missing.nextProbe, null);
 });
+
+test('Evidence Map anchoring card renders the ladder, escapes probes, and stays out of old audits', () => {
+  const feature = loadController('evidence-map.js', 'GeoScoreEvidenceMap');
+  const state = {
+    busy: false,
+    error: null,
+    snapshot: {
+      observed_at: '2026-09-15T00:00:00Z',
+      anchoring: {
+        brand_free_observed: true,
+        vaguest_brand_free_rung_observed: 1,
+        rungs: [
+          {
+            rung: 1,
+            rung_label: 'field',
+            brand_free: true,
+            intent: 'informational',
+            query: 'technology author',
+            observed: true,
+            observed_sources: 1,
+            observed_providers: ['source-a'],
+          },
+          {
+            rung: 3,
+            rung_label: 'navigational',
+            brand_free: false,
+            intent: 'navigational',
+            query: 'Sayori about author',
+            observed: false,
+            observed_sources: 0,
+            observed_providers: [],
+          },
+        ],
+        unprobed_rungs: [{ rung: 0, rung_label: 'generic', intent: 'informational', query: 'author' }],
+        next_probe: { rung: 0, rung_label: 'generic', intent: 'informational', query: 'author' },
+        limitations: ['Observed does not prove an assistant cited it.'],
+      },
+    },
+  };
+
+  const card = feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'en', state);
+  assert.match(card, /id="anchoring-section"/);
+  assert.match(card, /data-category="all"/);
+  assert.match(card, /Vaguest rung still observed/);
+  assert.match(card, /data-anchoring-rung="1"/);
+  assert.match(card, /technology author/);
+  assert.match(card, /brand-free/);
+  assert.match(card, /next probe still unrun/i);
+  assert.match(card, /not run yet/);
+  assert.match(card, /never changes the factual score/i);
+  assert.match(card, /Observed does not prove an assistant cited it\./);
+
+  const chinese = feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'zh', state);
+  assert.match(chinese, /锚定深度/);
+  assert.match(chinese, /仍可观测到的最模糊级别/);
+
+  // Older audits and unaudited payloads must render exactly nothing.
+  assert.equal(feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'en', { snapshot: { status: 'complete' } }), '');
+  assert.equal(feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'en', {}), '');
+  assert.equal(feature.renderAnchoringCard({}, 'en', state), '');
+  assert.equal(feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'en', null), '');
+
+  const hostile = feature.renderAnchoringCard({ audit_id: 'audit_1' }, 'en', {
+    snapshot: {
+      anchoring: {
+        brand_free_observed: false,
+        vaguest_brand_free_rung_observed: null,
+        rungs: [{
+          rung: 1,
+          rung_label: 'field',
+          brand_free: true,
+          intent: 'informational',
+          query: '<img src=x onerror="alert(1)">',
+          observed: false,
+          observed_sources: 0,
+          observed_providers: [],
+        }],
+        unprobed_rungs: [],
+        next_probe: null,
+        limitations: ['<script>bad()</script>'],
+      },
+    },
+  });
+  assert.doesNotMatch(hostile, /<img|<script>/);
+  assert.match(hostile, /&lt;img src=x/);
+  assert.match(hostile, /No brand-free probe returned this site/);
+});
+
+test('Evidence Map controller notifies its host only when state actually changes', async () => {
+  const feature = loadController('evidence-map.js', 'GeoScoreEvidenceMap');
+  const seen = [];
+  const controller = feature.create({
+    apiBase: 'https://geo-api.example.com',
+    fetchJson: async () => ({ data: { status: 'complete' } }),
+    getAuditId: () => 'audit_1',
+    onStateChange: snapshot => seen.push(snapshot),
+  });
+
+  controller.hydrate(null);
+  assert.equal(seen.length, 0);
+
+  controller.hydrate({ status: 'complete' });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].snapshot.status, 'complete');
+
+  await controller.run({ auditId: 'audit_1' });
+  assert.equal(seen.length, 2);
+  assert.equal(seen[1].snapshot.status, 'complete');
+  assert.equal(seen[1].busy, false);
+
+  controller.reset();
+  assert.equal(seen.length, 3);
+  assert.equal(seen[2].snapshot, null);
+});

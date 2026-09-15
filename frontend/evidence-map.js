@@ -48,6 +48,127 @@
     };
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  const ANCHORING_COPY = {
+    en: {
+      title: 'Anchoring depth',
+      body: 'How vague a query still surfaced this site in the dated snapshot. The probe wording is generated from the audit, shown verbatim, and never changes the factual score.',
+      observed: 'Vaguest rung still observed',
+      notObserved: 'No brand-free probe returned this site in the snapshot.',
+      notObservedHint: 'That can mean the wording is broader than the site is associated with, or that the provider has no coverage for it.',
+      noProbe: 'The audit found no field evidence, so no brand-free probe was generated.',
+      probe: 'Probe',
+      result: 'Result',
+      sawIt: 'observed',
+      missed: 'not observed',
+      notRun: 'not run yet',
+      nextProbe: 'Next probe still unrun',
+      limitations: 'Limitations',
+      zeroWeight: 'Anchoring evidence never changes the factual score.',
+    },
+    zh: {
+      title: '锚定深度',
+      body: '这份带日期的快照显示：多模糊的查询仍然能搜到这个站点。探测词由审计证据生成并按原文展示，永不参与事实分数。',
+      observed: '仍可观测到的最模糊级别',
+      notObserved: '本次快照中，没有任何不含品牌名的探测返回该站点。',
+      notObservedHint: '这可能说明探测词比站点实际关联的范围更宽，也可能只是该 provider 对这个措辞没有覆盖。',
+      noProbe: '本次审计没有取得领域证据，因此没有生成不含品牌名的探测。',
+      probe: '探测词',
+      result: '结果',
+      sawIt: '已观测',
+      missed: '未观测',
+      notRun: '尚未运行',
+      nextProbe: '尚未运行的下一次探测',
+      limitations: '局限',
+      zeroWeight: '锚定证据永不参与事实分数。',
+    },
+  };
+
+  const RUNG_TEXT = {
+    en: { generic: 'role only, no brand', field: 'field, no brand', branded: 'brand', navigational: 'direct name' },
+    zh: { generic: '仅角色，无品牌', field: '领域，无品牌', branded: '品牌', navigational: '直接名称' },
+  };
+
+  function anchoringRungText(label, lang) {
+    const table = RUNG_TEXT[lang === 'zh' ? 'zh' : 'en'];
+    return table[label] ?? label;
+  }
+
+  function anchoringStatusText(observed, lang, copy) {
+    const tone = observed ? 'text-emerald-700' : 'text-slate-500';
+    const mark = observed ? '✓' : '•';
+    return `<span class="${tone}">${mark} ${escapeHtml(observed ? copy.sawIt : copy.missed)}</span>`;
+  }
+
+  function anchoringRows(view, lang, copy) {
+    return view.rungs.map(rung => {
+      const providers = rung.providers.length
+        ? `<div class="mt-1 text-[10px] text-slate-400 break-words">${escapeHtml(rung.providers.join(', '))}</div>`
+        : '';
+      const brandFreeTag = rung.brandFree ? ' · brand-free' : '';
+      return `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs" data-anchoring-rung="${escapeHtml(rung.rung)}">
+        <div class="flex items-start justify-between gap-3">
+          <span class="min-w-0 break-words"><span class="font-mono text-[10px] text-slate-400">L${escapeHtml(rung.rung)}</span> <span class="font-medium text-slate-700">${escapeHtml(rung.query)}</span></span>
+          <span class="shrink-0 text-right">${anchoringStatusText(rung.observed, lang, copy)}<span class="block text-[10px] text-slate-400">${escapeHtml(anchoringRungText(rung.label, lang))}${escapeHtml(brandFreeTag)}</span></span>
+        </div>
+        ${providers}
+      </li>`;
+    }).join('');
+  }
+
+  /**
+   * Builds the anchoring card for the report. Returns '' when the snapshot has no
+   * anchoring, so older audits render exactly as before.
+   */
+  function renderAnchoringCard(data, lang, state) {
+    if (!data?.audit_id) return '';
+    const snapshot = state?.snapshot ?? data?.evidence_map ?? null;
+    const view = describeAnchoring(snapshot);
+    if (!view) return '';
+
+    const language = lang === 'zh' ? 'zh' : 'en';
+    const copy = ANCHORING_COPY[language];
+    const brandFreeRungs = view.rungs.filter(rung => rung.brandFree);
+    const observedRung = view.vaguestBrandFreeRung == null
+      ? null
+      : brandFreeRungs.find(rung => rung.rung === view.vaguestBrandFreeRung) ?? null;
+    const headline = observedRung
+      ? `<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">${escapeHtml(copy.observed)}</div>
+          <div class="mt-0.5 text-xs text-emerald-900"><span class="font-mono">L${escapeHtml(observedRung.rung)}</span> · ${escapeHtml(observedRung.query)}</div>
+        </div>`
+      : `<div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="text-xs font-medium text-slate-700">${escapeHtml(brandFreeRungs.length ? copy.notObserved : copy.noProbe)}</div>
+          ${brandFreeRungs.length ? `<p class="mt-1 text-[11px] text-slate-500 leading-relaxed">${escapeHtml(copy.notObservedHint)}</p>` : ''}
+        </div>`;
+    const nextProbe = view.nextProbe
+      ? `<div class="mt-3 flex items-start justify-between gap-3 rounded-lg border border-dashed border-slate-200 px-3 py-2">
+          <div class="min-w-0"><div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">${escapeHtml(copy.nextProbe)}</div><div class="text-xs text-slate-500 break-words"><span class="font-mono text-[10px]">L${escapeHtml(view.nextProbe.rung)}</span> · ${escapeHtml(view.nextProbe.query)}</div></div>
+          <span class="shrink-0 text-[10px] text-slate-400">${escapeHtml(copy.notRun)}</span>
+        </div>`
+      : '';
+    const limitations = view.limitations.length
+      ? `<div class="mt-3"><div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">${escapeHtml(copy.limitations)}</div><ul class="list-disc pl-4 space-y-1 text-[11px] text-slate-500">${view.limitations.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`
+      : '';
+
+    return `<section id="anchoring-section" class="bg-white rounded-xl border border-teal-200 p-4 fade-in" data-category="all">
+      <div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(copy.title)}</h2><span class="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700">${escapeHtml(snapshot?.observed_at ?? '')}</span></div>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(copy.body)}</p>
+      <p class="text-[11px] font-medium text-teal-700 mt-1">${escapeHtml(copy.zeroWeight)}</p>
+      <div class="mt-3">${headline}</div>
+      <ul class="mt-3" data-anchoring-rungs>${anchoringRows(view, language, copy)}</ul>
+      ${nextProbe}${limitations}
+    </section>`;
+  }
+
   function create(options) {
     const {
       apiBase,
@@ -61,6 +182,7 @@
       getAuditData,
       setAuditData,
       rerender,
+      onStateChange,
     } = options || {};
 
     if (!apiBase || typeof fetchJson !== 'function' || typeof getAuditId !== 'function') {
@@ -73,13 +195,20 @@
       return state;
     }
 
+    /** Lets the host mount or drop the anchoring card whenever this state changes. */
+    function notifyStateChange() {
+      onStateChange?.(state);
+    }
+
     function reset() {
       state = { ...EMPTY_STATE };
+      notifyStateChange();
     }
 
     function hydrate(snapshot) {
       if (snapshot == null) return;
       state = { ...state, snapshot: sanitizeSnapshot(snapshot) };
+      notifyStateChange();
     }
 
     async function run(runOptions = {}) {
@@ -154,7 +283,10 @@
         overwriteCustomApiConfig?.(customApiConfig);
       }
 
-      if (getAuditId() === requestedAuditId) rerender?.();
+      if (getAuditId() === requestedAuditId) {
+        rerender?.();
+        notifyStateChange();
+      }
       return state.error == null;
     }
 
@@ -183,8 +315,9 @@
       run,
       runPending,
       handleClick,
+      renderAnchoringCard: (data, lang) => renderAnchoringCard(data, lang, state),
     });
   }
 
-  global.GeoScoreEvidenceMap = Object.freeze({ create, sanitizeSnapshot, describeAnchoring });
+  global.GeoScoreEvidenceMap = Object.freeze({ create, sanitizeSnapshot, describeAnchoring, renderAnchoringCard, escapeHtml });
 })(typeof window !== 'undefined' ? window : globalThis);

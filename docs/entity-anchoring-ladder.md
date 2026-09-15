@@ -74,32 +74,36 @@ no field evidence, no probe is invented and the ladder is simply absent.
   limitations.
 - `src/routes/monitoring.ts`: rebuilt plans classify stored queries back onto the
   rungs from the query text, so weekly snapshots keep the ladder.
-- `frontend/evidence-map.js`: `describeAnchoring(snapshot)` is the view model the
-  report card will render (returns `null` for snapshots without anchoring).
+- `frontend/evidence-map.js`: `describeAnchoring(snapshot)` is the view model
+  (returns `null` for snapshots without anchoring) and `renderAnchoringCard(data,
+  lang, state)` builds the card. An `onStateChange` hook lets the host mount or
+  drop the card whenever the snapshot changes.
+- `frontend/app.js`: mounts the card beside the Evidence Map card
+  (`mountAnchoringCard`), so the module `innerHTML` list and every other card keep
+  their existing order and the change stays outside the 5k-line render functions.
+  The card shows the observed boundary, every probe with its providers, the next
+  unrun probe as an instruction, its own limitations, and the zero-weight notice.
 - Tests: `tests/query-evidence.test.mjs`, `tests/evidence-map.test.mjs`,
-  `tests/frontend-controllers.test.mjs`.
+  `tests/frontend-controllers.test.mjs`, `tests/frontend-report.test.mjs`.
 
 The free plan still spends exactly three queries, so the documented
 `evidence_queries_per_project` limit in `/api/meta` is unchanged.
 
 ## Next steps
 
-1. **Render the ladder.** `frontend/app.js` still has to draw the anchoring card
-   next to the Evidence Map (`evidenceMapController.hydrate` at `app.js` and the
-   existing evidence card renderer).
-2. **Entity mode** (`mode: 'entity'`): resolve a name plus aliases and an optional
+1. **Entity mode** (`mode: 'entity'`): resolve a name plus aliases and an optional
    field/region, then run checks that need no site — Wikidata node presence,
    label/description/alias consistency, `sameAs` completeness, name-variant
    agreement across sources, and homonym ambiguity. Reuse the existing
    `authority.ts` and `common_crawl.ts` evidence; apply the CONTEXT.md
    applicability rule so `Person` and `Organization` get different check sets.
-3. **Operator-defined rungs.** Let a paying user replace the generated rung
+2. **Operator-defined rungs.** Let a paying user replace the generated rung
    wording with the positioning they claim, then measure that instead of the
    archetype guess. The probe text is already surfaced verbatim, so this is a
    substitution, not a new metric.
-4. **Trend.** The weekly monitor already stores `evidence_json`; surface
+3. **Trend.** The weekly monitor already stores `evidence_json`; surface
    "boundary moved from rung 2 to rung 1 on <date>" once the ladder has history.
-5. **Competitor rungs.** For a given field probe, list which other entities were
+4. **Competitor rungs.** For a given field probe, list which other entities were
    observed. Framed as a field map, never as a ranking.
 
 ## Cost and packaging

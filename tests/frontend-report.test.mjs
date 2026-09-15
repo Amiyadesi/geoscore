@@ -50,6 +50,19 @@ test('legacy unreachable report paths are deleted from the main frontend module'
   assert.doesNotMatch(appSource, /function (?:wireCopyReport|renderSummaryBullets|submitModuleFeedback|runCompetitorComparison|abbrevDomain)\b/);
 });
 
+test('anchoring card mounts beside the evidence map without touching the module list', () => {
+  // The card is owned by the evidence-map controller and mounted after a re-render, so
+  // the module innerHTML list and every other card keep their existing order.
+  assert.match(appSource, /modules\.innerHTML = \[evidenceMap, monitoring, recommendations, checks\]\.filter\(Boolean\)\.join\(''\);/);
+  assert.match(appSource, /function mountAnchoringCard\(\) \{/);
+  assert.match(appSource, /evidenceMapController\?\.renderAnchoringCard\?\.\(currentAuditData, reportLanguage\)/);
+  assert.match(appSource, /document\.getElementById\('evidence-map-section'\)/);
+  assert.match(appSource, /host\.insertAdjacentHTML\('afterend', html\);/);
+  assert.match(appSource, /existing\.outerHTML = html;/);
+  assert.match(appSource, /rerender: rerenderEvidencePanels,\s*\n\s*onStateChange: mountAnchoringCard,/);
+  assert.match(appSource, /if \(currentLighthouseState\) renderLighthouseState\(currentLighthouseState\);\s*\n\s*mountAnchoringCard\(\);/);
+});
+
 test('Browser Run cards do not present renderer metadata as target transport evidence', () => {
   assert.match(appSource, /const transportAvailable = data\.transport_evidence_available !== false/);
   assert.match(appSource, /const secScore = transportAvailable \? \(sh\.score \?\? 0\) : null/);
