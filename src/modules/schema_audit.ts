@@ -93,7 +93,6 @@ export async function runSchemaAudit(
     ['Organization','LocalBusiness','Corporation'].includes(t) ||
     t.includes('Organization') || t.includes('LocalBusiness')
   ) || hasLocalBizSubtype;
-  const hasLocal      = uniqueTypes.some(t => t.includes('LocalBusiness')) || hasLocalBizSubtype;
 
   // Media / news / portal detection — high link density or news-specific schema types.
   // Three-pronged check for the high-link-density branch:

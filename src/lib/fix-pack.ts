@@ -343,7 +343,6 @@ export function buildFixPack(
   output: FixPackOutput,
 ): FixPack {
   const items = source.items?.length ? source.items : [{ check: source.check, recommendation: source.recommendation }];
-  const pageUrl = source.group?.page_url ?? source.check.page_url ?? source.recommendation.page_url ?? null;
   const evidenceItems = items.map(item => {
     const copy = recommendationForLanguage(item.recommendation, language);
     return {

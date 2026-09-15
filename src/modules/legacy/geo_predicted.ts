@@ -1,10 +1,10 @@
-import type { Env } from '../lib/types';
-import { callLlm } from '../lib/llm';
-import { extractJsonArray, extractJsonObject } from '../lib/json';
-import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from '../prompts';
-import { isBotChallengePage } from '../lib/bot-detection';
-import type { SubrequestBudgetLike } from '../lib/subrequest-budget';
-import { extractJsonLdBlocks } from '../lib/json-ld';
+import type { Env } from '../../lib/types';
+import { callLlm } from '../../lib/llm';
+import { extractJsonArray, extractJsonObject } from '../../lib/json';
+import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from '../../prompts';
+import { isBotChallengePage } from '../../lib/bot-detection';
+import type { SubrequestBudgetLike } from '../../lib/subrequest-budget';
+import { extractJsonLdBlocks } from '../../lib/json-ld';
 
 // Models are managed by lib/llm.ts (Workers AI → Groq or OpenRouter fallback).
 
@@ -628,7 +628,6 @@ export async function runGeoPredicted(
   const hasSchema    = sharedHtml.includes('application/ld+json');
   const hasReviews   = /testimonial|review.*\d+.*star|rating.*\d/i.test(pageContent);
   const hasPricing   = /\$[\d,.]+|\d+.*\/mo|per\s+month/i.test(pageContent);
-  const hasBacklinks = false; // not available in this module — assume none for new sites without schema
   const authoritySignals: string[] = [];
   if (!hasSchema)    authoritySignals.push('No structured schema markup (JSON-LD) — AI cannot extract machine-readable facts');
   if (!hasReviews)   authoritySignals.push('No independently verifiable third-party reviews or star ratings');

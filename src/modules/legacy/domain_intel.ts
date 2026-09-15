@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../lib/http';
+import { fetchWithTimeout } from '../../lib/http';
 
 export interface DomainIntelResult {
   registrar: string | null;
@@ -174,9 +174,7 @@ export async function runDomainIntel(domain: string): Promise<DomainIntelResult>
     ),
   ]);
   const spfTxts = (spfResult as { ok: boolean; txts: string[] }).txts;
-  const spfLookupOk = (spfResult as { ok: boolean }).ok;
   const dmarcTxts = (dmarcResult as { ok: boolean; txts: string[] }).txts;
-  const dmarcLookupOk = (dmarcResult as { ok: boolean }).ok;
 
   const spfRecord = spfTxts.find(t => t.startsWith('v=spf1')) ?? null;
   const dmarcRecord = dmarcTxts.find(t => t.startsWith('v=DMARC1')) ?? null;

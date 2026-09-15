@@ -28,7 +28,7 @@ export interface DesktopCwv {
   tbt_ms: number | null;
 }
 
-export async function runAccessibility(domain: string, html: string): Promise<AccessibilityResult> {
+export async function runAccessibility(_domain: string, html: string): Promise<AccessibilityResult> {
   // Empty HTML means the page could not be fetched (bot protection, timeout, etc.).
   // Return a neutral empty state rather than running checks against '' and producing
   // a false-perfect score (all regex tests would pass vacuously on an empty string).

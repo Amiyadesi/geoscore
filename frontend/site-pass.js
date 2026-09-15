@@ -1,3 +1,4 @@
+/** @param {any} global */
 (function (global) {
   'use strict';
 
@@ -19,7 +20,7 @@
     return {
       card: global.document.getElementById('site-pass-card'),
       body: global.document.getElementById('site-pass-body'),
-      buy: global.document.getElementById('site-pass-buy'),
+      buy: /** @type {HTMLAnchorElement | null} */ (global.document.getElementById('site-pass-buy')),
     };
   }
 

@@ -641,7 +641,12 @@
 
   function normalizeActions(data, lang) {
     const grouped = normalizeRepairGroupActions(data, lang);
-    return (grouped.length ? grouped : normalizeAllActions(data, lang)).slice(0, 3);
+    // Both branches must expose relatedTasks: the grouped branch populates it, and the
+    // ungrouped branch carries null so the renderer keeps its single-task layout.
+    const actions = grouped.length
+      ? grouped
+      : normalizeAllActions(data, lang).map(action => ({ ...action, relatedTasks: null }));
+    return actions.slice(0, 3);
   }
 
   function normalizeRepairGroupActions(data, lang) {

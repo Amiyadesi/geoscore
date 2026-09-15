@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../lib/http';
+import { fetchWithTimeout } from '../../lib/http';
 
 export interface OffPageSeoResult {
   score: number;            // 0-100: email security + social presence

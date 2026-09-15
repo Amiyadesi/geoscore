@@ -1,9 +1,9 @@
-import type { Env } from '../lib/types';
-import { callLlm } from '../lib/llm';
-import { extractJsonObject } from '../lib/json';
-import { buildSearchEvidence } from '../lib/search-gateway';
+import type { Env } from '../../lib/types';
+import { callLlm } from '../../lib/llm';
+import { extractJsonObject } from '../../lib/json';
+import { buildSearchEvidence } from '../../lib/search-gateway';
 import { detectVertical, detectLocation, guessVerticalFromDomain, detectVerticalFromSchema } from './geo_predicted';
-import { isBotChallengePage } from '../lib/bot-detection';
+import { isBotChallengePage } from '../../lib/bot-detection';
 
 export interface KeywordResult {
   keywords: KeywordItem[];

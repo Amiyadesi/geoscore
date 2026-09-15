@@ -1,6 +1,6 @@
 import { challengeReason, detectJavaScriptShell, pageLocale, titleFromHtml } from './audit-html';
 import { isRetryableHttpStatus } from './http';
-import { cancelResponseBody, readBoundedText, ResponseTooLargeError } from './response-body';
+import { readBoundedText, ResponseTooLargeError } from './response-body';
 import { registrableRoot } from './domain';
 import type { SubrequestBudgetLike } from './subrequest-budget';
 import type { AuditPageCandidate, FetchedAuditPage } from './audit-pages';

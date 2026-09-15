@@ -13,6 +13,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # gitleaks scans the pushed commit range, so it needs the full history.
+          fetch-depth: 0
+      # Uses the .gitleaks.toml allowlist for the public analytics beacon token.
+      # Organization-owned forks must also provide a GITLEAKS_LICENSE secret.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   verify:
     name: verify
     runs-on: ubuntu-latest
@@ -31,6 +46,14 @@ jobs:
 
       - name: Type check
         run: npm run check
+
+      - name: Verify committed Tailwind build output
+        shell: bash
+        run: |
+          if ! git diff --exit-code -- frontend/tailwind.css; then
+            echo "::error::frontend/tailwind.css is stale. Run 'npm run build:css' and commit the result."
+            exit 1
+          fi
 
       - name: Unit tests
         run: npm test

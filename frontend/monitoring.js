@@ -1,6 +1,18 @@
 (function (global) {
   'use strict';
 
+  /** @type {Readonly<{
+   *   project: any;
+   *   managementToken: string;
+   *   showToken: boolean;
+   *   tokenSaved: boolean;
+   *   runs: any[];
+   *   modelOptions: any[];
+   *   busy: boolean;
+   *   error: { message: string } | null;
+   *   message: string;
+   * }>}
+   */
   const EMPTY_STATE = Object.freeze({
     project: null,
     managementToken: '',

@@ -1,7 +1,7 @@
-import type { Env } from '../lib/types';
-import type { AuditContext } from '../lib/audit-core';
-import { callLlm } from '../lib/llm';
-import { extractJsonObject } from '../lib/json';
+import type { Env } from '../../lib/types';
+import type { AuditContext } from '../../lib/audit-core';
+import { callLlm } from '../../lib/llm';
+import { extractJsonObject } from '../../lib/json';
 
 export interface AiContentInsightsResult {
   business_context: {

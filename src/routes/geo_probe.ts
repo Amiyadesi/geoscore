@@ -26,7 +26,7 @@ interface DdgResponse {
   RelatedTopics?: Array<{ Text?: string; FirstURL?: string }>;
 }
 
-export async function handleGeoProbe(req: Request, env: Env): Promise<Response> {
+export async function handleGeoProbe(req: Request, _env: Env): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS });
   }

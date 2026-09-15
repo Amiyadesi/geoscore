@@ -1,6 +1,7 @@
 (function (global) {
   'use strict';
 
+  /** @type {Readonly<{ snapshot: any; busy: boolean; error: { message: string } | null }>} */
   const EMPTY_STATE = Object.freeze({ snapshot: null, busy: false, error: null });
 
   function sanitizeSnapshot(value) {
@@ -13,6 +14,38 @@
       clean[key] = sanitizeSnapshot(item);
     }
     return clean;
+  }
+
+  /**
+   * Turns the snapshot's anchoring block into presentation data. Returns null for
+   * snapshots without anchoring (older audits), so the renderer can skip the card
+   * instead of drawing an empty ladder.
+   */
+  function describeAnchoring(snapshot) {
+    const anchoring = snapshot?.anchoring;
+    if (!anchoring || !Array.isArray(anchoring.rungs) || !anchoring.rungs.length) return null;
+
+    const rungs = anchoring.rungs.map(rung => ({
+      rung: Number(rung?.rung) || 0,
+      label: rung?.rung_label || 'generic',
+      brandFree: Boolean(rung?.brand_free),
+      intent: rung?.intent || 'unknown',
+      query: String(rung?.query || ''),
+      observed: Boolean(rung?.observed),
+      observedSources: Number(rung?.observed_sources) || 0,
+      providers: Array.isArray(rung?.observed_providers) ? rung.observed_providers : [],
+    }));
+    const probe = anchoring.next_probe;
+
+    return {
+      state: rungs.some(rung => rung.observed) ? 'observed' : 'not_observed',
+      brandFreeObserved: Boolean(anchoring.brand_free_observed),
+      vaguestBrandFreeRung: anchoring.vaguest_brand_free_rung_observed ?? null,
+      rungs,
+      nextProbe: probe ? { rung: Number(probe.rung) || 0, label: probe.rung_label || 'generic', query: String(probe.query || '') } : null,
+      unprobedRungs: Array.isArray(anchoring.unprobed_rungs) ? anchoring.unprobed_rungs.length : 0,
+      limitations: Array.isArray(anchoring.limitations) ? anchoring.limitations : [],
+    };
   }
 
   function create(options) {
@@ -153,5 +186,5 @@
     });
   }
 
-  global.GeoScoreEvidenceMap = Object.freeze({ create, sanitizeSnapshot });
+  global.GeoScoreEvidenceMap = Object.freeze({ create, sanitizeSnapshot, describeAnchoring });
 })(typeof window !== 'undefined' ? window : globalThis);

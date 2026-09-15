@@ -24,7 +24,7 @@ execFileSync(
     '--outDir', tmpDir,
     'src/modules/schema_audit.ts',
     'src/modules/recommendations.ts',
-    'src/modules/keywords.ts',
+    'src/modules/legacy/keywords.ts',
   ],
   { stdio: 'inherit' },
 );
@@ -32,7 +32,7 @@ execFileSync(
 const require = createRequire(import.meta.url);
 const { runSchemaAudit } = require(path.join(tmpDir, 'modules', 'schema_audit.js'));
 const { runRecommendations } = require(path.join(tmpDir, 'modules', 'recommendations.js'));
-const { runKeywords } = require(path.join(tmpDir, 'modules', 'keywords.js'));
+const { runKeywords } = require(path.join(tmpDir, 'modules', 'legacy', 'keywords.js'));
 
 const EDITORIAL_HTML = `<!doctype html>
 <html lang="zh-CN"><head><title>Amiya's Desk</title>

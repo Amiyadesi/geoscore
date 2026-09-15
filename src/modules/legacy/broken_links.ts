@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../lib/http';
+import { fetchWithTimeout } from '../../lib/http';
 
 export interface BrokenLinksResult {
   total_links_checked: number;
