@@ -49,9 +49,11 @@ import { buildRepairGroups } from './lib/repair-groups';
 import { buildOpenApiSpec } from './lib/openapi';
 import { handleFeedback, handleLearningAdmin } from './routes/feedback';
 import { handlePageMetaPreview } from './routes/page-meta';
+import { handleAdmin } from './routes/admin';
 import {
   corsHeaders,
   jsonError as secureJsonError,
+  isAdminRequest,
   isValidPublicHostname,
   PUBLIC_DOMAIN_ERROR,
   publicApiUrl,
@@ -61,9 +63,11 @@ import {
 } from './lib/security';
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://geo.sayori.org',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Project-Token, X-API-Key',
+  'Access-Control-Allow-Credentials': 'true',
+  'Vary': 'Origin',
 };
 
 export default {
@@ -301,6 +305,9 @@ async function persistLighthouseAuditUpdate(
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const { pathname } = url;
+    const admin = await isAdminRequest(req, env);
+    const adminRoute = await handleAdmin(req, env);
+    if (adminRoute) return adminRoute;
 
     const ip = getClientIp(req);
     const browserFingerprint = getBrowserFingerprint(req);
@@ -320,7 +327,7 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
     }
 
     if (pathname === '/api/llm-test' && req.method === 'GET') {
-      const denied = requireAdmin(req, env);
+      const denied = await requireAdmin(req, env);
       if (denied) return denied;
       return handleLlmTest(env);
     }
@@ -388,14 +395,18 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
     }
 
     if (pathname === '/api/search' && req.method === 'GET') {
-      const { limited } = await searchRateLimit(env, ip);
-      if (limited) return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await searchRateLimit(env, ip);
+        if (limited) return rateLimitedResponse(60);
+      }
       return handleSearch(req, env);
     }
 
     if (pathname === '/api/page-meta' && req.method === 'GET') {
-      const { limited } = await searchRateLimit(env, ip);
-      if (limited) return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await searchRateLimit(env, ip);
+        if (limited) return rateLimitedResponse(60);
+      }
       return handlePageMetaPreview(url);
     }
 
@@ -413,26 +424,32 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
     }
 
     if (pathname === '/api/answer-models' && req.method === 'POST') {
-      const { limited } = await searchRateLimit(env, ip);
-      if (limited) return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await searchRateLimit(env, ip);
+        if (limited) return rateLimitedResponse(60);
+      }
       return handleAnswerModels(req, env);
     }
 
     const evidenceMapMatch = pathname.match(/^\/api\/audits\/([^/]+)\/evidence-map$/);
     if (evidenceMapMatch && req.method === 'POST') {
-      const { limited } = await searchRateLimit(env, ip);
-      if (limited) return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await searchRateLimit(env, ip);
+        if (limited) return rateLimitedResponse(60);
+      }
       return handleEvidenceMap(req, decodeURIComponent(evidenceMapMatch[1]), env);
     }
 
     if (pathname === '/api/monitor-projects' || pathname.startsWith('/api/monitor-projects/')) {
-      const { limited } = await searchRateLimit(env, ip);
-      if (limited && req.method !== 'GET') return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await searchRateLimit(env, ip);
+        if (limited && req.method !== 'GET') return rateLimitedResponse(60);
+      }
       return handleMonitorProjects(req, env);
     }
 
     if (pathname.startsWith('/api/audit/') && pathname.endsWith('/cache') && req.method === 'DELETE') {
-      const denied = requireAdmin(req, env);
+      const denied = await requireAdmin(req, env);
       if (denied) return denied;
       const raw = decodeURIComponent(pathname.replace('/api/audit/', '').replace('/cache', ''));
       const domain = parseNormalisedPublicDomain(raw);
@@ -492,8 +509,7 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       }
       // Cache hits are free — don't consume rate limit quota
       const cached = await getCachedAudit(env, domain, auditOptions);
-      const adminBypass = !!env.ADMIN_TOKEN && req.headers.get('Authorization') === `Bearer ${env.ADMIN_TOKEN}`;
-      if (!cached && !adminBypass) {
+      if (!cached && !admin) {
         const { limited, retryAfter } = await auditRateLimit(env, ip, browserFingerprint);
         if (limited) return rateLimitedResponse(retryAfter);
       }
@@ -710,8 +726,10 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const domains = submittedDomains.map(parseStrictPublicDomain);
       if (domains.some(domain => !domain)) return jsonError(PUBLIC_DOMAIN_ERROR, 400);
       if (domains.length < 2) return jsonError('Provide at least 2 comma-separated domains', 400);
-      const { limited } = await auditRateLimit(env, ip, browserFingerprint);
-      if (limited) return rateLimitedResponse(60);
+      if (!admin) {
+        const { limited } = await auditRateLimit(env, ip, browserFingerprint);
+        if (limited) return rateLimitedResponse(60);
+      }
       return handleCompare(domains as string[], env);
     }
 
@@ -722,14 +740,14 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
 
     // ── Feedback: POST /api/feedback ─────────────────────────────────────────
     if (pathname === '/api/feedback' && req.method === 'POST') {
-      const denied = requireAdmin(req, env);
+      const denied = await requireAdmin(req, env);
       if (denied) return denied;
       return handleFeedback(req, env);
     }
 
     // ── Learning admin: GET /api/learning ────────────────────────────────────
     if (pathname === '/api/learning' && req.method === 'GET') {
-      const denied = requireAdmin(req, env);
+      const denied = await requireAdmin(req, env);
       if (denied) return denied;
       return handleLearningAdmin(env);
     }

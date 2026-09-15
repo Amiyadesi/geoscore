@@ -39,6 +39,11 @@
     if (!card) return;
     card.classList.remove('hidden');
     if (pass?.active) {
+      if (pass.owner) {
+        body.textContent = t('audit.sitePass.owner');
+        buy?.classList.add('hidden');
+        return;
+      }
       const date = new Date(pass.expires_at * 1000).toLocaleDateString();
       body.textContent = t('audit.sitePass.active', { date, count: pass.reruns_remaining });
       buy?.classList.add('hidden');
@@ -52,8 +57,25 @@
     }
   }
 
+  function ownerPass() {
+    const session = global.GeoScoreAdmin?.session;
+    if (!session?.full_access) return null;
+    return {
+      active: true,
+      owner: true,
+      expires_at: Math.floor(Date.now() / 1000) + 365 * 24 * 3600,
+      reruns_remaining: '∞',
+    };
+  }
+
   async function onAudit(data) {
     const domain = currentDomain(data);
+    const owned = ownerPass();
+    if (owned) {
+      lastDomain = domain || lastDomain;
+      render(owned, lastDomain);
+      return;
+    }
     if (!domain || domain === lastDomain && !pending) return;
     lastDomain = domain;
     pending = status(domain).catch(() => ({ active: false }));
@@ -61,5 +83,11 @@
     pending = null;
   }
 
-  global.GeoScoreSitePass = { PAY_URL, currentDomain, paymentUrl, status, onAudit };
+  function onOwnerSession(session) {
+    global.GeoScoreAdmin = global.GeoScoreAdmin || {};
+    global.GeoScoreAdmin.session = session;
+    if (session?.full_access) render(ownerPass(), lastDomain);
+  }
+
+  global.GeoScoreSitePass = { PAY_URL, currentDomain, paymentUrl, status, onAudit, onOwnerSession };
 })(window);

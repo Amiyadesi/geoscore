@@ -73,3 +73,11 @@ SIGNOZ_OTLP_ENDPOINT = ""
 #   wrangler secret put SEARCH_GATEWAY_API_KEY
 # SIGNOZ_INGESTION_KEY — SigNoz ingestion key, used only when SIGNOZ_OTLP_ENDPOINT is set
 #   wrangler secret put SIGNOZ_INGESTION_KEY
+# GITHUB_CLIENT_ID — GitHub OAuth App client id for the private owner console
+#   wrangler secret put GITHUB_CLIENT_ID
+# GITHUB_CLIENT_SECRET — GitHub OAuth App client secret
+#   wrangler secret put GITHUB_CLIENT_SECRET
+# ADMIN_SESSION_SECRET — HMAC key for the gs_admin session cookie
+#   wrangler secret put ADMIN_SESSION_SECRET
+# ADMIN_TOKEN — existing operator-token fallback for admin diagnostics
+#   wrangler secret put ADMIN_TOKEN

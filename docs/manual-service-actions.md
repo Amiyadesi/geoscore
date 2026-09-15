@@ -73,6 +73,25 @@ need repository secrets `GEOSCORE_CF_ACCOUNT_ID` and
 `GEOSCORE_CF_API_TOKEN`. Create a least-privilege Cloudflare token for Workers,
 Pages, D1, KV, Vectorize, Browser Run, and route deployment.
 
+### GitHub owner console
+
+The private `/admin.html` console accepts only logins listed in
+`ADMIN_GITHUB_LOGINS` (default: `Amiyadesi`). Create a GitHub OAuth App with:
+
+- Homepage: `https://geo.sayori.org`
+- Callback: `https://geo-api.sayori.org/api/admin/github/callback`
+
+Set these Worker secrets before enabling the console:
+
+```bash
+wrangler secret put GITHUB_CLIENT_ID --config wrangler.generated.jsonc
+wrangler secret put GITHUB_CLIENT_SECRET --config wrangler.generated.jsonc
+wrangler secret put ADMIN_SESSION_SECRET --config wrangler.generated.jsonc
+```
+
+`ADMIN_SESSION_SECRET` signs the two-week `gs_admin` cookie. `ADMIN_TOKEN`
+remains a compatible fallback for existing operator scripts.
+
 ## Privacy boundary
 
 External LLMs receive only bounded excerpts from already-public pages. Never

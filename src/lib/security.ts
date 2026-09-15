@@ -1,5 +1,6 @@
 import type { Env } from './types';
 import { parse as parseHostname } from 'tldts';
+import { adminSessionFromRequest } from './admin-auth';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://geo.sayori.org',
@@ -35,6 +36,7 @@ export function corsHeaders(req: Request, env: Env): HeadersInit {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token, X-Project-Token, X-API-Key',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -62,7 +64,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export function isAdminRequest(req: Request, env: Env): boolean {
+export function isAdminTokenRequest(req: Request, env: Env): boolean {
   const expected = env.ADMIN_TOKEN;
   if (!expected) return false;
 
@@ -74,9 +76,14 @@ export function isAdminRequest(req: Request, env: Env): boolean {
   return !!candidate && timingSafeEqual(candidate, expected);
 }
 
-export function requireAdmin(req: Request, env: Env): Response | null {
-  if (isAdminRequest(req, env)) return null;
-  return jsonError('Admin token required', 401);
+export async function isAdminRequest(req: Request, env: Env): Promise<boolean> {
+  if (isAdminTokenRequest(req, env)) return true;
+  return Boolean(await adminSessionFromRequest(req, env));
+}
+
+export async function requireAdmin(req: Request, env: Env): Promise<Response | null> {
+  if (await isAdminRequest(req, env)) return null;
+  return jsonError('Admin authentication required', 401);
 }
 
 export function isValidPublicHostname(hostname: string): boolean {
@@ -99,8 +106,6 @@ export function isValidPublicHostname(hostname: string): boolean {
   ) return false;
   if (!/^(xn--)?(?=[a-z0-9-]{2,63}$)(?=.*[a-z])[a-z0-9-]+$/.test(tld)) return false;
   const parsed = parseHostname(host, { allowPrivateDomains: true });
-  // Reject asset names such as favicon.ico and reserved/unknown suffixes while
-  // retaining private suffixes (for example github.io) and punycode IDNs.
   if (!parsed.domain || (!parsed.isIcann && !parsed.isPrivate && !tld.startsWith('xn--'))) return false;
   return labels.every((label) =>
     label.length >= 1 &&

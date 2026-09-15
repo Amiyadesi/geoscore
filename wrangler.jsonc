@@ -19,7 +19,8 @@
     "SIGNOZ_SERVICE_NAME": "sayori-geoscore-api",
     "DAILY_BROWSER_BUDGET_SECONDS": "540",
     "AUDIT_RATE_LIMIT_PER_HOUR": "8",
-    "SEARCH_RATE_LIMIT_PER_MINUTE": "60"
+    "SEARCH_RATE_LIMIT_PER_MINUTE": "60",
+    "ADMIN_GITHUB_LOGINS": "Amiyadesi"
   },
   "d1_databases": [
     {

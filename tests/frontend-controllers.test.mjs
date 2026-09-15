@@ -46,8 +46,9 @@ function fakeClassList(initial = []) {
 test('audit runner owns EventSource retry state and applies fresh only to the first attempt', () => {
   class FakeEventSource {
     static instances = [];
-    constructor(url) {
+    constructor(url, options) {
       this.url = url;
+      this.options = options;
       this.listeners = new Map();
       this.closed = false;
       FakeEventSource.instances.push(this);
@@ -75,6 +76,7 @@ test('audit runner owns EventSource retry state and applies fresh only to the fi
 
   assert.equal(runner.start({ domain: 'example.com' }, { fresh: true }), true);
   assert.equal(FakeEventSource.instances[0].url, 'https://api.example/audit/example.com?fresh=1');
+  assert.equal(FakeEventSource.instances[0].options.withCredentials, true);
   FakeEventSource.instances[0].emit('progress', { module: 'schema_audit' });
   assert.equal(progress[0].module, 'schema_audit');
 
