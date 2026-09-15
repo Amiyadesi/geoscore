@@ -25,9 +25,27 @@ function languageForProject(projectName) {
   return projectName.endsWith('-zh') ? 'zh' : 'en';
 }
 
+
+async function waitForActiveSitePass(page) {
+  await page.waitForFunction(() => window.GeoScoreSitePass?.isActive?.() === true);
+}
+
 async function mockApi(page) {
   await page.route('https://static.cloudflareinsights.com/**', route => route.fulfill({ status: 204, body: '' }));
   await page.route('https://www.google.com/s2/favicons**', route => route.fulfill({ status: 204, body: '' }));
+  // Active Site Pass so download / monitoring create flows stay exercisable in browser CI.
+  await page.route('https://pay.geo.sayori.org/**', route => {
+    const url = new URL(route.request().url());
+    const domain = url.searchParams.get('domain') || 'example.com';
+    return route.fulfill({
+      json: {
+        active: true,
+        domain,
+        expires_at: Math.floor(Date.now() / 1000) + 86400,
+        reruns_remaining: 10,
+      },
+    });
+  });
   await page.route('http://127.0.0.1:8787/**', route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -51,7 +69,7 @@ async function mockApi(page) {
           audit_modes: ['site', 'url'],
           checks: { scoring: 2, informational: 0, predicted: 1 },
           capabilities: { optional_modules_not_run: [] },
-          rate_limit: { fresh_audits: 5, window_hours: 24 },
+          rate_limit: { fresh_audits: 2, window_hours: 1 },
           license: 'MIT',
           source_url: 'https://github.com/Amiyadesi/geoscore',
         },
@@ -163,6 +181,7 @@ test('audit renders deterministic evidence and extracted controllers remain inte
   await expect(page.locator('#evidence-map-section')).toContainText('search-api-a');
 
   if (testInfo.project.name === 'desktop-en') {
+    await waitForActiveSitePass(page);
     await page.locator('[data-monitor-form="create"] button[type="submit"]').click();
     await expect(page.locator('#monitor-management-token')).toHaveText('gmt_e2e_management_token');
     await page.locator('[data-action="dismiss-monitor-token"]').click();
@@ -183,6 +202,7 @@ test('shared audit reveals the report and primary Markdown download', async ({ p
   await expect(page.locator('#audit')).toBeVisible();
   await expect(page.locator('#domain-name')).toHaveText('example.com');
   await expect(page.locator('#agent-btn')).toBeVisible();
+  await waitForActiveSitePass(page);
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#agent-btn').click();
   const download = await downloadPromise;

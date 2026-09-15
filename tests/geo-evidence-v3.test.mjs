@@ -178,7 +178,7 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(meta.scoring.minimum_overall_coverage, 0.6);
     assert.equal(meta.scoring.minimum_overall_confidence, 0.5);
     assert.ok(meta.capabilities.optional_modules_not_run.includes('broken_links'));
-    assert.equal(meta.capabilities.full_markdown_repair_report, true);
+    assert.equal(meta.capabilities.full_markdown_repair_report, false);
     assert.equal(meta.capabilities.lighthouse_score_merge, true);
     assert.equal(meta.limits.evidence_queries_per_project, 3);
     assert.equal(meta.limits.search_providers_per_query, 2);
@@ -186,7 +186,12 @@ describe('GEO Evidence v3 contract', () => {
     assert.equal(meta.limits.monitoring_schedule, 'weekly');
     assert.equal(meta.limits.retained_snapshots, 12);
     assert.equal(meta.capabilities.query_evidence_map, true);
-    assert.equal(meta.capabilities.accountless_monitoring, true);
+    assert.equal(meta.capabilities.accountless_monitoring, false);
+    assert.deepEqual(meta.capabilities.site_pass_required_for, [
+      'monitoring',
+      'full_markdown_repair_report',
+      'shareable_report',
+    ]);
     assert.equal(meta.capabilities.request_scoped_api_key, true);
     assert.equal(meta.capabilities.api_key_persistence, 'none');
     assert.equal(meta.capabilities.consumer_ai_citation_monitoring, false);
@@ -207,7 +212,11 @@ describe('GEO Evidence v3 contract', () => {
   });
 
   it('keeps public metadata provider-neutral and deletes the requested cache scope', async () => {
-    const meta = JSON.stringify(worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '2' }));
+    const metaObject = worker.buildPublicMeta({ AUDIT_RATE_LIMIT_PER_HOUR: '2' });
+    assert.equal(metaObject.rate_limit.fresh_audits, 2);
+    assert.equal(metaObject.rate_limit.fresh_audits_per_hour, 2);
+    assert.equal(metaObject.capabilities.accountless_monitoring, false);
+    const meta = JSON.stringify(metaObject);
     assert.doesNotMatch(meta, /groq|openrouter|llama|chatgpt|perplexity|google_ai|api_base_url|api_model/i);
 
     const deleted = [];

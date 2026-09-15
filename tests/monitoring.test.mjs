@@ -264,6 +264,26 @@ function cleanAnswerResponse(query) {
   };
 }
 
+
+const SITE_PASS_STATUS_PREFIX = 'https://pay.geo.sayori.org/api/site-pass';
+
+function isSitePassStatusUrl(url) {
+  return String(url).startsWith(SITE_PASS_STATUS_PREFIX) || String(url).includes('/api/site-pass?');
+}
+
+function sitePassStatusResponse(active = true, domain = 'example.com') {
+  return Response.json({ active, domain });
+}
+
+/** Wrap a fetch handler so Site Pass entitlement checks stay covered and active by default. */
+function withActiveSitePassFetch(handler) {
+  return async (url, init = {}) => {
+    if (isSitePassStatusUrl(url)) return sitePassStatusResponse(true);
+    if (typeof handler === 'function') return handler(url, init);
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+}
+
 async function monitoringProject(token, baseline) {
   return {
     id: PROJECT_ID,
@@ -290,6 +310,7 @@ describe('accountless monitoring privacy', () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    globalThis.fetch = withActiveSitePassFetch(async (url, init) => originalFetch(url, init));
   });
 
   afterEach(() => {
@@ -313,6 +334,27 @@ describe('accountless monitoring privacy', () => {
       assert.equal(body.error.code, 'MONITOR_CONFIG_MISSING');
       assert.equal(db.writes.length, 0);
     }
+  });
+
+  it('rejects monitoring create without an active Site Pass', async () => {
+    globalThis.fetch = async (url) => {
+      if (isSitePassStatusUrl(url)) return sitePassStatusResponse(false);
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+    const db = new CreateDatabase(storedAudit());
+    const response = await monitoring.handleMonitorProjects(new Request(
+      'https://geo-api.example/api/monitor-projects',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audit_id: AUDIT_ID }),
+      },
+    ), { DB: db, MONITOR_TOKEN_PEPPER: PEPPER });
+    const body = await response.json();
+
+    assert.equal(response.status, 402);
+    assert.equal(body.error.code, 'SITE_PASS_REQUIRED');
+    assert.equal(db.writes.length, 0);
   });
 
   it('returns a management token once while storing only its versioned peppered hash', async () => {
@@ -476,7 +518,7 @@ describe('accountless monitoring privacy', () => {
     const outboundAnswerBodies = [];
     const kvWrites = [];
 
-    globalThis.fetch = async (url, init = {}) => {
+    globalThis.fetch = withActiveSitePassFetch(async (url, init = {}) => {
       if (String(url).endsWith('/api/v1/evidence-search')) {
         return Response.json(evidenceResponse(query));
       }
@@ -486,7 +528,7 @@ describe('accountless monitoring privacy', () => {
         return Response.json(answerResponseWithEcho(query, byokSecret, apiBaseUrl, apiModel));
       }
       throw new Error(`unexpected fetch: ${url}`);
-    };
+    });
 
     const env = {
       DB: db,
@@ -532,7 +574,7 @@ describe('accountless monitoring privacy', () => {
     ]);
     const originalFetch = globalThis.fetch;
     let calls = 0;
-    globalThis.fetch = async () => { calls += 1; return Response.json({}); };
+    globalThis.fetch = withActiveSitePassFetch(async () => { calls += 1; return Response.json({}); });
     try {
       const cases = [
         { key: '', body: {} },
@@ -607,6 +649,17 @@ describe('accountless monitoring privacy', () => {
 });
 
 describe('monitoring baseline compatibility', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = withActiveSitePassFetch(async (url, init) => originalFetch(url, init));
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   it('establishes or resets baselines before any score delta can be alerted', () => {
     const current = { score_version: '2.2.0', score: 78, coverage: 0.8, confidence: 0.85 };
 
@@ -632,10 +685,10 @@ describe('monitoring baseline compatibility', () => {
     ]);
     const resendCalls = [];
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url) => {
+    globalThis.fetch = withActiveSitePassFetch(async (url) => {
       resendCalls.push(String(url));
       return new Response('', { status: 500 });
-    };
+    });
     try {
       const result = await monitoring.runWeeklyMonitorProjects({
         DB: db,
@@ -666,7 +719,7 @@ describe('monitoring baseline compatibility', () => {
     const resendIdempotencyKeys = [];
     let persistedBeforeEmail = false;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url, init = {}) => {
+    globalThis.fetch = withActiveSitePassFetch(async (url, init = {}) => {
       calls.push(String(url));
       if (String(url).endsWith('/api/v1/evidence-search')) return Response.json(evidenceResponse(query));
       if (String(url).endsWith('/api/v1/answer-snapshots')) return Response.json(cleanAnswerResponse(query));
@@ -676,7 +729,7 @@ describe('monitoring baseline compatibility', () => {
         return new Response('', { status: 503 });
       }
       throw new Error(`unexpected fetch: ${url}`);
-    };
+    });
     try {
       const result = await monitoring.runWeeklyMonitorProjects({
         DB: db,
