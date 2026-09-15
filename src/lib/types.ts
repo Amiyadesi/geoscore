@@ -67,6 +67,11 @@ export interface Env {
   RESEND_API_KEY?: string;
   CF_TEMP_MAIL_BASE_URL?: string;
   CF_TEMP_MAIL_SEND_API_KEY?: string;
+  /** SigNoz OTLP endpoint, e.g. `https://ingest.us2.signoz.cloud`. Optional. */
+  SIGNOZ_OTLP_ENDPOINT?: string;
+  /** SigNoz ingestion key. Server-only; never sent to a client or stored in a report. */
+  SIGNOZ_INGESTION_KEY?: string;
+  SIGNOZ_SERVICE_NAME?: string;
 }
 
 export type FixPackLanguage = 'en' | 'zh';

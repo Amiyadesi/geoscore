@@ -62,8 +62,14 @@ SEARCH_GATEWAY_URL = ""
 # Daily browser (Puppeteer) budget in seconds. 540 = 9 minutes.
 DAILY_BROWSER_BUDGET_SECONDS = "540"
 
+# Optional: SigNoz OTLP ingestion host for unhandled-error reporting.
+# Leave empty to disable; the API key is a Worker secret, not a var.
+SIGNOZ_OTLP_ENDPOINT = ""
+
 # ── Secrets (set via `wrangler secret put`, NOT in this file) ─────────────────
 # RESEND_API_KEY — for weekly monitoring alert emails (optional feature)
 #   wrangler secret put RESEND_API_KEY
 # SEARCH_GATEWAY_API_KEY — protected search gateway key (optional)
 #   wrangler secret put SEARCH_GATEWAY_API_KEY
+# SIGNOZ_INGESTION_KEY — SigNoz ingestion key, used only when SIGNOZ_OTLP_ENDPOINT is set
+#   wrangler secret put SIGNOZ_INGESTION_KEY

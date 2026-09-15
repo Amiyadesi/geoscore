@@ -36,6 +36,7 @@ jobs:
       GEOSCORE_API_MODEL: ${{ secrets.GEOSCORE_API_MODEL }}
       GEOSCORE_GROQ_API_KEY: ${{ secrets.GEOSCORE_GROQ_API_KEY }}
       GEOSCORE_OPENROUTER_API_KEY: ${{ secrets.GEOSCORE_OPENROUTER_API_KEY }}
+      GEOSCORE_SIGNOZ_INGESTION_KEY: ${{ secrets.GEOSCORE_SIGNOZ_INGESTION_KEY }}
     steps:
       - uses: actions/checkout@v6
       - name: Check deployment credentials
@@ -115,6 +116,7 @@ jobs:
             API_MODEL: process.env.GEOSCORE_API_MODEL,
             GROQ_API_KEY: process.env.GEOSCORE_GROQ_API_KEY,
             OPENROUTER_API_KEY: process.env.GEOSCORE_OPENROUTER_API_KEY,
+            SIGNOZ_INGESTION_KEY: process.env.GEOSCORE_SIGNOZ_INGESTION_KEY,
           };
           const payload = Object.fromEntries(Object.entries(mappings).filter(([, value]) => value));
           if (!Object.keys(payload).length) process.exit(0);

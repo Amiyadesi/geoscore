@@ -20,6 +20,7 @@ import {
   type NormalizedCheck,
 } from './lib/audit-core';
 import { fetchAuditPage, validateAuditTargetUrl } from './lib/audit-pages';
+import { reportError } from './lib/observability';
 import { handleSearch } from './routes/search';
 import { handleAudit, normaliseDomain, projectLegacyScores } from './routes/audit';
 import { LighthouseUpstreamError, runLighthouse, type LighthouseResult } from './modules/lighthouse';
@@ -71,23 +72,68 @@ export default {
       return new Response(null, { headers: corsHeaders(req, env) });
     }
 
-    return withCors(await routeRequest(req, env, ctx), req, env);
+    try {
+      return withCors(await routeRequest(req, env, ctx), req, env);
+    } catch (error) {
+      // Route handlers own their own error responses; reaching here means a bug
+      // or an infrastructure failure, so report it once and answer generically.
+      reportUnhandledError(env, ctx, error, {
+        'http.method': req.method,
+        'http.route': requestPath(req),
+      });
+      // Deliberately avoids withCors(): a request whose own headers or env are
+      // the failure must still produce a usable response.
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, 'X-Content-Type-Options': 'nosniff' },
+      });
+    }
   },
 
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    await env.BUDGET_KV.delete(`browser:${yesterday}`);
-    await env.BUDGET_KV.delete(`ai:${yesterday}`);
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    try {
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      await env.BUDGET_KV.delete(`browser:${yesterday}`);
+      await env.BUDGET_KV.delete(`ai:${yesterday}`);
 
-    // Capture weekly dated evidence for monitoring projects and aggregate learning patterns.
-    if (event.cron === '0 8 * * 1') { // Mondays at 08:00 UTC
-      await Promise.all([
-        runWeeklyMonitorProjects(env),
-        runWeeklyLearning(env),
-      ]);
+      // Capture weekly dated evidence for monitoring projects and aggregate learning patterns.
+      if (event.cron === '0 8 * * 1') { // Mondays at 08:00 UTC
+        await Promise.all([
+          runWeeklyMonitorProjects(env),
+          runWeeklyLearning(env),
+        ]);
+      }
+    } catch (error) {
+      reportUnhandledError(env, ctx, error, { 'cron.expression': event.cron });
     }
   },
 };
+
+function requestPath(req: Request): string {
+  try {
+    return new URL(req.url).pathname;
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Logs locally, then exports one exception span to SigNoz when it is configured.
+ * Reporting is fire-and-forget so a failing exporter never delays the response.
+ */
+function reportUnhandledError(
+  env: Env,
+  ctx: ExecutionContext | undefined,
+  error: unknown,
+  attributes: Record<string, string | number | boolean | undefined>,
+): void {
+  console.error('[geoscore] unhandled error', error instanceof Error ? error.stack ?? error.message : error);
+  void reportError(env, error, {
+    attributes,
+    version: PRODUCT_VERSION,
+    waitUntil: promise => ctx?.waitUntil?.(promise),
+  });
+}
 
 const PUBLIC_SOURCE_URL = 'https://github.com/Amiyadesi/geoscore';
 const PRODUCT_VERSION = '2.4.7';
@@ -1071,7 +1117,6 @@ async function runWeeklyLearning(env: Env): Promise<void> {
 // ── /embed.js ─────────────────────────────────────────────────────────────────
 function handleEmbedScript(url: URL, env: Env): Response {
   const domain = url.searchParams.get('domain') ?? '';
-  const auditUrl = `${publicAppUrl(env)}/?d=${encodeURIComponent(domain)}`;
 
   const script = `(function(){
   var d = document.currentScript.getAttribute('data-domain') || ${JSON.stringify(domain)};
