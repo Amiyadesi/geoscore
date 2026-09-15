@@ -373,7 +373,9 @@ test('monitoring controller sends complete BYOK config, clears inputs and never 
     getAll(name) { return this.form.values?.[name] ?? []; }
   }
 
-  const feature = loadController('monitoring.js', 'GeoScoreMonitoring');
+  const feature = loadController('monitoring.js', 'GeoScoreMonitoring', {
+    GeoScoreSitePass: { requirePass: () => true },
+  });
   const customApi = loadController('custom-api.js', 'GeoScoreCustomApi');
   let auditData = { audit_id: 'audit_1', domain: 'example.com' };
   let resolveRun;
