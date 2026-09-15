@@ -275,6 +275,14 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       assert.equal(body.ok, true);
       assert.equal(body.data.snapshot_version, '1.0.0');
       assert.equal(body.data.affects_score, false);
+      // The fixture only returns the audited root for a branded query, so no
+      // brand-free rung was observed and the ladder still reports the probe it did not run.
+      assert.equal(body.data.anchoring.brand_free_observed, false);
+      assert.equal(body.data.anchoring.vaguest_brand_free_rung_observed, null);
+      assert.equal(body.data.anchoring.rungs.length, body.data.query_plan.queries.length);
+      assert.equal(body.data.anchoring.rungs.filter(rung => rung.brand_free).length, 1);
+      assert.equal(body.data.anchoring.next_probe.rung, 0);
+      assert.ok(body.data.anchoring.limitations.length >= 3);
       assert.equal(body.data.target.appearances, 1);
       assert.deepEqual(body.data.target.mapped_pages, ['https://blog.sayori.org/posts/evidence']);
       assert.equal(body.data.sources[0].provider, 'source-a');
@@ -289,6 +297,62 @@ describe('Search Gateway Evidence v1 client and Evidence Map route', () => {
       assert.deepEqual(db.state.audit.score_summary, beforeScores);
       assert.deepEqual(db.state.audit.normalized_checks, beforeChecks);
       assert.equal(db.state.audit.overall_score, 70);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('reads anchoring depth off the snapshot without changing scores or checks', async () => {
+    const db = database();
+    const beforeScores = structuredClone(db.state.audit.score_summary);
+    const beforeChecks = structuredClone(db.state.audit.normalized_checks);
+    const probeQuery = planEvidenceQueries(storedAudit().audit_context)
+      .queries.find(query => query.brand_free).query;
+    const body = gatewayBody();
+    body.results.push({
+      source_id: 'src_probe',
+      query: probeQuery,
+      matched_queries: [probeQuery],
+      provider: 'source-a',
+      providers: ['source-a'],
+      provider_rank: 4,
+      provider_ranks: { 'source-a': 4 },
+      url: 'https://blog.sayori.org/',
+      canonical_url: 'https://blog.sayori.org/',
+      title: 'Sayori — technology notes',
+      snippet: 'A field-level result for the unbranded probe.',
+      retrieved_at: '2026-07-15T00:00:00Z',
+      registrable_domain: 'sayori.org',
+      fusion_score: 0.01,
+      rerank_score: null,
+      extract_status: 'not_requested',
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async url => String(url).endsWith('/api/v1/evidence-search')
+      ? Response.json(body)
+      : Response.json(answerBody());
+    try {
+      const response = await handleEvidenceMap(
+        new Request(`https://geo-api.sayori.org/api/audits/${AUDIT_ID}/evidence-map`, { method: 'POST' }),
+        AUDIT_ID,
+        env(db),
+      );
+      const payload = await response.json();
+      const anchoring = payload.data.anchoring;
+      const brandFree = anchoring.rungs.find(rung => rung.brand_free);
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.data.affects_score, false);
+      assert.equal(anchoring.brand_free_observed, true);
+      assert.equal(anchoring.vaguest_brand_free_rung_observed, 1);
+      assert.equal(brandFree.query, probeQuery);
+      assert.equal(brandFree.observed, true);
+      assert.deepEqual(brandFree.observed_providers, ['source-a']);
+      assert.equal(brandFree.observed_sources, 1);
+      assert.equal(anchoring.next_probe.rung, 0);
+      assert.ok(anchoring.limitations.some(line => /does not prove an assistant cited it/.test(line)));
+      assert.deepEqual(db.state.audit.score_summary, beforeScores);
+      assert.deepEqual(db.state.audit.normalized_checks, beforeChecks);
     } finally {
       globalThis.fetch = originalFetch;
     }

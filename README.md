@@ -89,6 +89,12 @@ labelled API answer snapshot. These observations are provenance data, not proof
 of a real consumer-product citation, and they never change the factual SEO/GEO
 score.
 
+One of those three queries is a brand-free field probe, and the snapshot reports
+the vaguest rung where the audited root was still observed — the anchoring
+boundary, not a ranking. See
+[docs/entity-anchoring-ladder.md](./docs/entity-anchoring-ladder.md) for the rung
+model, its guardrails, and the planned entity audit mode.
+
 Monitoring does not require an account. Project creation returns a high-entropy
 management token once; D1 stores only a versioned, peppered HMAC plus a short
 display hint. The project keeps at most 12 real snapshots and runs weekly. A
@@ -113,7 +119,9 @@ chains, Mozilla Observatory security auditing, standalone SSL/domain intelligenc
 and broken-link crawling. GeoScore 2.4.7 reports these modules as `skipped` in the
 anonymous audit to keep the Cloudflare request budget bounded. They do not enter
 the scoring denominator and are not presented as passes. This preserves useful
-upstream work without claiming evidence that was never collected.
+upstream work without claiming evidence that was never collected. They live in
+[`src/modules/legacy/`](./src/modules/legacy/README.md), which records each
+module and the reason it is not run.
 
 ---
 
@@ -378,6 +386,28 @@ secrets do not block deployment and leave existing Worker secrets unchanged.
 Remove a retired value explicitly with `wrangler secret delete`; no key,
 endpoint, or model belongs in tracked files or public frontend state.
 
+### Error monitoring (optional)
+
+The Worker exports one OpenTelemetry exception span per unhandled request or
+scheduled-run failure to [SigNoz](https://signoz.io). Routes that stream audit
+results keep owning their own error envelopes; only failures that would otherwise
+become an opaque 500 reach the exporter.
+
+```bash
+npx wrangler secret put SIGNOZ_INGESTION_KEY --config wrangler.generated.jsonc
+```
+
+Set `SIGNOZ_OTLP_ENDPOINT` to your region's ingestion host (for example
+`https://ingest.us2.signoz.cloud`) in `wrangler.jsonc`; the exporter appends
+`/v1/traces`. Leave either value empty to disable reporting — the Worker then
+behaves exactly as it did before. The ingestion key is sent only as the
+`signoz-ingestion-key` header and is never written to a payload, log line,
+report, or frontend state. For local development put both values in the
+git-ignored `.dev.vars` file.
+
+The GitHub Actions deployment maps the optional `GEOSCORE_SIGNOZ_INGESTION_KEY`
+secret to the Worker secret `SIGNOZ_INGESTION_KEY`.
+
 ---
 
 ## Environment variables reference
@@ -402,6 +432,9 @@ endpoint, or model belongs in tracked files or public frontend state.
 | `API_MODEL` | With `API_KEY` | Worker-only model identifier for the generic API |
 | `GROQ_API_KEY` | No | Optional primary external LLM entry; non-authoritative |
 | `OPENROUTER_API_KEY` | No | Optional reserve external LLM entry; non-authoritative |
+| `SIGNOZ_OTLP_ENDPOINT` | No | SigNoz OTLP ingestion host; reporting is disabled when empty |
+| `SIGNOZ_INGESTION_KEY` | With `SIGNOZ_OTLP_ENDPOINT` | Server-only SigNoz ingestion key; sent as the `signoz-ingestion-key` header |
+| `SIGNOZ_SERVICE_NAME` | No | `service.name` reported to SigNoz (defaults to `sayori-geoscore-api`) |
 
 See [docs/manual-service-actions.md](./docs/manual-service-actions.md) for
 optional integrations that require billing, OAuth, verified ownership, or a
@@ -417,46 +450,52 @@ geoscore/
 │   ├── index.html          # Single-page app shell
 │   ├── app.js              # Page orchestration and report rendering
 │   ├── audit-runner.js     # SSE lifecycle, retry, and stale-event isolation
+│   ├── assistant-ui.js     # Optional assistant panel
+│   ├── competitor-ui.js    # Competitor comparison controller
 │   ├── custom-api.js       # One-use custom API configuration
 │   ├── evidence-map.js     # Evidence snapshot controller
+│   ├── i18n.js             # English/Chinese UI copy
 │   ├── monitoring.js       # Monitoring project controller
 │   ├── report-ui.js        # Normalized report adapters and Markdown output
 │   ├── report-export.js    # Download and printable export controller
+│   ├── semantic-search.js  # Opt-in WebGPU semantic search
+│   ├── site-pass.js        # Site Pass purchase and status
+│   ├── tools.js            # Standalone public tools page
+│   ├── globals.d.ts        # Shared controller globals used by checkJs
+│   ├── cdn-modules.d.ts    # Declaration for the lazily imported CDN module
 │   ├── docs/               # Bilingual public documentation
 │   ├── print.css           # Print stylesheet
 │   ├── _headers            # Cloudflare Pages HTTP headers
-│   └── _redirects          # Cloudflare Pages redirects
+│   ├── _redirects          # Cloudflare Pages redirects
+│   └── tsconfig.json       # checkJs program for the frontend controllers
 │
 ├── src/
-│   ├── index.ts            # Worker entry point & router
-│   ├── lib/
+│   ├── index.ts            # Worker entry point, router, and error boundary
+│   ├── lib/                # Shared helpers, including:
+│   │   ├── audit-core.ts     # Checks, severities, and score policy
+│   │   ├── audit-pages.ts    # Bounded page sampling and fetch
 │   │   ├── bot-detection.ts  # WAF/CAPTCHA page detection
 │   │   ├── cache.ts          # KV audit caching
 │   │   ├── http.ts           # Fetch with timeout helper
 │   │   ├── llm.ts            # Workers AI wrapper
+│   │   ├── observability.ts  # Optional SigNoz exception export
 │   │   ├── rate-limit.ts     # Per-IP rate limiting via KV
+│   │   ├── security.ts       # CORS, admin gate, public-hostname rules
 │   │   ├── sse.ts            # Server-Sent Events helpers
 │   │   └── types.ts          # Shared TypeScript types (Env, etc.)
 │   │
-│   ├── modules/            # One file per audit module
+│   ├── modules/            # One file per audit module that runs
 │   │   ├── accessibility.ts
-│   │   ├── ai_content_insights.ts
 │   │   ├── authority.ts
 │   │   ├── content_quality.ts
 │   │   ├── crux.ts           # Chrome UX Report (CrUX) API
-│   │   ├── domain_intel.ts
-│   │   ├── geo_predicted.ts  # Predicted visibility simulation
-│   │   ├── keywords.ts
-│   │   ├── off_page_seo.ts
+│   │   ├── lighthouse.ts     # PageSpeed/Lighthouse merge
 │   │   ├── on_page_seo.ts
 │   │   ├── recommendations.ts
-│   │   ├── redirect_chain.ts
 │   │   ├── resolver.ts
 │   │   ├── schema_audit.ts
-│   │   ├── security_audit.ts
-│   │   ├── site_intel.ts
-│   │   ├── ssl_cert.ts
-│   │   └── technical_seo.ts
+│   │   ├── technical_seo.ts
+│   │   └── legacy/           # Retained modules reported as skipped
 │   │
 │   ├── prompts/            # AI prompt templates
 │   │
@@ -464,18 +503,22 @@ geoscore/
 │       ├── audit.ts        # Main audit orchestrator (SSE streaming)
 │       ├── businesses.ts
 │       ├── chat.ts         # AI chat about audit results
+│       ├── evidence-map.ts # Bounded query evidence
 │       ├── feedback.ts     # User corrections + learning
 │       ├── fix.ts          # AI-generated fix guides
 │       ├── history.ts      # Score history per domain
 │       ├── llms_gen.ts     # llms.txt generator
+│       ├── monitoring.ts   # Accountless monitoring projects
 │       └── search.ts       # Domain search
 │
-├── migrations/             # D1 SQL schema migrations
-│   ├── 0001_init.sql
-│   ├── 0002_seed_uae.sql
-│   └── 0003_learning.sql
+├── migrations/             # D1 SQL schema migrations (0001–0005)
 │
-├── wrangler.toml.example   # Config template (copy → wrangler.toml)
+├── scripts/                # Wrangler prepare/deploy/calibration helpers
+├── tests/                  # node:test suites and Playwright e2e specs
+├── ui-worker/              # Custom-domain proxy Worker for geo.sayori.org
+│
+├── wrangler.jsonc          # Deployed Worker configuration
+├── wrangler.toml.example   # Config template for a self-managed account
 ├── tsconfig.json
 └── package.json
 ```

@@ -527,3 +527,65 @@ test('monitoring controller connects, explicitly saves, forgets and rotates a pr
   assert.equal(controller.getState().showToken, true);
   assert.equal(storage.has(`geoscore:monitor-token:${projectId}`), false);
 });
+
+test('Evidence Map anchoring view model reports the ladder without inventing a score', () => {
+  const feature = loadController('evidence-map.js', 'GeoScoreEvidenceMap');
+
+  assert.equal(feature.describeAnchoring(null), null);
+  assert.equal(feature.describeAnchoring({ status: 'complete' }), null);
+  assert.equal(feature.describeAnchoring({ anchoring: { rungs: [] } }), null);
+
+  const view = feature.describeAnchoring({
+    anchoring: {
+      brand_free_observed: true,
+      vaguest_brand_free_rung_observed: 1,
+      rungs: [
+        {
+          rung: 1,
+          rung_label: 'field',
+          brand_free: true,
+          intent: 'informational',
+          query: 'technology author',
+          observed: true,
+          observed_sources: 2,
+          observed_providers: ['source-b', 'source-a'],
+        },
+        {
+          rung: 3,
+          rung_label: 'navigational',
+          brand_free: false,
+          intent: 'navigational',
+          query: 'Sayori about author',
+          observed: false,
+          observed_sources: 0,
+          observed_providers: [],
+        },
+      ],
+      unprobed_rungs: [{ rung: 0, rung_label: 'generic', intent: 'informational', query: 'author' }],
+      next_probe: { rung: 0, rung_label: 'generic', intent: 'informational', query: 'author' },
+      limitations: ['a', 'b', 'c'],
+    },
+  });
+
+  assert.equal(view.state, 'observed');
+  assert.equal(view.brandFreeObserved, true);
+  assert.equal(view.vaguestBrandFreeRung, 1);
+  assert.equal(view.rungs.length, 2);
+  assert.equal(view.rungs[0].brandFree, true);
+  assert.equal(view.rungs[0].label, 'field');
+  // The controller runs in a VM realm, so compare values instead of object identity.
+  assert.equal(view.rungs[0].providers.join(','), 'source-b,source-a');
+  assert.equal(view.rungs[1].observed, false);
+  assert.equal(view.nextProbe.rung, 0);
+  assert.equal(view.nextProbe.label, 'generic');
+  assert.equal(view.nextProbe.query, 'author');
+  assert.equal(view.unprobedRungs, 1);
+  assert.equal(view.limitations.length, 3);
+
+  const missing = feature.describeAnchoring({
+    anchoring: { rungs: [{ query: 'author' }] },
+  });
+  assert.equal(missing.state, 'not_observed');
+  assert.equal(missing.vaguestBrandFreeRung, null);
+  assert.equal(missing.nextProbe, null);
+});

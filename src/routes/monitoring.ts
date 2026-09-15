@@ -7,6 +7,7 @@ import {
   type ScoreSummary,
 } from '../lib/audit-core';
 import {
+  classifyEvidenceQuery,
   EVIDENCE_SNAPSHOT_VERSION,
   MAX_FREE_EVIDENCE_QUERIES,
   planEvidenceQueries,
@@ -313,9 +314,17 @@ export function normalizeMonitorQueries(
 
 function planFromRows(context: AuditContext, rows: MonitorQueryRow[]): EvidenceQueryPlan {
   const base = planEvidenceQueries(context);
+  const stored = new Set(rows.map(row => row.query.toLocaleLowerCase('en-US')));
   return {
     ...base,
-    queries: rows.map((row, index) => ({ id: `q${index + 1}-${row.intent}`, intent: row.intent, query: row.query })),
+    queries: rows.map((row, index) => ({
+      id: `q${index + 1}-${row.intent}`,
+      intent: row.intent,
+      query: row.query,
+      ...classifyEvidenceQuery(row.query, row.intent, context),
+    })),
+    // A stored row that matches an unprobed probe is a run, not an instruction.
+    unprobed_rungs: base.unprobed_rungs.filter(probe => !stored.has(probe.query.toLocaleLowerCase('en-US'))),
   };
 }
 

@@ -59,7 +59,7 @@ describe('AuditContext-only evidence query planner', () => {
     const second = evidence.planEvidenceQueries(structuredClone(input));
 
     assert.deepEqual(first, second);
-    assert.equal(first.version, '1.0.0');
+    assert.equal(first.version, '1.1.0');
     assert.equal(first.generated_from, 'audit_context');
     assert.ok(first.queries.length > 0);
     assert.ok(first.queries.length <= evidence.MAX_FREE_EVIDENCE_QUERIES);
@@ -97,6 +97,56 @@ describe('AuditContext-only evidence query planner', () => {
     assert.ok(plan.queries.every(item => /[\u4e00-\u9fff]/.test(item.query)));
     assert.match(plan.queries[0].query, /博客 文章/);
     assert.match(plan.queries[2].query, /关于 作者/);
+  });
+
+  it('spends exactly one free query on a brand-free rung and lists the rungs it did not run', () => {
+    const plan = evidence.planEvidenceQueries(context({
+      site_archetype: 'saas',
+      industry_vertical: 'team collaboration',
+      entity: { name: 'Acme Tools', type: 'Organization', source: 'schema' },
+      root_domain: 'acmetools.com',
+      locale: 'zh-CN',
+    }));
+
+    const brandFree = plan.queries.filter(item => item.brand_free);
+    assert.ok(brandFree.some(item => item.rung === 1 && item.query === 'team collaboration 厂商'));
+    assert.ok(brandFree.every(item => !/Acme Tools|acmetools\.com/i.test(item.query)));
+
+    // The brand-anchored query stays first so the answer snapshot keeps its target.
+    assert.equal(plan.queries[0].brand_free, false);
+    assert.match(plan.queries[0].query, /Acme Tools/);
+    assert.equal(plan.queries.length, evidence.MAX_FREE_EVIDENCE_QUERIES);
+    assert.deepEqual(plan.queries.map(item => item.rung_label), ['branded', 'field', 'field']);
+
+    // The vaguest rung stays unrun, and unprobed nodes are instructions, not observations.
+    assert.equal(plan.queries.some(item => item.rung === 0), false);
+    assert.deepEqual(plan.unprobed_rungs, [{
+      rung: 0,
+      rung_label: 'generic',
+      intent: 'informational',
+      query: '厂商',
+    }]);
+  });
+
+  it('never invents a field probe when the audit has no field evidence', () => {
+    const plan = evidence.planEvidenceQueries(context({ industry_vertical: null }));
+
+    assert.deepEqual(plan.unprobed_rungs, []);
+    assert.equal(plan.queries.some(item => item.brand_free), false);
+    assert.ok(plan.queries.every(item => item.rung >= 2));
+  });
+
+  it('classifies stored monitoring queries back onto the rungs from the query text', () => {
+    const contextInput = context({
+      site_archetype: 'personal_blog',
+      entity: { name: 'Sayori', type: 'Person', source: 'schema' },
+      root_domain: 'sayori.org',
+    });
+
+    assert.equal(evidence.classifyEvidenceQuery('technology author', 'informational', contextInput).rung, 1);
+    assert.equal(evidence.classifyEvidenceQuery('Sayori blog articles', 'informational', contextInput).rung, 2);
+    assert.equal(evidence.classifyEvidenceQuery('Sayori about author', 'navigational', contextInput).rung, 3);
+    assert.equal(evidence.classifyEvidenceQuery('sayori.org', 'navigational', contextInput).brand_free, false);
   });
 
   it('adds local intent only when a local archetype has locality evidence', () => {

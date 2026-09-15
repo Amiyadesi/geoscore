@@ -2,6 +2,7 @@ import type { AuditContext } from '../lib/audit-core';
 import { isSiteArchetype } from '../lib/audit-core';
 import { registrableRoot } from '../lib/audit-pages';
 import {
+  buildAnchoringSummary,
   EVIDENCE_SNAPSHOT_VERSION,
   planEvidenceQueries,
   type EvidenceMapOpportunity,
@@ -251,10 +252,13 @@ export function buildEvidenceMapSnapshot(
     };
   });
   const targetSources = sources.filter(source => source.target_domain);
-  const observedQueries = [...new Set(targetSources.flatMap(source => {
+  // A single provider record can satisfy several probes, so the matched-query list
+  // is the only honest link between a result and the rung it answered.
+  const matchedQueriesFor = (source: EvidenceMapSource): string[] => {
     const result = results.find(item => item.source_id === source.source_id);
     return result?.matched_queries.length ? result.matched_queries : [source.query];
-  }).filter(Boolean))];
+  };
+  const observedQueries = [...new Set(targetSources.flatMap(matchedQueriesFor).filter(Boolean))];
   const opportunities: EvidenceMapOpportunity[] = plan.queries
     .filter(query => !observedQueries.includes(query.query))
     .map(query => ({
@@ -298,6 +302,7 @@ export function buildEvidenceMapSnapshot(
     sources,
     opportunities,
     diagnosis: buildDiagnosis(gateway, sources, plan.queries.length),
+    anchoring: buildAnchoringSummary(plan, sources, matchedQueriesFor),
     limitations: [
       'This is a dated search and API evidence snapshot, not a factual SEO or GEO score input.',
       'Search results do not prove citations in ChatGPT, Perplexity, Gemini, or Google AI Overview consumer interfaces.',

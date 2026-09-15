@@ -27,3 +27,18 @@ test('standalone release metadata is public MIT with upstream attribution', () =
   assert.doesNotMatch(readme, /private operational repository|not currently licensed for redistribution/i);
   assert.equal(fs.existsSync(path.join(root, 'LICENSE-STATUS.md')), false);
 });
+
+test('optional SigNoz reporting keeps its ingestion key out of tracked configuration', () => {
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const workerConfig = fs.readFileSync(path.join(root, 'wrangler.jsonc'), 'utf8');
+  const deployWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'deploy.yml'), 'utf8');
+  const vars = JSON.parse(workerConfig).vars;
+
+  assert.match(readme, /SIGNOZ_INGESTION_KEY/);
+  assert.match(readme, /SIGNOZ_OTLP_ENDPOINT/);
+  assert.equal(vars.SIGNOZ_INGESTION_KEY, undefined);
+  assert.equal(vars.SIGNOZ_OTLP_ENDPOINT, 'https://ingest.us2.signoz.cloud');
+  assert.match(deployWorkflow, /GEOSCORE_SIGNOZ_INGESTION_KEY:\s*\$\{\{ secrets\.GEOSCORE_SIGNOZ_INGESTION_KEY \}\}/);
+  assert.match(deployWorkflow, /SIGNOZ_INGESTION_KEY:\s*process\.env\.GEOSCORE_SIGNOZ_INGESTION_KEY/);
+  assert.doesNotMatch(workerConfig, /signoz-ingestion-key/i);
+});

@@ -247,6 +247,13 @@ npx wrangler secret put OPENROUTER_API_KEY --config wrangler.generated.jsonc
 | `API_MODEL` | 配合 `API_KEY` | 通用模型 ID |
 | `GROQ_API_KEY` | 否 | 主要外部 LLM 入口，非权威证据 |
 | `OPENROUTER_API_KEY` | 否 | reserve 外部 LLM 入口 |
+| `SIGNOZ_OTLP_ENDPOINT` | 否 | SigNoz OTLP 接入地址；留空即关闭错误上报 |
+| `SIGNOZ_INGESTION_KEY` | 配合 `SIGNOZ_OTLP_ENDPOINT` | 仅服务端使用的 SigNoz ingestion key，只作为 `signoz-ingestion-key` 请求头发送 |
+| `SIGNOZ_SERVICE_NAME` | 否 | 上报给 SigNoz 的 `service.name`，默认为 `sayori-geoscore-api` |
+
+未捕获的请求异常和定时任务失败会作为一条 OpenTelemetry 异常 span 上报到 SigNoz。
+路由自身返回的错误响应不会上报；ingestion key 不会出现在 payload、日志、报告或前端状态中。
+本地开发把这两个值写进 git 忽略的 `.dev.vars`。
 
 需要 billing、OAuth、站点所有权或人工申请的服务见
 [docs/manual-service-actions.md](./docs/manual-service-actions.md)。
@@ -260,6 +267,7 @@ geoscore/
 ├── migrations/      # D1 migrations
 ├── scripts/         # 资源准备、部署和 smoke test
 ├── tests/           # 单元、契约和 fixture 测试
+├── src/modules/legacy/  # 保留但不再执行的模块（审计报告为 skipped）
 └── wrangler.jsonc   # Worker 配置模板
 ```
 
