@@ -12,6 +12,10 @@ interface Window {
     [key: string]: unknown;
   };
   GeoScoreSitePass?: {
+    isActive?: () => boolean;
+    requirePass?: (featureKey?: string) => boolean;
+    getLastStatus?: () => { active?: boolean };
+    getLastDomain?: () => string;
     PAY_URL?: string;
     [key: string]: any;
   };

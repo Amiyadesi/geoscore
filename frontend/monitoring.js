@@ -187,6 +187,18 @@
     async function createProject(form) {
       const auditId = getAuditId();
       if (!auditId || state.busy) return false;
+      if (!globalThis.GeoScoreSitePass?.requirePass?.('audit.sitePass.monitorLocked')) {
+        state = {
+          ...state,
+          busy: false,
+          error: languageMessage(
+            '持续监控需要 Site Pass。',
+            'Continuous monitoring requires a Site Pass.',
+          ),
+        };
+        rerender?.();
+        return false;
+      }
       const email = String(new FormDataRef(form).get('email') || '').trim();
       state = { ...state, busy: true, error: null, message: '' };
       rerender?.();
@@ -391,6 +403,7 @@
       const target = event?.target;
       if (!target?.closest) return false;
       if (target.closest('[data-action="run-monitor-default"]')) {
+        if (!globalThis.GeoScoreSitePass?.requirePass?.('audit.sitePass.monitorLocked')) return;
         void run();
         return true;
       }

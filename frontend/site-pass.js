@@ -5,6 +5,8 @@
   const PAY_URL = 'https://buy.stripe.com/7sY28t61t9OE3WA9ah38400';
   const API = 'https://pay.geo.sayori.org';
   let lastDomain = '';
+  /** @type {any} */
+  let lastStatus = { active: false };
   let pending = null;
 
   function t(key, vars) {
@@ -30,12 +32,33 @@
 
   async function status(domain) {
     const res = await fetch(`${API}/api/site-pass?domain=${encodeURIComponent(domain)}`);
-    if (!res.ok) return { active: false };
-    return res.json();
+    if (!res.ok) return { active: false, domain };
+    const payload = await res.json();
+    return { ...payload, domain };
+  }
+
+  function isActive() {
+    return Boolean(lastStatus?.active);
+  }
+
+  function requirePass(featureKey) {
+    if (isActive()) return true;
+    const { card, body, buy } = els();
+    if (card) card.classList.remove('hidden');
+    if (body) {
+      body.textContent = t(featureKey) || t('audit.sitePass.body');
+    }
+    if (buy && lastDomain) {
+      buy.classList.remove('hidden');
+      buy.textContent = t('audit.sitePass.buy');
+      buy.href = paymentUrl(lastDomain);
+    }
+    return false;
   }
 
   function render(pass, domain) {
     const { card, body, buy } = els();
+    lastStatus = pass || { active: false, domain };
     if (!card) return;
     card.classList.remove('hidden');
     if (pass?.active) {
@@ -78,7 +101,7 @@
     }
     if (!domain || domain === lastDomain && !pending) return;
     lastDomain = domain;
-    pending = status(domain).catch(() => ({ active: false }));
+    pending = status(domain).catch(() => ({ active: false, domain }));
     render(await pending, domain);
     pending = null;
   }
@@ -89,5 +112,16 @@
     if (session?.full_access) render(ownerPass(), lastDomain);
   }
 
-  global.GeoScoreSitePass = { PAY_URL, currentDomain, paymentUrl, status, onAudit, onOwnerSession };
+  global.GeoScoreSitePass = {
+    PAY_URL,
+    currentDomain,
+    paymentUrl,
+    status,
+    onAudit,
+    onOwnerSession,
+    isActive,
+    requirePass,
+    getLastStatus: () => lastStatus,
+    getLastDomain: () => lastDomain,
+  };
 })(window);

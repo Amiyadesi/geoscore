@@ -2279,6 +2279,7 @@ function wireActionButtons(data) {
   if (agentBtn && !agentBtn.dataset.wired) {
     agentBtn.dataset.wired = '1';
     agentBtn.addEventListener('click', () => {
+      if (!window.GeoScoreSitePass?.requirePass?.('audit.sitePass.downloadLocked')) return;
       const orig = agentBtn.innerHTML;
       agentBtn.textContent = uiText('status.building');
       setTimeout(() => {
@@ -2293,7 +2294,10 @@ function wireActionButtons(data) {
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn && !exportBtn.dataset.wired) {
     exportBtn.dataset.wired = '1';
-    exportBtn.addEventListener('click', () => reportExportController.open(data));
+    exportBtn.addEventListener('click', () => {
+      if (!window.GeoScoreSitePass?.requirePass?.('audit.sitePass.downloadLocked')) return;
+      reportExportController.open(data);
+    });
   }
 
   // (shareBtn already wired above — duplicate block removed)

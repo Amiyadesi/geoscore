@@ -3,7 +3,8 @@ import { CF_FAST_CHAT_MODEL, GROQ_CHAT_MODEL, OPENROUTER_CHAT_MODEL } from './li
 import { callLlm, sanitizeLlmProviderError } from './lib/llm';
 import { CITATION_PREDICTOR_SYSTEM, buildCitationPrompt } from './prompts';
 import { fetchWithTimeout } from './lib/http';
-import { auditRateLimit, searchRateLimit, getClientIp, getBrowserFingerprint } from './lib/rate-limit';
+import { auditRateLimit, searchRateLimit, getClientIp, getBrowserFingerprint, DEFAULT_AUDIT_LIMIT } from './lib/rate-limit';
+import { hasActiveSitePass } from './lib/site-pass';
 import { getCachedAudit, cacheKey } from './lib/cache';
 import {
   buildAuditContext,
@@ -156,7 +157,7 @@ const OPTIONAL_ANONYMOUS_MODULES = [
 
 export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
   const parsedLimit = Number.parseInt(env.AUDIT_RATE_LIMIT_PER_HOUR ?? '', 10);
-  const freshAuditLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 8;
+  const freshAuditLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : DEFAULT_AUDIT_LIMIT;
   const informationalChecks = FACTUAL_CHECK_IDS.filter(id => CHECK_SEVERITIES[id] === 'info').length;
   return {
     version: PRODUCT_VERSION,
@@ -198,11 +199,16 @@ export function buildPublicMeta(env: Pick<Env, 'AUDIT_RATE_LIMIT_PER_HOUR'>) {
     capabilities: {
       query_evidence_map: true,
       api_answer_snapshots: true,
-      accountless_monitoring: true,
+      accountless_monitoring: false,
       request_scoped_api_key: true,
       api_key_persistence: 'none' as const,
       consumer_ai_citation_monitoring: false,
-      full_markdown_repair_report: true,
+      full_markdown_repair_report: false,
+      site_pass_required_for: [
+        'monitoring',
+        'full_markdown_repair_report',
+        'shareable_report',
+      ] as const,
       lighthouse_score_merge: true,
       optional_modules_not_run: OPTIONAL_ANONYMOUS_MODULES,
     },
@@ -510,8 +516,11 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       // Cache hits are free — don't consume rate limit quota
       const cached = await getCachedAudit(env, domain, auditOptions);
       if (!cached && !admin) {
-        const { limited, retryAfter } = await auditRateLimit(env, ip, browserFingerprint);
-        if (limited) return rateLimitedResponse(retryAfter);
+        const passActive = await hasActiveSitePass(env, domain);
+        if (!passActive) {
+          const { limited, retryAfter } = await auditRateLimit(env, ip, browserFingerprint);
+          if (limited) return rateLimitedResponse(retryAfter);
+        }
       }
       return handleAudit(domain, env, auditOptions);
     }
@@ -686,6 +695,18 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
       const raw = decodeURIComponent(pathname.replace('/api/share/', ''));
       const domain = parseStrictPublicDomain(raw);
       if (!domain) return jsonError(PUBLIC_DOMAIN_ERROR, 400);
+      if (!admin) {
+        const passActive = await hasActiveSitePass(env, domain);
+        if (!passActive) {
+          return new Response(JSON.stringify({
+            error: 'SITE_PASS_REQUIRED',
+            message: 'A Site Pass is required to load the full shareable report for this domain.',
+          }), {
+            status: 402,
+            headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+          });
+        }
+      }
       try {
         const biz = await env.DB.prepare(
           'SELECT id FROM businesses WHERE domain = ? LIMIT 1'

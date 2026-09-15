@@ -47,6 +47,8 @@ export interface Env {
   SEARCH_GATEWAY_URL?: string;
   DAILY_BROWSER_BUDGET_SECONDS: string;
   AUDIT_RATE_LIMIT_PER_HOUR?: string;
+  /** Base URL for Site Pass status, e.g. https://pay.geo.sayori.org */
+  SITE_PASS_STATUS_URL?: string;
   SEARCH_RATE_LIMIT_PER_MINUTE?: string;
   PUBLIC_APP_URL: string;
   PUBLIC_API_URL: string;
