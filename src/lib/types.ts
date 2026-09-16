@@ -61,6 +61,7 @@ export interface Env {
   GITHUB_CLIENT_SECRET?: string;
   GSC_CLIENT_ID?: string;
   GSC_CLIENT_SECRET?: string;
+  BING_WEBMASTER_API_KEY?: string;
   GOOGLE_API_KEY?: string;
   PAGESPEED_API_KEY?: string;
   OPENPAGERANK_KEY?: string;

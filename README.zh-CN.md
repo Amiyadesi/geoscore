@@ -85,6 +85,9 @@ Search Analytics，并检查 Google 已索引版本；加密后的 owner token �
 申请与配置步骤见
 [docs/manual-service-actions.md](./docs/manual-service-actions.md#google-search-console)。
 
+同一控制台在配置 `BING_WEBMASTER_API_KEY` 后，也会读取 Bing Webmaster Tools
+中的已验证站点、流量和热门查询。API key 与站点验证代码只留在服务端，Bing 数据不改变公开审计分数。
+
 ### 评分原则
 
 分数只使用“已知且适用”的 `pass` / `fail` 检查。`unknown`、provider error 和
@@ -244,6 +247,7 @@ npx wrangler secret put OPENROUTER_API_KEY --config wrangler.generated.jsonc
 | `ADMIN_TOKEN` | 生产建议 | 管理/诊断端点保护 token |
 | `GSC_CLIENT_ID` | 使用站长控制台时必填 | Google Web OAuth client ID；只读 Search Console |
 | `GSC_CLIENT_SECRET` | 使用站长控制台时必填 | Google Web OAuth client secret；仅 Worker secret |
+| `BING_WEBMASTER_API_KEY` | 使用 Bing 站长数据时必填 | Bing Webmaster Tools API key；仅 Worker secret |
 | `GOOGLE_API_KEY` | 否 | Chrome UX Report API key |
 | `PAGESPEED_API_KEY` | 否 | PageSpeed Insights / Lighthouse API key |
 | `OPENPAGERANK_KEY` | 否 | OpenPageRank authority 数据 |

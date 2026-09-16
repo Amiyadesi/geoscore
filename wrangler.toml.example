@@ -83,5 +83,7 @@ SIGNOZ_OTLP_ENDPOINT = ""
 #   wrangler secret put GSC_CLIENT_ID
 # GSC_CLIENT_SECRET — Google Search Console Web OAuth client secret
 #   wrangler secret put GSC_CLIENT_SECRET
+# BING_WEBMASTER_API_KEY — owner-only Bing Webmaster Tools API key
+#   wrangler secret put BING_WEBMASTER_API_KEY
 # ADMIN_TOKEN — existing operator-token fallback for admin diagnostics
 #   wrangler secret put ADMIN_TOKEN

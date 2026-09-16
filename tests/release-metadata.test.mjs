@@ -26,6 +26,7 @@ test('standalone release metadata is public MIT with upstream attribution', () =
   assert.match(deployWorkflow, /CF_TEMP_MAIL_SEND_API_KEY:\s*process\.env\.GEOSCORE_CF_TEMP_MAIL_SEND_API_KEY/);
   assert.match(deployWorkflow, /GSC_CLIENT_ID:\s*process\.env\.GEOSCORE_GSC_CLIENT_ID/);
   assert.match(deployWorkflow, /GSC_CLIENT_SECRET:\s*process\.env\.GEOSCORE_GSC_CLIENT_SECRET/);
+  assert.match(deployWorkflow, /BING_WEBMASTER_API_KEY:\s*process\.env\.GEOSCORE_BING_WEBMASTER_API_KEY/);
   assert.doesNotMatch(readme, /private operational repository|not currently licensed for redistribution/i);
   assert.equal(fs.existsSync(path.join(root, 'LICENSE-STATUS.md')), false);
 });

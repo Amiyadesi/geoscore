@@ -22,6 +22,12 @@ import {
   loadGoogleSearchPerformance,
   saveGscConnection,
 } from '../lib/google-search-console';
+import {
+  bingWebmasterConfigured,
+  BingWebmasterError,
+  listBingWebmasterSites,
+  loadBingWebmasterPerformance,
+} from '../lib/bing-webmaster';
 import type { Env } from '../lib/types';
 
 const JSON_HEADERS = {
@@ -172,6 +178,25 @@ function gscError(error: unknown): Response {
     return json({ error: error.code, message: error.message }, error.status);
   }
   return json({ error: 'GSC_UNAVAILABLE', message: 'Google Search Console is unavailable' }, 502);
+}
+
+function bingError(error: unknown): Response {
+  if (error instanceof BingWebmasterError) {
+    return json({ error: error.code, message: error.message }, error.status);
+  }
+  return json({ error: 'BING_UNAVAILABLE', message: 'Bing Webmaster API is unavailable' }, 502);
+}
+
+async function bingPerformance(req: Request, env: Env): Promise<Response> {
+  const siteUrl = new URL(req.url).searchParams.get('site_url')?.trim() ?? '';
+  if (!siteUrl || siteUrl.length > 2048 || !/^https?:\/\//i.test(siteUrl)) {
+    return json({ error: 'BING_SITE_REQUIRED' }, 400);
+  }
+  try {
+    return json(await loadBingWebmasterPerformance(env, siteUrl));
+  } catch (error) {
+    return bingError(error);
+  }
 }
 
 async function gscConnect(req: Request, env: Env): Promise<Response> {
@@ -400,6 +425,21 @@ export async function handleAdmin(req: Request, env: Env): Promise<Response | nu
     }
     if (pathname === '/api/admin/gsc/performance' && req.method === 'GET') return gscPerformance(req, env);
     if (pathname === '/api/admin/gsc/inspect' && req.method === 'POST') return gscInspect(req, env);
+  }
+  if (pathname.startsWith('/api/admin/bing')) {
+    const denied = await requireAdmin(req, env);
+    if (denied) return denied;
+    if (pathname === '/api/admin/bing/status' && req.method === 'GET') {
+      return json({ configured: bingWebmasterConfigured(env) });
+    }
+    if (pathname === '/api/admin/bing/sites' && req.method === 'GET') {
+      try {
+        return json({ sites: await listBingWebmasterSites(env) });
+      } catch (error) {
+        return bingError(error);
+      }
+    }
+    if (pathname === '/api/admin/bing/performance' && req.method === 'GET') return bingPerformance(req, env);
   }
   if (pathname === '/api/admin/overview' && req.method === 'GET') {
     const denied = await requireAdmin(req, env);

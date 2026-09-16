@@ -271,6 +271,94 @@
     show('gsc-inspection-result', true);
   }
 
+  function renderBingQueries(rows) {
+    const body = $('bing-query-rows');
+    if (!body) return;
+    body.replaceChildren();
+    if (!Array.isArray(rows) || !rows.length) {
+      const row = global.document.createElement('tr');
+      const cell = global.document.createElement('td');
+      cell.colSpan = 5;
+      cell.className = 'py-3 text-center text-slate-400';
+      cell.textContent = '暂无数据';
+      row.append(cell);
+      body.append(row);
+      return;
+    }
+    for (const item of rows) {
+      const row = global.document.createElement('tr');
+      row.className = 'border-b border-slate-50 last:border-0';
+      const values = [
+        item?.query || '—',
+        item?.date || '—',
+        number(item?.clicks),
+        number(item?.impressions),
+        formatDecimal(item?.avg_impression_position, 1),
+      ];
+      for (const value of values) {
+        const cell = global.document.createElement('td');
+        cell.className = 'max-w-[300px] truncate py-2 pr-2 text-slate-700';
+        cell.textContent = String(value);
+        cell.title = String(value);
+        row.append(cell);
+      }
+      body.append(row);
+    }
+  }
+
+  async function loadBingPerformance() {
+    const site = field('bing-site')?.value || '';
+    if (!site) return;
+    showError('bing-error', '');
+    const result = await fetchJson(API + '/api/admin/bing/performance?site_url=' + encodeURIComponent(site));
+    if (!result.response.ok) {
+      showError('bing-error', result.body?.message || '无法读取 Bing Webmaster 数据。');
+      return;
+    }
+    $('bing-clicks').textContent = String(number(result.body?.totals?.clicks));
+    $('bing-impressions').textContent = String(number(result.body?.totals?.impressions));
+    $('bing-range').textContent = (result.body?.start_date || '—') + ' 至 ' + (result.body?.end_date || '—');
+    renderBingQueries(result.body?.queries);
+  }
+
+  async function loadBing() {
+    const statusResult = await fetchJson(API + '/api/admin/bing/status');
+    if (!statusResult.response.ok) {
+      showError('bing-error', statusResult.body?.message || '无法读取 Bing 配置状态。');
+      return;
+    }
+    const configured = Boolean(statusResult.body?.configured);
+    $('bing-status').textContent = configured ? '已配置' : '待配置';
+    show('bing-unconfigured', !configured);
+    show('bing-configured', configured);
+    if (!configured) return;
+
+    const sitesResult = await fetchJson(API + '/api/admin/bing/sites');
+    if (!sitesResult.response.ok) {
+      showError('bing-error', sitesResult.body?.message || '无法读取 Bing 站点。');
+      return;
+    }
+    const sites = Array.isArray(sitesResult.body?.sites) ? sitesResult.body.sites : [];
+    const select = field('bing-site');
+    if (!select) return;
+    select.replaceChildren();
+    for (const site of sites) {
+      const option = global.document.createElement('option');
+      option.value = site.url;
+      option.textContent = site.url + (site.is_verified ? ' · 已验证' : ' · 未验证');
+      option.disabled = !site.is_verified;
+      select.append(option);
+    }
+    const preferred = sites.find(site => site.is_verified && String(site.url).includes('sayori.org'))
+      || sites.find(site => site.is_verified);
+    if (!preferred) {
+      showError('bing-error', '此账号没有已验证的 Bing 站点。');
+      return;
+    }
+    select.value = preferred.url;
+    await loadBingPerformance();
+  }
+
   async function fetchJson(url, options) {
     const response = await global.fetch(url, { credentials: 'include', ...(options || {}) });
     let body = null;
@@ -299,7 +387,7 @@
       }
       if (!overviewResult.response.ok) throw new Error('overview failed');
       renderOverview(overviewResult.body, session.login);
-      await loadGsc();
+      await Promise.all([loadGsc(), loadBing()]);
       showError('admin-dashboard-error', '');
     } catch {
       showError('admin-dashboard-error', '无法加载控制台数据。');
@@ -313,6 +401,8 @@
   $('gsc-load')?.addEventListener('click', loadGscPerformance);
   $('gsc-property')?.addEventListener('change', loadGscPerformance);
   $('gsc-inspect-form')?.addEventListener('submit', inspectGscUrl);
+  $('bing-load')?.addEventListener('click', loadBingPerformance);
+  $('bing-site')?.addEventListener('change', loadBingPerformance);
 
   if (global.document.readyState === 'loading') global.document.addEventListener('DOMContentLoaded', load, { once: true });
   else void load();

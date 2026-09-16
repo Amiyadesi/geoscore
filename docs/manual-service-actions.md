@@ -105,8 +105,8 @@ bounded; confirm current quotas before enabling recurring reports.
 
 ### Bing Webmaster Tools
 
-The API is a second owner-only discovery signal. It is not wired into the
-anonymous audit and should not share one global key across customers.
+The API is a second owner-only discovery signal. GeoScore uses one API key for
+the single-owner private dashboard; it is not wired into the anonymous audit.
 
 1. Sign in to [Bing Webmaster Tools](https://www.bing.com/webmasters) with a
    Microsoft, Google, or Facebook ID.
@@ -114,12 +114,14 @@ anonymous audit and should not share one global key across customers.
 3. Open **Settings → API Access**, accept the terms, and choose **Generate API
    Key**. Microsoft states that one key is issued per user and can cover that
    user's verified sites.
-4. Store the key encrypted per owner. If it is exposed, delete it in the same
-   panel and generate a replacement.
+4. Store it as Worker secret `BING_WEBMASTER_API_KEY` and GitHub Actions secret
+   `GEOSCORE_BING_WEBMASTER_API_KEY`. If exposed, delete it in the same panel and
+   generate a replacement.
 
 See Microsoft's [API access guide](https://learn.microsoft.com/en-us/bingwebmaster/getting-access).
-The codebase currently has no `BING_*` secret; add storage and an owner consent
-flow only when a concrete Bing report is defined.
+The owner dashboard lists only site URL and verification status, then reads
+traffic and top-query statistics. Authentication and DNS verification codes
+returned by Bing are intentionally discarded.
 
 ### DataForSEO SERP API (paid depth, not free audit)
 

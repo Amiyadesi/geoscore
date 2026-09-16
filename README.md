@@ -120,6 +120,11 @@ version of a URL. Encrypted owner tokens and results never enter anonymous audit
 scores. Setup is documented in
 [docs/manual-service-actions.md](./docs/manual-service-actions.md#google-search-console).
 
+The same owner dashboard can read verified sites, traffic, and top-query data
+from Bing Webmaster Tools when `BING_WEBMASTER_API_KEY` is configured. The key
+and Bing verification codes stay server-side; Bing data does not alter public
+audit scores.
+
 ### Retained code that is not run in the anonymous hot path
 
 The repository still contains upstream/legacy modules for keyword generation,
@@ -428,6 +433,9 @@ secret to the Worker secret `SIGNOZ_INGESTION_KEY`.
 | `SEARCH_GATEWAY_URL` | No | URL of the protected Search Gateway used for keyword evidence |
 | `DAILY_BROWSER_BUDGET_SECONDS` | No | Operator-defined daily Browser Run reservation budget |
 | `ADMIN_TOKEN` | Recommended for production | Protects debug/admin endpoints and enables operator-only rate-limit bypass |
+| `GSC_CLIENT_ID` | With owner Search Console | Google Web OAuth client ID |
+| `GSC_CLIENT_SECRET` | With owner Search Console | Google Web OAuth client secret; Worker-only |
+| `BING_WEBMASTER_API_KEY` | With owner Bing dashboard | Bing Webmaster Tools API key; Worker-only |
 | `GOOGLE_API_KEY` | No | Chrome UX Report API key |
 | `PAGESPEED_API_KEY` | No | PageSpeed Insights / Lighthouse API key |
 | `OPENPAGERANK_KEY` | No | OpenPageRank authority data |

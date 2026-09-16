@@ -15,7 +15,7 @@ execFileSync(process.execPath, [
   '--lib', 'ES2022', '--types', '@cloudflare/workers-types', '--skipLibCheck',
   '--rootDir', 'src', '--outDir', tmpDir,
   'src/routes/admin.ts', 'src/lib/security.ts', 'src/lib/admin-auth.ts',
-  'src/lib/google-search-console.ts', 'src/lib/types.ts',
+  'src/lib/google-search-console.ts', 'src/lib/bing-webmaster.ts', 'src/lib/types.ts',
 ], { stdio: 'inherit' });
 
 const require = createRequire(import.meta.url);
@@ -84,6 +84,7 @@ function env(overrides = {}) {
     GITHUB_CLIENT_SECRET: 'client-secret',
     GSC_CLIENT_ID: 'gsc-client-id',
     GSC_CLIENT_SECRET: 'gsc-client-secret',
+    BING_WEBMASTER_API_KEY: 'bing-api-key',
     ADMIN_TOKEN: 'owner-token',
     BUDGET_KV: makeKv(),
     DB: makeDb(),
@@ -271,5 +272,48 @@ describe('admin routes', () => {
     }), current);
     assert.equal(response.status, 200);
     assert.equal((await response.json()).storage_ready, false);
+  });
+
+  it('returns bounded Bing owner data without exposing keys or verification codes', async () => {
+    const current = env();
+    const headers = { Authorization: 'Bearer owner-token' };
+    globalThis.fetch = async input => {
+      const url = new URL(String(input));
+      assert.equal(url.searchParams.get('apikey'), 'bing-api-key');
+      if (url.pathname.endsWith('/GetUserSites')) {
+        return Response.json({ d: [{
+          Url: 'https://blog.sayori.org/',
+          IsVerified: true,
+          AuthenticationCode: 'never-return-auth-code',
+          DnsVerificationCode: 'never-return-dns-code',
+        }] });
+      }
+      if (url.pathname.endsWith('/GetRankAndTrafficStats')) {
+        return Response.json({ d: [{ Date: '/Date(1789516800000+0000)/', Clicks: 7, Impressions: 70 }] });
+      }
+      if (url.pathname.endsWith('/GetQueryStats')) {
+        return Response.json({ d: [{
+          Query: 'geoscore', Date: '/Date(1789516800000+0000)/', Clicks: 5, Impressions: 50,
+          AvgClickPosition: 2, AvgImpressionPosition: 3,
+        }] });
+      }
+      throw new Error('Unexpected fetch: ' + url);
+    };
+
+    const status = await handleAdmin(new Request('https://geo-api.sayori.org/api/admin/bing/status', { headers }), current);
+    assert.deepEqual(await status.json(), { configured: true });
+    const sites = await handleAdmin(new Request('https://geo-api.sayori.org/api/admin/bing/sites', { headers }), current);
+    const sitesText = await sites.text();
+    assert.deepEqual(JSON.parse(sitesText).sites, [{ url: 'https://blog.sayori.org/', is_verified: true }]);
+    assert.doesNotMatch(sitesText, /bing-api-key|AuthenticationCode|DnsVerificationCode|never-return/);
+
+    const performance = await handleAdmin(new Request(
+      'https://geo-api.sayori.org/api/admin/bing/performance?site_url=https%3A%2F%2Fblog.sayori.org%2F',
+      { headers },
+    ), current);
+    const body = await performance.json();
+    assert.deepEqual(body.totals, { clicks: 7, impressions: 70 });
+    assert.equal(body.queries[0].query, 'geoscore');
+    assert.equal(body.queries[0].avg_impression_position, 3);
   });
 });
