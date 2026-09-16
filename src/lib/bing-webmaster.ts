@@ -1,9 +1,9 @@
 import type { Env } from './types';
 
-type BingEnv = Pick<Env, 'BING_WEBMASTER_API_KEY'>;
+type BingEnv = Pick<Env, 'BING_WEBMASTER_API_KEY' | 'SEARCH_GATEWAY_URL' | 'SEARCH_GATEWAY_API_KEY'>;
 type Fetcher = typeof fetch;
 
-const API_BASE = 'https://ssl.bing.com/webmaster/api.svc/json/';
+const API_BASE = 'https://www.bing.com/webmaster/api.svc/json/';
 
 export class BingWebmasterError extends Error {
   constructor(
@@ -39,25 +39,39 @@ function configuredKey(env: BingEnv): string {
 }
 
 async function request(method: string, env: BingEnv, params: Record<string, string>, fetcher: Fetcher): Promise<unknown[]> {
-  const url = new URL(method, API_BASE);
-  for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
-  url.searchParams.set('apikey', configuredKey(env));
+  const gatewayUrl = env.SEARCH_GATEWAY_URL?.trim() ?? '';
+  const gatewayKey = env.SEARCH_GATEWAY_API_KEY?.trim() ?? '';
+  const useGateway = Boolean(gatewayUrl && gatewayKey);
+  const url = useGateway
+    ? new URL('/api/bing-webmaster/' + method, gatewayUrl)
+    : new URL(method, API_BASE);
+  for (const [name, value] of Object.entries(params)) {
+    url.searchParams.set(useGateway && name === 'siteUrl' ? 'site_url' : name, value);
+  }
+  if (!useGateway) url.searchParams.set('apikey', configuredKey(env));
 
   let response: Response;
   try {
-    response = await fetcher(url.toString(), { headers: { Accept: 'application/json' } });
+    response = await fetcher(url.toString(), {
+      headers: {
+        Accept: 'application/json',
+        ...(useGateway ? { 'X-API-Key': gatewayKey } : {}),
+      },
+    });
   } catch {
     throw new BingWebmasterError('BING_UNAVAILABLE', 'Bing Webmaster API is unavailable', 502);
   }
 
+  const rawBody = await response.text();
   let body: Record<string, unknown> = {};
   try {
-    const parsed: unknown = await response.json();
+    const parsed: unknown = JSON.parse(rawBody);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
   } catch {
     // Handled as a malformed upstream response below.
   }
   if (!response.ok) {
+    console.warn('Bing Webmaster upstream request failed', JSON.stringify({ method, status: response.status }));
     const authError = response.status === 401 || response.status === 403;
     throw new BingWebmasterError(
       authError ? 'BING_AUTH_ERROR' : 'BING_UPSTREAM_ERROR',
@@ -72,7 +86,10 @@ async function request(method: string, env: BingEnv, params: Record<string, stri
 }
 
 export function bingWebmasterConfigured(env: BingEnv): boolean {
-  return Boolean(env.BING_WEBMASTER_API_KEY?.trim());
+  return Boolean(
+    env.BING_WEBMASTER_API_KEY?.trim()
+    || (env.SEARCH_GATEWAY_URL?.trim() && env.SEARCH_GATEWAY_API_KEY?.trim()),
+  );
 }
 
 export async function listBingWebmasterSites(env: BingEnv, fetcher: Fetcher = fetch): Promise<Array<{
