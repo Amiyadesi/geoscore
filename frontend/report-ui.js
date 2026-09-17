@@ -1303,7 +1303,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     return `<div class="flex gap-2 text-xs leading-relaxed"><dt class="w-28 shrink-0 text-slate-400">${escapeHtml(label)}</dt><dd class="min-w-0 text-slate-700 break-words">${escapeHtml(value)}</dd></div>`;
   }
 
-  function renderEvidenceSummary(data, lang, uiLang) {
+  function renderEvidenceSummary(data, lang, uiLang, exactReportLocale) {
     const context = normalizeContext(data);
     const pages = normalizePages(data);
     const actions = normalizeActions(data, lang);
@@ -1312,6 +1312,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
 
     const t = copy(lang);
     const ui = copy(uiLang);
+    const reportLocale = exactReportLocale || SHARED_I18N?.getReportLocale?.() || SHARED_I18N?.locale?.(lang) || lang;
     const evidence = (context?.evidence ?? []).map(item => evidenceText(item, lang)).filter(Boolean).slice(0, 4);
     const confidence = formatPercent(context?.confidence ?? scores.confidence);
     const coverage = formatPercent(scores.coverage);
@@ -1394,10 +1395,11 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
           ${scores.scoreVersion ? `<div class="text-[10px] text-slate-400 mt-1">${escapeHtml(t.scoreVersion)} ${escapeHtml(scores.scoreVersion)}</div>` : ''}
           ${limitRows.length ? `<details class="mt-3 rounded-lg border border-amber-200 bg-amber-50" data-disclosure="score-limits"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-amber-800">${escapeHtml(t.scoreLimits)}</summary><ul class="space-y-1 px-3 pb-3">${limitRows.join('')}</ul></details>` : ''}
         </div>
-        <div class="shrink-0 print:hidden" role="group" aria-label="${escapeHtml(ui.reportLanguage)}">
+        <div class="shrink-0 print:hidden" data-no-opencc role="group" aria-label="${escapeHtml(ui.reportLanguage)}">
           <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-            <button type="button" data-report-lang="zh" class="report-lang-btn text-xs font-medium px-2.5 py-1 rounded-md ${language(lang) === 'zh' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}">中文</button>
-            <button type="button" data-report-lang="en" class="report-lang-btn text-xs font-medium px-2.5 py-1 rounded-md ${language(lang) === 'en' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}">EN</button>
+            <button type="button" data-report-lang="zh-Hans" class="report-lang-btn text-xs font-medium px-2.5 py-1 rounded-md ${reportLocale === 'zh-Hans' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}">简体中文</button>
+            <button type="button" data-report-lang="zh-Hant" class="report-lang-btn text-xs font-medium px-2.5 py-1 rounded-md ${reportLocale === 'zh-Hant' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}">繁體中文</button>
+            <button type="button" data-report-lang="en" class="report-lang-btn text-xs font-medium px-2.5 py-1 rounded-md ${reportLocale === 'en' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}">English</button>
           </div>
         </div>
       </div>

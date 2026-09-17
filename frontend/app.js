@@ -5,14 +5,17 @@ const API = window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].i
   : PRODUCTION_API;
 const REPORT_UI = window.GeoScoreReport;
 const I18N = window.GeoScoreI18n;
+const UI_LOCALE = I18N?.getUiLocale?.() ?? I18N?.locale?.(navigator.language) ?? 'en';
 const UI_LANGUAGE = I18N ? I18N.getUiLanguage() : (REPORT_UI?.language(navigator.language) ?? 'en');
-const STORED_REPORT_LANGUAGE = I18N ? I18N.getReportLanguage() : null;
+const STORED_REPORT_LOCALE = I18N?.getReportLocale?.() ?? null;
+const STORED_REPORT_LANGUAGE = STORED_REPORT_LOCALE ? I18N.language(STORED_REPORT_LOCALE) : null;
 let currentAuditId = null;
 let currentDomain = '';
 let currentAuditData = null;
 let currentLighthouseState = null;
 let currentAuditRequest = null;
 let reportLanguage = STORED_REPORT_LANGUAGE || UI_LANGUAGE;
+let reportLocale = STORED_REPORT_LOCALE || UI_LOCALE;
 let reportLanguageManuallySet = Boolean(STORED_REPORT_LANGUAGE);
 let semanticSearchController = null;
 let customApiController = null;
@@ -58,19 +61,19 @@ async function createBrowserFingerprint() {
 const browserFingerprintPromise = createBrowserFingerprint();
 
 function applyUiLanguage() {
-  I18N?.apply?.(document, UI_LANGUAGE);
+  I18N?.apply?.(document, UI_LOCALE);
   I18N?.bindUiLanguageSelect?.(document);
 }
 
 function uiText(key, vars) {
-  return I18N?.t?.(key, vars, UI_LANGUAGE) ?? key;
+  return I18N?.t?.(key, vars, UI_LOCALE) ?? key;
 }
 
 function reportText(key, vars) {
   return I18N?.t?.(key, vars, reportLanguage) ?? key;
 }
 
-document.documentElement.lang = UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en';
+document.documentElement.lang = UI_LOCALE === 'zh-Hans' ? 'zh-CN' : UI_LOCALE === 'zh-Hant' ? 'zh-Hant' : 'en';
 applyUiLanguage();
 document.title = uiText('app.documentTitle');
 window.addEventListener('geoscore:ui-language-change', () => window.location.reload());
@@ -532,6 +535,7 @@ customApiController = window.GeoScoreCustomApi.create({
 reportExportController = window.GeoScoreReportExport.create({
   reportUi: REPORT_UI,
   getReportLanguage: () => reportLanguage,
+  getReportLocale: () => reportLocale,
 });
 
 evidenceMapController = window.GeoScoreEvidenceMap.create({
@@ -640,9 +644,10 @@ document.addEventListener('submit', (event) => {
 document.addEventListener('click', (e) => {
   const languageButton = e.target.closest('[data-report-lang]');
   if (languageButton) {
-    reportLanguage = REPORT_UI?.language(languageButton.dataset.reportLang) ?? 'en';
+    reportLocale = I18N?.locale?.(languageButton.dataset.reportLang) ?? 'en';
+    reportLanguage = REPORT_UI?.language(reportLocale) ?? 'en';
     reportLanguageManuallySet = true;
-    I18N?.setReportLanguage?.(reportLanguage);
+    I18N?.setReportLanguage?.(reportLocale);
     applyReportLanguageLabels();
     renderEvidenceFirstSummary(currentAuditData);
     renderScoreSummaryNote(currentAuditData);
@@ -650,6 +655,7 @@ document.addEventListener('click', (e) => {
     renderEvidenceCheckSummaryBar(currentAuditData);
     updatePerformanceContext(currentAuditData);
     if (currentLighthouseState) renderLighthouseState(currentLighthouseState);
+    if (reportLocale === 'zh-Hant') I18N?.applyTraditional?.(document.getElementById('audit'));
     return;
   }
 
@@ -1335,9 +1341,10 @@ function showAuditShell(domain) {
   currentLighthouseState = null;
   evidenceMapController.reset();
   monitoringController.reset();
-  const savedReportLanguage = I18N?.getReportLanguage?.() ?? null;
-  reportLanguageManuallySet = Boolean(savedReportLanguage);
-  reportLanguage = savedReportLanguage || UI_LANGUAGE;
+  const savedReportLocale = I18N?.getReportLocale?.() ?? null;
+  reportLanguageManuallySet = Boolean(savedReportLocale);
+  reportLocale = savedReportLocale || UI_LOCALE;
+  reportLanguage = I18N?.language?.(reportLocale) ?? UI_LANGUAGE;
   document.getElementById('audit').classList.remove('hidden');
   document.getElementById('scores').classList.add('hidden');
   document.getElementById('score-insight')?.classList.add('hidden');
@@ -1524,7 +1531,7 @@ function setUnavailableScoreCircle(key, context) {
 function renderEvidenceFirstSummary(data) {
   const el = document.getElementById('evidence-summary');
   if (!el || !REPORT_UI || !data) return;
-  const html = REPORT_UI.renderEvidenceSummary(data, reportLanguage, UI_LANGUAGE);
+  const html = REPORT_UI.renderEvidenceSummary(data, reportLanguage, UI_LANGUAGE, reportLocale);
   if (!html) {
     el.innerHTML = '';
     el.classList.add('hidden');
@@ -1950,6 +1957,7 @@ function renderFullAudit(data) {
   evidenceMapController.hydrate(data.evidence_map);
   if (!reportLanguageManuallySet) {
     reportLanguage = REPORT_UI?.inferReportLanguage(data, UI_LANGUAGE) ?? UI_LANGUAGE;
+    reportLocale = reportLanguage === 'zh' ? UI_LOCALE === 'zh-Hant' ? 'zh-Hant' : 'zh-Hans' : 'en';
   }
   applyReportLanguageLabels();
   renderEvidenceFirstSummary(data);
@@ -2192,6 +2200,7 @@ function renderFullAudit(data) {
       bar.classList.remove('hidden');
     }
   }
+  if (reportLocale === 'zh-Hant') I18N?.applyTraditional?.(document.getElementById('audit'));
 
   if (!evidenceAudit && data.modules?.recommendations?.data?.length) {
     renderRecommendations(data.modules.recommendations.data);

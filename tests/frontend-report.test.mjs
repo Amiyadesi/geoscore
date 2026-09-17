@@ -18,7 +18,15 @@ context.globalThis = context;
 vm.runInNewContext(source, context, { filename: 'report-ui.js' });
 const report = context.GeoScoreReport;
 
-const reportExportContext = { Blob, URL };
+const reportExportContext = {
+  Blob,
+  URL,
+  GeoScoreI18n: {
+    toTraditionalMarkdown: value => String(value).split(/(```[\s\S]*?```|`[^`\r\n]+`|https?:\/\/\S+)/g)
+      .map(part => /^(?:`|https?:\/\/)/.test(part) ? part : part.replaceAll('后台', '後臺').replaceAll('检查', '檢查'))
+      .join(''),
+  },
+};
 reportExportContext.globalThis = reportExportContext;
 vm.runInNewContext(reportExportSource, reportExportContext, { filename: 'report-export.js' });
 const reportExport = reportExportContext.GeoScoreReportExport;
@@ -369,6 +377,27 @@ test('primary Markdown download is deterministic while per-item fix packs remain
   assert.match(downloader, /GEOSCORE-REPAIR-\$\{domain\}\.md/);
   assert.doesNotMatch(downloader, /\/api\/fix/);
   assert.match(report.renderEvidenceRecommendations({ recommendations_v2: [{ id: 'seo.title', title: 'Title' }] }, 'en'), /Advanced fix details/);
+});
+
+test('traditional report export converts visible Markdown while preserving code and URLs', () => {
+  const exporter = reportExport.create({
+    reportUi: report,
+    getReportLanguage: () => 'zh',
+    getReportLocale: () => 'zh-Hant',
+    document: {},
+    window: {},
+    Blob,
+    URL,
+  });
+  const markdown = exporter.generateMarkdown({
+    domain: 'example.com',
+    score_summary: { overall: { score: 70 }, seo: { score: 72 }, geo: { score: 68 } },
+    checks: [{ id: 'seo.title', title: '后台检查', status: 'fail', weight: 1, evidence: ['https://example.com/后台'] }],
+    recommendations_v2: [{ id: 'seo.title', title: '后台检查', fix: '`src/后台.js`', verify: '重新检查' }],
+  });
+  assert.match(markdown, /後臺檢查/);
+  assert.match(markdown, /`src\/后台\.js`/);
+  assert.match(markdown, /https:\/\/example\.com\/后台/);
 });
 
 test('formatted report export writes and closes the opened document', () => {

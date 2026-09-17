@@ -16,6 +16,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tailwind.css">
+  <style>html[data-locale-pending] body{visibility:hidden}</style>
+  <script src="locale-bootstrap.js"></script>
   <style>
     .tool-tab.active { background:#2563eb; color:#fff; box-shadow:0 1px 4px rgba(37,99,235,.3); }
     .tool-tab:not(.active) { background:#f8fafc; color:#64748b; }
@@ -46,9 +48,10 @@
       </a>
       <div class="flex items-center gap-3">
         <label class="sr-only" for="ui-language-select" data-i18n="language.label">Language</label>
-        <select id="ui-language-select" data-language-select class="text-xs text-slate-600 border border-slate-200 bg-white rounded-lg px-2 py-1.5" aria-label="Language">
+        <select id="ui-language-select" data-language-select data-no-opencc class="text-xs text-slate-600 border border-slate-200 bg-white rounded-lg px-2 py-1.5" aria-label="Language">
+          <option value="zh-Hans">简体中文</option>
+          <option value="zh-Hant">繁體中文</option>
           <option value="en" data-i18n="language.english">English</option>
-          <option value="zh" data-i18n="language.chinese">中文</option>
         </select>
         <a href="/" data-i18n="tools.audit" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">← Audit tool</a>
         <span data-i18n="tools.title" class="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">Free SEO tools</span>
@@ -533,6 +536,7 @@
     </div>
   </footer>
 
+<script src="opencc-cn2t.js"></script>
 <script src="i18n.js"></script>
 <script src="tools.js" defer></script>
 </body>

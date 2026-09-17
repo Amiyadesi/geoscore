@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "linkedom": "^0.18.9",
+    "opencc-js": "^1.4.2",
     "tldts": "^7.4.8",
     "ulid": "^2.3.0"
   }

@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontend = path.join(here, '..', 'frontend');
 const read = file => fs.readFileSync(path.join(frontend, file), 'utf8');
+const OpenCC = createRequire(import.meta.url)('opencc-js');
 
 function loadI18n({ language = 'en-US', stored = {} } = {}) {
   const values = new Map(Object.entries(stored));
@@ -21,6 +23,7 @@ function loadI18n({ language = 'en-US', stored = {} } = {}) {
       constructor(type, options) { this.type = type; this.detail = options?.detail; }
     },
     dispatchEvent() {},
+    OpenCC,
   };
   context.globalThis = context;
   vm.runInNewContext(read('i18n.js'), context, { filename: 'i18n.js' });
@@ -30,14 +33,16 @@ function loadI18n({ language = 'en-US', stored = {} } = {}) {
 test('UI language follows zh browser locales and persists independently from report language', () => {
   const { i18n, values } = loadI18n({ language: 'zh-TW' });
   assert.equal(i18n.getUiLanguage(), 'zh');
+  assert.equal(i18n.getUiLocale(), 'zh-Hant');
   assert.equal(i18n.getReportLanguage(), null);
 
   i18n.setUiLanguage('en');
   i18n.setReportLanguage('zh-CN');
   assert.equal(values.get('geoscore:ui-language'), 'en');
-  assert.equal(values.get('geoscore:report-language'), 'zh');
+  assert.equal(values.get('geoscore:report-language'), 'zh-Hans');
   assert.equal(i18n.getUiLanguage(), 'en');
   assert.equal(i18n.getReportLanguage(), 'zh');
+  assert.equal(i18n.getReportLocale(), 'zh-Hans');
 });
 
 test('shared catalog localizes product copy and interpolates values', () => {
@@ -53,6 +58,9 @@ test('shared catalog localizes product copy and interpolates values', () => {
   assert.equal(i18n.t('audit.monitor.keyPrivacy', {}, 'en'), 'Used only for this request. It is cleared immediately and is never stored.');
   assert.equal(i18n.t('audit.monitor.emailVerified', {}, 'zh'), '监控邮箱已验证，每周变化提醒已启用。');
   assert.equal(i18n.t('missing.key', {}, 'zh'), 'missing.key');
+  assert.equal(i18n.t('nav.tools', {}, 'zh-Hant'), '免費工具');
+  assert.equal(i18n.toTraditionalMarkdown('后台 `src/后台.js` https://例子.test/后台'), '後臺 `src/后台.js` https://例子.test/后台');
+  assert.deepEqual(Object.keys(i18n.CATALOG.en).sort(), Object.keys(i18n.CATALOG['zh-Hant']).sort());
 });
 
 test('homepage and tools load the shared catalog before their page scripts', () => {
@@ -60,8 +68,14 @@ test('homepage and tools load the shared catalog before their page scripts', () 
   const tools = read('tools.html');
   assert.ok(index.indexOf('src="i18n.js"') < index.indexOf('src="report-ui.js"'));
   assert.ok(tools.indexOf('src="i18n.js"') < tools.indexOf('src="tools.js"'));
+  assert.ok(index.indexOf('src="opencc-cn2t.js"') < index.indexOf('src="i18n.js"'));
+  assert.ok(index.indexOf('src="locale-bootstrap.js"') < index.indexOf('</head>'));
   assert.match(index, /id="ui-language-select"/);
   assert.match(tools, /id="ui-language-select"/);
+  for (const locale of ['zh-Hans', 'zh-Hant', 'en']) {
+    assert.match(index, new RegExp(`option value="${locale}"`));
+    assert.match(tools, new RegExp(`option value="${locale}"`));
+  }
 });
 
 test('frontend CSP permits every declared runtime resource without inline executable config', () => {
@@ -88,7 +102,7 @@ test('app uses persisted UI/report language without removed homepage telemetry',
   const app = read('app.js');
   assert.match(app, /GeoScoreI18n/);
   assert.match(app, /getUiLanguage\(\)/);
-  assert.match(app, /getReportLanguage\(\)/);
+  assert.match(app, /getReportLocale/);
   assert.match(app, /setReportLanguage/);
   assert.doesNotMatch(app, /\/api\/meta|\/api\/stats|geoscore:recent|data-meta-fact/);
 });
@@ -129,7 +143,8 @@ test('static product copy contains no stale facts, ranking promises, or real-cit
 test('report UI consumes the shared catalog and exposes a persistent report-language switch', () => {
   const report = read('report-ui.js');
   assert.match(report, /GeoScoreI18n/);
-  assert.match(report, /data-report-lang="zh"/);
+  assert.match(report, /data-report-lang="zh-Hans"/);
+  assert.match(report, /data-report-lang="zh-Hant"/);
   assert.match(report, /data-report-lang="en"/);
 });
 

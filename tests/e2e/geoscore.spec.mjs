@@ -19,9 +19,18 @@ const UI_COPY = {
     audit: '开始审查',
     customApi: '可选：自定义 API',
   },
+  hant: {
+    lang: 'zh-Hant',
+    title: '檢查網站中可驗證的 SEO 與 GEO 問題',
+    rankingLimit: '分數不預測也不保證排名',
+    docsTitle: '從審查走到可以複驗的修復',
+    audit: '開始審查',
+    customApi: '可選：自定義 API',
+  },
 };
 
 function languageForProject(projectName) {
+  if (projectName.endsWith('-hant')) return 'hant';
   return projectName.endsWith('-zh') ? 'zh' : 'en';
 }
 
@@ -30,7 +39,18 @@ async function waitForActiveSitePass(page) {
   await page.waitForFunction(() => window.GeoScoreSitePass?.isActive?.() === true);
 }
 
-async function mockApi(page) {
+async function mockLocale(page, locale = 'en') {
+  await page.route('https://sayori.org/api/locale', route => route.fulfill({
+    json: { locale },
+    headers: {
+      'Access-Control-Allow-Origin': route.request().headers().origin || 'http://127.0.0.1:4174',
+      'Access-Control-Allow-Credentials': 'true',
+    },
+  }));
+}
+
+async function mockApi(page, locale = 'en') {
+  await mockLocale(page, locale);
   await page.route('https://static.cloudflareinsights.com/**', route => route.fulfill({ status: 204, body: '' }));
   await page.route('https://www.google.com/s2/favicons**', route => route.fulfill({ status: 204, body: '' }));
   // Active Site Pass so download / monitoring create flows stay exercisable in browser CI.
@@ -147,7 +167,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   const copy = UI_COPY[language];
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
-  await mockApi(page);
+  await mockApi(page, language === 'zh' ? 'zh-Hans' : language === 'hant' ? 'zh-Hant' : 'en');
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
@@ -155,6 +175,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   await expect(page.locator('h1')).toHaveText(copy.title);
   await expect(page.locator('#hero-description')).toContainText(copy.rankingLimit);
   await expect(page.locator('#audit-btn')).toContainText(copy.audit);
+  await expect(page.locator('#ui-language-select option')).toHaveText(['简体中文', '繁體中文', 'English']);
   await expect(page.locator('#custom-api-panel > summary')).toContainText(copy.customApi);
   await expect(page.locator('#custom-api-panel')).not.toHaveAttribute('open', '');
   await expect(page.locator('.feature-chip')).toHaveCount(0);
@@ -173,11 +194,13 @@ test('docs follow browser language and fit the viewport', async ({ page }, testI
   const copy = UI_COPY[language];
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
+  await mockLocale(page, language === 'zh' ? 'zh-Hans' : language === 'hant' ? 'zh-Hant' : 'en');
 
   await page.goto('/docs/index.html', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('main article:not([hidden]) h1')).toHaveText(copy.docsTitle);
+  await expect(page.locator('.language-switch button')).toHaveText(['简体中文', '繁體中文', 'English']);
   const activeTaskNav = page.locator('#task-nav nav:not([hidden])');
   await expect(activeTaskNav).toHaveCount(1);
   if (testInfo.project.name.startsWith('mobile-')) {

@@ -3,6 +3,7 @@
 
   const UI_LANGUAGE_KEY = 'geoscore:ui-language';
   const REPORT_LANGUAGE_KEY = 'geoscore:report-language';
+  const SHARED_LANGUAGE_KEY = 'sayori:ui-language';
 
   const EN = {
     'app.documentTitle': 'GeoScore — Evidence-first SEO & GEO Audit',
@@ -834,16 +835,27 @@
     'tools.placeholder.siteName': '你的站点名称',
   };
 
-  const CATALOG = { en: EN, zh: { ...EN, ...ZH } };
+  const convertTraditional = global.OpenCC?.Converter
+    ? global.OpenCC.Converter({ from: 'cn', to: 't' })
+    : value => String(value);
+  const HANT = Object.fromEntries(Object.entries({ ...EN, ...ZH }).map(([key, value]) => [key, toTraditional(value)]));
+  const CATALOG = { en: EN, zh: { ...EN, ...ZH }, 'zh-Hant': HANT };
+
+  function locale(value) {
+    const input = String(value || '').toLowerCase();
+    if (['zh-hant', 'zh-tw', 'zh-hk', 'tw'].includes(input)) return 'zh-Hant';
+    if (['zh-hans', 'zh-cn', 'zh', 'cn'].includes(input)) return 'zh-Hans';
+    return 'en';
+  }
 
   function language(value) {
-    return /^zh(?:-|_|$)/i.test(String(value || '')) ? 'zh' : 'en';
+    return locale(value) === 'en' ? 'en' : 'zh';
   }
 
   function readStorage(key) {
     try {
       const value = global.localStorage?.getItem(key);
-      return value === 'zh' || value === 'en' ? value : null;
+      return value ? locale(value) : null;
     } catch {
       return null;
     }
@@ -855,10 +867,10 @@
 
   function browserLanguage() {
     const value = global.navigator?.languages?.[0] ?? global.navigator?.language ?? 'en';
-    return language(value);
+    return locale(value);
   }
 
-  let uiLanguage = readStorage(UI_LANGUAGE_KEY) ?? browserLanguage();
+  let uiLocale = locale(global.SAYORI_INITIAL_LOCALE || readStorage(SHARED_LANGUAGE_KEY) || readStorage(UI_LANGUAGE_KEY) || browserLanguage());
 
   function interpolate(value, vars) {
     return String(value).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => (
@@ -867,16 +879,26 @@
   }
 
   function t(key, vars, lang) {
-    const selected = language(lang ?? uiLanguage);
+    const selectedLocale = locale(lang ?? uiLocale);
+    const selected = selectedLocale === 'zh-Hans' ? 'zh' : selectedLocale;
     const value = CATALOG[selected][key] ?? CATALOG.en[key] ?? key;
     return interpolate(value, vars);
   }
 
   function getUiLanguage() {
-    return uiLanguage;
+    return language(uiLocale);
+  }
+
+  function getUiLocale() {
+    return uiLocale;
   }
 
   function getReportLanguage() {
+    const stored = readStorage(REPORT_LANGUAGE_KEY);
+    return stored ? language(stored) : null;
+  }
+
+  function getReportLocale() {
     return readStorage(REPORT_LANGUAGE_KEY);
   }
 
@@ -886,17 +908,22 @@
   }
 
   function setUiLanguage(value) {
-    uiLanguage = language(value);
-    writeStorage(UI_LANGUAGE_KEY, uiLanguage);
-    if (global.document) apply(global.document, uiLanguage);
-    emit('geoscore:ui-language-change', { language: uiLanguage });
-    return uiLanguage;
+    uiLocale = locale(value);
+    writeStorage(UI_LANGUAGE_KEY, uiLocale);
+    writeStorage(SHARED_LANGUAGE_KEY, uiLocale);
+    if (global.document) {
+      global.document.cookie = `sayori_locale=${encodeURIComponent(uiLocale)}; Domain=.sayori.org; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
+      global.document.cookie = 'sayori_locale_auto=; Domain=.sayori.org; Path=/; Max-Age=0; SameSite=Lax; Secure';
+      apply(global.document, uiLocale);
+    }
+    emit('geoscore:ui-language-change', { language: language(uiLocale), locale: uiLocale });
+    return uiLocale;
   }
 
   function setReportLanguage(value) {
-    const selected = language(value);
+    const selected = locale(value);
     writeStorage(REPORT_LANGUAGE_KEY, selected);
-    emit('geoscore:report-language-change', { language: selected });
+    emit('geoscore:report-language-change', { language: language(selected), locale: selected });
     return selected;
   }
 
@@ -906,7 +933,7 @@
 
   function apply(root, lang) {
     if (!root?.querySelectorAll) return;
-    const selected = language(lang ?? uiLanguage);
+    const selected = locale(lang ?? uiLocale);
     const translate = (selector, attribute, html) => {
       root.querySelectorAll(selector).forEach(element => {
         const key = element.getAttribute(attribute);
@@ -923,17 +950,53 @@
       translate(`[data-i18n-${attribute}]`, `data-i18n-${attribute}`, false);
     }
     root.querySelectorAll('[data-language-select]').forEach(select => { select.value = selected; });
-    if (root.documentElement) root.documentElement.lang = selected === 'zh' ? 'zh-CN' : 'en';
+    if (selected === 'zh-Hant') applyTraditional(root);
+    if (root.documentElement) root.documentElement.lang = selected === 'zh-Hans' ? 'zh-CN' : selected === 'zh-Hant' ? 'zh-Hant' : 'en';
   }
 
   function bindUiLanguageSelect(root) {
     if (!root?.querySelectorAll) return;
     root.querySelectorAll('[data-language-select]').forEach(select => {
-      select.value = uiLanguage;
+      select.value = uiLocale;
       if (select.dataset.languageBound === 'true') return;
       select.dataset.languageBound = 'true';
       select.addEventListener('change', () => setUiLanguage(select.value));
     });
+  }
+
+  function toTraditional(value) {
+    return String(value ?? '').split(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|(?:[A-Za-z]:\\|\/)\S+)/g)
+      .map(part => /^(?:https?:\/\/|www\.|[A-Za-z]:\\|\/)/.test(part) ? part : convertTraditional(part))
+      .join('');
+  }
+
+  function toTraditionalMarkdown(value) {
+    return String(value ?? '').split(/(```[\s\S]*?```|`[^`\r\n]+`)/g)
+      .map(part => part.startsWith('`') ? part : toTraditional(part))
+      .join('');
+  }
+
+  function applyTraditional(root) {
+    if (!root?.querySelectorAll) return;
+    const walker = global.document?.createTreeWalker?.(root, global.NodeFilter?.SHOW_TEXT ?? 4);
+    if (!walker) return;
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      if (node.parentElement?.closest('script,style,code,pre,textarea,input,[data-no-opencc]')) continue;
+      node.nodeValue = toTraditional(node.nodeValue);
+    }
+  }
+
+  if (uiLocale === 'zh-Hant' && global.MutationObserver && global.document?.body) {
+    new global.MutationObserver(records => {
+      for (const record of records) {
+        for (const node of Array.from(record.addedNodes)) {
+          if (node.nodeType === 3) node.nodeValue = toTraditional(node.nodeValue);
+          else applyTraditional(node);
+        }
+      }
+    }).observe(global.document.body, { childList: true, subtree: true });
   }
 
   global.GeoScoreI18n = {
@@ -944,11 +1007,17 @@
     bindUiLanguageSelect,
     browserLanguage,
     clearReportLanguage,
+    getReportLocale,
     getReportLanguage,
+    getUiLocale,
     getUiLanguage,
     language,
+    locale,
+    applyTraditional,
     setReportLanguage,
     setUiLanguage,
     t,
+    toTraditional,
+    toTraditionalMarkdown,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

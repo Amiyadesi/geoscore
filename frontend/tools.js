@@ -4,11 +4,12 @@ const LOCAL_API = 'http://127.0.0.1:8787';
 const API = window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? LOCAL_API
   : PRODUCTION_API;
+const UI_LOCALE = I18N?.getUiLocale?.() ?? I18N?.locale?.(navigator.language) ?? 'en';
 const UI_LANGUAGE = I18N?.getUiLanguage?.() ?? (/^zh(?:-|_|$)/i.test(navigator.language) ? 'zh' : 'en');
-const text = (key, vars) => I18N?.t?.(key, vars, UI_LANGUAGE) ?? key;
+const text = (key, vars) => I18N?.t?.(key, vars, UI_LOCALE) ?? key;
 
-document.documentElement.lang = UI_LANGUAGE === 'zh' ? 'zh-CN' : 'en';
-I18N?.apply?.(document, UI_LANGUAGE);
+document.documentElement.lang = UI_LOCALE === 'zh-Hans' ? 'zh-CN' : UI_LOCALE === 'zh-Hant' ? 'zh-Hant' : 'en';
+I18N?.apply?.(document, UI_LOCALE);
 I18N?.bindUiLanguageSelect?.(document);
 document.title = text('tools.documentTitle');
 window.addEventListener('geoscore:ui-language-change', () => window.location.reload());
