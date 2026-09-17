@@ -32,15 +32,15 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250510.0",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.63.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.4.5",
-    "wrangler": "^4.90.0"
+    "wrangler": "^4.131.2"
   },
   "dependencies": {
-    "linkedom": "^0.18.9",
+    "linkedom": "^0.18.13",
     "opencc-js": "^1.4.2",
-    "tldts": "^7.4.8",
+    "tldts": "^7.4.13",
     "ulid": "^2.3.0"
   }
 }
