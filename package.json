@@ -31,7 +31,7 @@
     "deploy:pages": "npm run build:css && wrangler pages deploy frontend --project-name=sayori-geoscore --branch main"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250510.0",
+    "@cloudflare/workers-types": "^5.20260911.1",
     "@playwright/test": "^1.61.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.4.5",
