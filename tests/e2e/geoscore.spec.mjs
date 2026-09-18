@@ -45,6 +45,9 @@ async function waitForActiveSitePass(page) {
 }
 
 async function mockLocale(page, locale = 'en') {
+  await page.addInitScript(value => {
+    window.localStorage.setItem('sayori:ui-language', value);
+  }, locale);
   await page.route('https://sayori.org/api/locale', route => route.fulfill({
     json: { locale },
     headers: {
