@@ -34,6 +34,11 @@ function languageForProject(projectName) {
   return projectName.endsWith('-zh') ? 'zh' : 'en';
 }
 
+async function gotoWhenLocaleReady(page, url) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !document.documentElement.hasAttribute('data-locale-pending'));
+}
+
 
 async function waitForActiveSitePass(page) {
   await page.waitForFunction(() => window.GeoScoreSitePass?.isActive?.() === true);
@@ -169,7 +174,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page, language === 'zh' ? 'zh-Hans' : language === 'hant' ? 'zh-Hant' : 'en');
 
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/');
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('h1')).toHaveText(copy.title);
@@ -196,7 +201,7 @@ test('docs follow browser language and fit the viewport', async ({ page }, testI
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockLocale(page, language === 'zh' ? 'zh-Hans' : language === 'hant' ? 'zh-Hant' : 'en');
 
-  await page.goto('/docs/index.html', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/docs/index.html');
 
   await expect(page.locator('html')).toHaveAttribute('lang', copy.lang);
   await expect(page.locator('main article:not([hidden]) h1')).toHaveText(copy.docsTitle);
@@ -220,7 +225,7 @@ test('owner console shows bounded Search Console setup and fits the viewport', a
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockAdminApi(page);
-  await page.goto('/admin.html', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/admin.html');
 
   await expect(page.locator('#admin-dashboard')).toBeVisible();
   await expect(page.locator('#gsc-unconfigured')).toBeVisible();
@@ -234,7 +239,7 @@ test('owner console distinguishes a missing Search Console migration', async ({ 
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockAdminApi(page, { storageReady: false });
-  await page.goto('/admin.html', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/admin.html');
 
   await expect(page.locator('#gsc-migration-needed')).toBeVisible();
   await expect(page.locator('#gsc-status')).toHaveText('需迁移');
@@ -246,7 +251,7 @@ test('audit renders deterministic evidence and extracted controllers remain inte
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page);
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/');
 
   await page.locator('#search-input').fill('example.com');
   await page.locator('#audit-btn').click();
@@ -277,7 +282,7 @@ test('shared audit reveals the report and primary Markdown download', async ({ p
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page);
 
-  await page.goto('/?share=example.com', { waitUntil: 'domcontentloaded' });
+  await gotoWhenLocaleReady(page, '/?share=example.com');
 
   await expect(page.locator('#audit')).toBeVisible();
   await expect(page.locator('#domain-name')).toHaveText('example.com');
