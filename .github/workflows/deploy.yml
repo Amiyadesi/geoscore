@@ -18,7 +18,7 @@ jobs:
     outputs:
       frontend: ${{ steps.changes.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: changes
@@ -46,7 +46,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GEOSCORE_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.GEOSCORE_CF_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -95,7 +95,7 @@ jobs:
       GEOSCORE_OPENROUTER_API_KEY: ${{ secrets.GEOSCORE_OPENROUTER_API_KEY }}
       GEOSCORE_SIGNOZ_INGESTION_KEY: ${{ secrets.GEOSCORE_SIGNOZ_INGESTION_KEY }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Check deployment credentials
         id: cloudflare
         shell: bash
