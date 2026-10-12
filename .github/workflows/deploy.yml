@@ -13,8 +13,59 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: changes
+        env:
+          BEFORE: ${{ github.event.before }}
+        shell: bash
+        run: |
+          frontend=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${BEFORE}" =~ ^[0-9a-f]{40}$ && ! "${BEFORE}" =~ ^0+$ ]]; then
+            changed="$(git diff --name-only "${BEFORE}" "${GITHUB_SHA}")"
+            if grep -qE '^(frontend/|ui-worker/)' <<< "${changed}" &&
+              ! grep -qvE '^(frontend/|ui-worker/|tests/(frontend-[^/]+|ui-worker)\.test\.mjs$|\.github/workflows/deploy\.yml$)' <<< "${changed}"; then
+              frontend=true
+            fi
+          fi
+          echo "frontend=${frontend}" >> "${GITHUB_OUTPUT}"
+
+  frontend:
+    name: Verify and deploy frontend only
+    needs: scope
+    if: needs.scope.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GEOSCORE_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.GEOSCORE_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: node --test tests/frontend*.test.mjs tests/ui-worker.test.mjs
+      - run: npm run deploy:pages
+      - run: npm run deploy:ui-worker:no-routes
+      - name: Check public response status
+        shell: bash
+        run: |
+          curl -fsS --max-time 30 https://geo.sayori.org/ >/dev/null
+          test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' -H 'Accept: text/html' https://geo.sayori.org/__missing_deployment_check)" = 404
+
   deploy:
     name: Deploy geo.sayori.org
+    needs: scope
+    if: needs.scope.outputs.frontend != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

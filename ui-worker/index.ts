@@ -22,13 +22,7 @@ export default {
 
     const upstreamOrigin = normalizeUpstream(env.UPSTREAM_ORIGIN);
     const upstreamUrl = buildUpstreamUrl(upstreamOrigin, url);
-    let response = await fetch(upstreamUrl, proxyRequest(request));
-
-    if (response.status === 404 && acceptsHtml(request)) {
-      const fallbackUrl = new URL('/index.html', upstreamOrigin);
-      fallbackUrl.search = url.search;
-      response = await fetch(fallbackUrl, proxyRequest(request));
-    }
+    const response = await fetch(upstreamUrl, proxyRequest(request));
 
     return withHeaders(response);
   },
@@ -66,11 +60,6 @@ function proxyRequest(request: Request): RequestInit {
     headers,
     redirect: 'follow',
   };
-}
-
-function acceptsHtml(request: Request): boolean {
-  const accept = request.headers.get('Accept') || '';
-  return accept.includes('text/html') || accept.includes('*/*');
 }
 
 function withHeaders(response: Response): Response {

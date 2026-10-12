@@ -44,3 +44,11 @@ test('UI worker maps the clean docs route to the static docs entrypoint', async 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('X-GeoScore-UI-Proxy'), 'sayori-geoscore-ui');
 });
+
+test('missing pages preserve the upstream 404 instead of becoming a soft 404', async () => {
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response('Not found', { status: 404 }); };
+  const response = await worker.fetch(new Request('https://geo.sayori.org/missing', { headers: { Accept: 'text/html' } }), { UPSTREAM_ORIGIN: 'https://sayori-geoscore.pages.dev' });
+  assert.equal(response.status, 404);
+  assert.equal(calls, 1);
+});

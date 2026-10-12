@@ -67,16 +67,15 @@
     return;
   }
 
-  global.document.documentElement.dataset.localePending = 'true';
-  global.SAYORI_LOCALE_READY = global.fetch('https://sayori.org/api/locale', { credentials: 'include' })
+  const browserLocale = finish(global.navigator.languages?.[0] || global.navigator.language || 'en');
+  global.SAYORI_LOCALE_READY = global.fetch('https://sayori.org/api/locale', { credentials: 'include', signal: AbortSignal.timeout(2000) })
     .then(response => response.ok ? response.json() : Promise.reject(new Error('locale unavailable')))
     .then(data => {
       const selected = locale(data.locale);
       saveAutomatic(selected);
-      const initialized = Boolean(global.GeoScoreI18n);
-      finish(selected);
-      if (initialized) global.location.reload();
-      return selected;
+      // Keep an active form intact; use late detection on the next page visit.
+      if (global.GeoScoreI18n || global.document.readyState !== 'loading') return global.SAYORI_INITIAL_LOCALE;
+      return finish(selected);
     })
-    .catch(() => finish(global.navigator.languages?.[0] || global.navigator.language || 'en'));
+    .catch(() => browserLocale);
 })(typeof window !== 'undefined' ? window : globalThis);
