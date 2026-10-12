@@ -29,7 +29,7 @@ jobs:
           frontend=false
           if [[ "${GITHUB_EVENT_NAME}" == "push" && "${BEFORE}" =~ ^[0-9a-f]{40}$ && ! "${BEFORE}" =~ ^0+$ ]]; then
             changed="$(git diff --name-only "${BEFORE}" "${GITHUB_SHA}")"
-            if grep -qE '^(frontend/|ui-worker/)' <<< "${changed}" &&
+            if [[ -n "${changed}" ]] &&
               ! grep -qvE '^(frontend/|ui-worker/|tests/(frontend-[^/]+|ui-worker)\.test\.mjs$|\.github/workflows/deploy\.yml$)' <<< "${changed}"; then
               frontend=true
             fi
@@ -59,8 +59,15 @@ jobs:
       - name: Check public response status
         shell: bash
         run: |
-          curl -fsS --max-time 30 https://geo.sayori.org/ >/dev/null
-          test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' -H 'Accept: text/html' https://geo.sayori.org/__missing_deployment_check)" = 404
+          for attempt in 1 2 3 4 5 6; do
+            home="$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' https://geo.sayori.org/)" || home=000
+            missing="$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -H 'Accept: text/html' https://geo.sayori.org/__missing_deployment_check)" || missing=000
+            echo "Propagation check ${attempt}: home=${home}, missing=${missing}"
+            if [[ "${home}" == 200 && "${missing}" == 404 ]]; then exit 0; fi
+            if [[ "${attempt}" -lt 6 ]]; then sleep 10; fi
+          done
+          echo "::error::Custom domain did not serve the expected home and 404 responses."
+          exit 1
 
   deploy:
     name: Deploy geo.sayori.org
