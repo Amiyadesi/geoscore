@@ -29,16 +29,34 @@
       button.setAttribute('aria-pressed', String(button.dataset.language === selected));
     });
     document.title = selected === 'en' ? 'GeoScore Docs' : selected === 'zh-Hant' ? 'GeoScore 文件' : 'GeoScore 文档';
-    if (selected === 'zh-Hant') {
-      const convert = window.OpenCC?.Converter?.({ from: 'cn', to: 't' });
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      const nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach(node => {
-        if (!node.parentElement?.closest('[data-doc-lang="zh"],.language-switch') || node.parentElement?.closest('code,pre,script,style,[data-no-opencc]')) return;
-        node.nodeValue = convert?.(node.nodeValue) ?? node.nodeValue;
-      });
+    if (selected === 'zh-Hant') convertToTraditional();
+  }
+
+  function convertToTraditional() {
+    const convert = window.OpenCC?.Converter?.({ from: 'cn', to: 't' });
+    if (!convert) {
+      loadConverter();
+      return;
     }
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      if (!node.parentElement?.closest('[data-doc-lang="zh"],.language-switch') || node.parentElement?.closest('code,pre,script,style,[data-no-opencc]')) return;
+      node.nodeValue = convert(node.nodeValue);
+    });
+  }
+
+  // locale-bootstrap.js loads the converter up front for zh-Hant visitors; this
+  // covers a locale that was only detected after the page started loading.
+  let converterRequested = false;
+  function loadConverter() {
+    if (converterRequested) return;
+    converterRequested = true;
+    const script = document.createElement('script');
+    script.src = '/opencc-cn2t.js';
+    script.onload = () => { if (window.OpenCC?.Converter) convertToTraditional(); };
+    document.head.appendChild(script);
   }
 
   document.querySelectorAll('[data-language]').forEach(button => {

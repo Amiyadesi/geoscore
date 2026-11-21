@@ -5,6 +5,8 @@
   const AUTO_COOKIE = 'sayori_locale_auto';
   const SHARED_STORAGE = 'sayori:ui-language';
   const LEGACY_STORAGE = 'geoscore:ui-language';
+  const REPORT_STORAGE = 'geoscore:report-language';
+  const CONVERTER_URL = '/opencc-cn2t.js';
 
   function locale(value) {
     const input = String(value || '').toLowerCase();
@@ -45,6 +47,17 @@
     return selected;
   }
 
+  // The Simplified-to-Traditional converter is over 1 MB, so only pages that will
+  // show Traditional Chinese fetch it. It stays parser-blocking for them because
+  // i18n.js builds its Traditional catalog while it loads; i18n.js fetches it
+  // itself when the locale is only known later.
+  function loadConverter(selected) {
+    const doc = global.document;
+    if (selected !== 'zh-Hant' && locale(readStorage(REPORT_STORAGE)) !== 'zh-Hant') return;
+    if (global.OpenCC || doc.readyState !== 'loading' || typeof doc.write !== 'function') return;
+    doc.write(`<script src="${CONVERTER_URL}"><\/script>`);
+  }
+
   let query = '';
   try {
     const url = new URL(global.location.href);
@@ -62,12 +75,13 @@
   if (!manual && legacy) saveManual(locale(legacy));
   const immediate = query || manual || legacy || cookie(AUTO_COOKIE);
   if (immediate) {
-    finish(immediate);
+    loadConverter(finish(immediate));
     global.SAYORI_LOCALE_READY = Promise.resolve(global.SAYORI_INITIAL_LOCALE);
     return;
   }
 
   const browserLocale = finish(global.navigator.languages?.[0] || global.navigator.language || 'en');
+  loadConverter(browserLocale);
   global.SAYORI_LOCALE_READY = global.fetch('https://sayori.org/api/locale', { credentials: 'include', signal: AbortSignal.timeout(2000) })
     .then(response => response.ok ? response.json() : Promise.reject(new Error('locale unavailable')))
     .then(data => {

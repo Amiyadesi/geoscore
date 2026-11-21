@@ -34,6 +34,14 @@ function languageForProject(projectName) {
   return projectName.endsWith('-zh') ? 'zh' : 'en';
 }
 
+function trackConverterRequests(page) {
+  const requests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/opencc-cn2t.js') requests.push(request.url());
+  });
+  return requests;
+}
+
 async function gotoWhenLocaleReady(page, url) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !document.documentElement.hasAttribute('data-locale-pending'));
@@ -176,6 +184,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await mockApi(page, language === 'zh' ? 'zh-Hans' : language === 'hant' ? 'zh-Hant' : 'en');
+  const converterRequests = trackConverterRequests(page);
 
   await gotoWhenLocaleReady(page, '/');
 
@@ -194,6 +203,7 @@ test('homepage follows browser language and fits the viewport', async ({ page },
   await page.locator('#custom-api-panel > summary').click();
   await expect(page.locator('#custom-api-key')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(converterRequests).toHaveLength(language === 'hant' ? 1 : 0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -277,6 +287,28 @@ test('audit renders deterministic evidence and extracted controllers remain inte
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('a Traditional report on a non-Traditional page fetches the converter on demand', async ({ page }, testInfo) => {
+  test.skip(languageForProject(testInfo.project.name) === 'hant', 'zh-Hant pages load the converter up front');
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+  await mockApi(page);
+  const converterRequests = trackConverterRequests(page);
+
+  await gotoWhenLocaleReady(page, '/?share=example.com');
+  await expect(page.locator('#audit')).toBeVisible();
+  expect(converterRequests).toHaveLength(0);
+
+  await page.locator('[data-report-lang="zh-Hans"]').click();
+  await expect(page.locator('#audit')).toContainText('证据');
+  expect(converterRequests).toHaveLength(0);
+
+  await page.locator('[data-report-lang="zh-Hant"]').click();
+  await expect(page.locator('#audit')).toContainText('證據');
+  await expect(page.locator('#audit')).not.toContainText('证据');
+  expect(converterRequests).toHaveLength(1);
   expect(runtimeErrors).toEqual([]);
 });
 
