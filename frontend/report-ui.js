@@ -521,8 +521,8 @@
     return n === null ? null : `${Math.round(n)}%`;
   }
 
-  function firstDefined() {
-    for (const value of arguments) {
+  function firstDefined(...values) {
+    for (const value of values) {
       if (value !== undefined && value !== null) return value;
     }
     return null;
