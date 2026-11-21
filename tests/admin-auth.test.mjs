@@ -13,6 +13,7 @@ execFileSync(
   process.execPath,
   [
     path.join('node_modules', 'typescript', 'bin', 'tsc'),
+    '--ignoreConfig',
     '--target', 'ES2022',
     '--module', 'ES2022',
     '--moduleResolution', 'bundler',

@@ -11,7 +11,8 @@ fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"type":"commonjs"}\n');
 fs.symlinkSync(path.resolve('node_modules'), path.join(tmpDir, 'node_modules'), 'junction');
 execFileSync(process.execPath, [
   path.join('node_modules', 'typescript', 'bin', 'tsc'),
-  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'node',
+  '--ignoreConfig',
+  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'bundler',
   '--lib', 'ES2022', '--types', '@cloudflare/workers-types', '--skipLibCheck',
   '--rootDir', 'src', '--outDir', tmpDir,
   'src/routes/admin.ts', 'src/lib/security.ts', 'src/lib/admin-auth.ts',

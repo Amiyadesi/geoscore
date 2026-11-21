@@ -135,9 +135,10 @@ function compileAuditCore() {
   fs.symlinkSync(path.resolve('node_modules'), path.join(output, 'node_modules'), 'junction');
   execFileSync(process.execPath, [
     path.join('node_modules', 'typescript', 'bin', 'tsc'),
+    '--ignoreConfig',
     '--target', 'ES2022',
     '--module', 'CommonJS',
-    '--moduleResolution', 'node',
+    '--moduleResolution', 'bundler',
     '--esModuleInterop',
     '--lib', 'ES2022',
     '--types', '@cloudflare/workers-types',

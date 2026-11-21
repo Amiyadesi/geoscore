@@ -10,7 +10,8 @@ const root = path.resolve(import.meta.dirname, '..');
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geoscore-site-pass-'));
 execFileSync(process.execPath, [
   path.join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
-  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'node',
+  '--ignoreConfig',
+  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'bundler',
   '--lib', 'ES2022', '--types', '@cloudflare/workers-types', '--strict', '--skipLibCheck',
   '--outDir', outDir,
   'src/lib/site-pass.ts', 'src/lib/types.ts', 'src/lib/rate-limit.ts',
