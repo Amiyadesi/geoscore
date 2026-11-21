@@ -52,7 +52,7 @@ export async function handleFeedback(req: Request, env: Env): Promise<Response> 
         try {
           const embedding = await env.AI.run('@cf/baai/bge-small-en-v1.5', {
             text: body.reported_value,
-          } as Parameters<typeof env.AI.run>[1]) as { data: number[][] };
+          }) as unknown as { data: number[][] };
 
           if (embedding?.data?.[0]) {
             const vectorId = `${domain}-${Date.now()}`;
