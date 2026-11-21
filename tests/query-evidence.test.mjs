@@ -13,9 +13,10 @@ execFileSync(
   process.execPath,
   [
     path.join('node_modules', 'typescript', 'bin', 'tsc'),
+    '--ignoreConfig',
     '--target', 'ES2022',
     '--module', 'CommonJS',
-    '--moduleResolution', 'node',
+    '--moduleResolution', 'bundler',
     '--lib', 'ES2022',
     '--types', '@cloudflare/workers-types',
     '--skipLibCheck',

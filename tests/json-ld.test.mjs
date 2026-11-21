@@ -10,9 +10,10 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geoscore-json-ld-'));
 fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"type":"commonjs"}\n');
 execFileSync(process.execPath, [
   path.join('node_modules', 'typescript', 'bin', 'tsc'),
+  '--ignoreConfig',
   '--target', 'ES2022',
   '--module', 'CommonJS',
-  '--moduleResolution', 'node',
+  '--moduleResolution', 'bundler',
   '--lib', 'ES2022',
   '--skipLibCheck',
   '--rootDir', 'src',

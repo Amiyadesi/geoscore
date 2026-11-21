@@ -9,7 +9,8 @@ import test from 'node:test';
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geoscore-rate-limit-'));
 execFileSync(process.execPath, [
   path.join('node_modules', 'typescript', 'bin', 'tsc'),
-  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'node',
+  '--ignoreConfig',
+  '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'bundler',
   '--lib', 'ES2022', '--types', '@cloudflare/workers-types', '--strict', '--skipLibCheck',
   '--outDir', outDir, 'src/lib/rate-limit.ts', 'src/lib/types.ts',
 ], { stdio: 'inherit' });
