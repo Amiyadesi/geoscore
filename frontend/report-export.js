@@ -462,6 +462,16 @@ ${dnsBlock}
 }
 
 function downloadAgentMarkdown(data) {
+  // Right after a switch to a Traditional report its converter may still be loading.
+  const i18n = global.GeoScoreI18n;
+  if (getReportLocale() === 'zh-Hant' && i18n?.traditionalReady && !i18n.traditionalReady()) {
+    i18n.ensureTraditional().then(() => saveAgentMarkdown(data));
+    return;
+  }
+  saveAgentMarkdown(data);
+}
+
+function saveAgentMarkdown(data) {
   const md = generateAgentMarkdown(data);
   const domain = (data?.domain ?? 'site').replace(/[^a-z0-9.-]/gi, '-');
   const blob = new BlobRef([md], { type: 'text/markdown;charset=utf-8' });

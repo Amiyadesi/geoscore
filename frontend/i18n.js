@@ -835,11 +835,42 @@
     'tools.placeholder.siteName': '你的站点名称',
   };
 
-  const convertTraditional = global.OpenCC?.Converter
-    ? global.OpenCC.Converter({ from: 'cn', to: 't' })
-    : value => String(value);
-  const HANT = Object.fromEntries(Object.entries({ ...EN, ...ZH }).map(([key, value]) => [key, toTraditional(value)]));
-  const CATALOG = { en: EN, zh: { ...EN, ...ZH }, 'zh-Hant': HANT };
+  // The converter script is only fetched for Traditional Chinese: locale-bootstrap.js
+  // loads it ahead of this file when the page starts in zh-Hant, and
+  // ensureTraditional() fetches it when Traditional is first needed later.
+  const CONVERTER_URL = (() => {
+    // Beside this script, so pages opened from disk find it too.
+    try {
+      const script = global.document.currentScript;
+      return new URL('opencc-cn2t.js', new URL(script.getAttribute('src'), global.document.baseURI)).href;
+    } catch { return '/opencc-cn2t.js'; }
+  })();
+  let converter = null;
+  let converterLoading = null;
+  let converterAttempts = 0;
+  const pendingRoots = new Set();
+
+  function traditionalReady() {
+    if (!converter && global.OpenCC?.Converter) converter = global.OpenCC.Converter({ from: 'cn', to: 't' });
+    return Boolean(converter);
+  }
+
+  function convertTraditional(value) {
+    return traditionalReady() ? converter(value) : String(value);
+  }
+
+  const ZH_CATALOG = { ...EN, ...ZH };
+  let hantCatalog = null;
+  const CATALOG = {
+    en: EN,
+    zh: ZH_CATALOG,
+    // Simplified copy stands in until the converter has loaded.
+    get 'zh-Hant'() {
+      if (!traditionalReady()) return ZH_CATALOG;
+      hantCatalog ??= Object.fromEntries(Object.entries(ZH_CATALOG).map(([key, value]) => [key, toTraditional(value)]));
+      return hantCatalog;
+    },
+  };
 
   function locale(value) {
     const input = String(value || '').toLowerCase();
@@ -922,6 +953,7 @@
 
   function setReportLanguage(value) {
     const selected = locale(value);
+    if (selected === 'zh-Hant') ensureTraditional();
     writeStorage(REPORT_LANGUAGE_KEY, selected);
     emit('geoscore:report-language-change', { language: language(selected), locale: selected });
     return selected;
@@ -976,8 +1008,57 @@
       .join('');
   }
 
+  /** Resolves true once the converter is usable, fetching it on first use. */
+  function ensureTraditional() {
+    if (traditionalReady()) return Promise.resolve(true);
+    if (converterLoading) return converterLoading;
+    const doc = global.document;
+    if (!doc?.createElement || !doc.head) return Promise.resolve(false);
+    converterAttempts += 1;
+    converterLoading = new Promise(resolve => {
+      const script = doc.createElement('script');
+      script.src = CONVERTER_URL;
+      script.onload = () => resolve(traditionalReady());
+      script.onerror = () => {
+        // One retry on a later request; after that the page stays in Simplified.
+        if (converterAttempts < 2) converterLoading = null;
+        script.remove();
+        resolve(false);
+      };
+      doc.head.appendChild(script);
+    }).then(ready => {
+      if (ready) convertPending();
+      return ready;
+    });
+    return converterLoading;
+  }
+
+  // Text and attributes rendered in Simplified while the converter was loading.
+  function convertPending() {
+    const doc = global.document;
+    const roots = uiLocale === 'zh-Hant' && doc?.body ? [doc.body] : Array.from(pendingRoots);
+    pendingRoots.clear();
+    for (const root of roots) {
+      if (root.isConnected !== false) applyTraditional(root);
+    }
+    if (uiLocale !== 'zh-Hant' || !doc) return;
+    doc.title = toTraditional(doc.title);
+    for (const attribute of ['placeholder', 'aria-label', 'title']) {
+      doc.querySelectorAll(`[data-i18n-${attribute}]`).forEach(element => {
+        const key = element.getAttribute(`data-i18n-${attribute}`);
+        if (key) element.setAttribute(attribute, t(key, {}, uiLocale));
+      });
+    }
+  }
+
   function applyTraditional(root) {
     if (!root?.querySelectorAll) return;
+    if (!traditionalReady()) {
+      // A zh-Hant page is converted as a whole once the converter arrives.
+      if (uiLocale !== 'zh-Hant') pendingRoots.add(root);
+      ensureTraditional();
+      return;
+    }
     const walker = global.document?.createTreeWalker?.(root, global.NodeFilter?.SHOW_TEXT ?? 4);
     if (!walker) return;
     const nodes = [];
@@ -987,6 +1068,8 @@
       node.nodeValue = toTraditional(node.nodeValue);
     }
   }
+
+  if (uiLocale === 'zh-Hant' || locale(readStorage(REPORT_LANGUAGE_KEY)) === 'zh-Hant') ensureTraditional();
 
   if (uiLocale === 'zh-Hant' && global.MutationObserver && global.document?.body) {
     new global.MutationObserver(records => {
@@ -1014,6 +1097,8 @@
     language,
     locale,
     applyTraditional,
+    ensureTraditional,
+    traditionalReady,
     setReportLanguage,
     setUiLanguage,
     t,

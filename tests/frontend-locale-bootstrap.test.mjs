@@ -14,7 +14,8 @@ async function runBootstrap({ url = 'https://geo.sayori.org/', cookies = {}, sto
   let replaced = '';
   let reloads = 0;
   let fetches = 0;
-  const document = { readyState: 'loading', documentElement: { dataset: {}, lang: '' } };
+  const written = [];
+  const document = { readyState: 'loading', documentElement: { dataset: {}, lang: '' }, write: html => written.push(html) };
   let deadline = 0;
   let hasSignal = false;
   Object.defineProperty(document, 'cookie', {
@@ -59,8 +60,21 @@ async function runBootstrap({ url = 'https://geo.sayori.org/', cookies = {}, sto
   context.globalThis = context;
   vm.runInNewContext(source, context, { filename: 'locale-bootstrap.js' });
   await context.SAYORI_LOCALE_READY;
-  return { context, cookieJar, values, replaced, reloads, fetches, deadline, hasSignal };
+  return { context, cookieJar, values, replaced, reloads, fetches, deadline, hasSignal, written };
 }
+
+test('only pages that show Traditional Chinese load the converter script', async () => {
+  const converter = ['<script src="/opencc-cn2t.js"></script>'];
+  assert.deepEqual((await runBootstrap({ cookies: { sayori_locale: 'zh-Hant' } })).written, converter);
+  assert.deepEqual((await runBootstrap({ browser: 'zh-TW', fail: true })).written, converter);
+  assert.deepEqual((await runBootstrap({ cookies: { sayori_locale: 'en' }, stored: { 'geoscore:report-language': 'zh-Hant' } })).written, converter);
+
+  assert.deepEqual((await runBootstrap({ cookies: { sayori_locale: 'en' } })).written, []);
+  assert.deepEqual((await runBootstrap({ cookies: { sayori_locale: 'zh-Hans' } })).written, []);
+  assert.deepEqual((await runBootstrap({ browser: 'zh-CN', fail: true })).written, []);
+  // A locale detected after parsing started is left to i18n.js, never document.write.
+  assert.deepEqual((await runBootstrap({ browser: 'en-US', detected: 'zh-Hant' })).written, []);
+});
 
 test('URL locale overrides the shared cookie and is persisted manually', async () => {
   const result = await runBootstrap({ url: 'https://geo.sayori.org/?lang=zh-hant&x=1', cookies: { sayori_locale: 'en' } });

@@ -11,9 +11,10 @@ const frontend = path.join(here, '..', 'frontend');
 const read = file => fs.readFileSync(path.join(frontend, file), 'utf8');
 const OpenCC = createRequire(import.meta.url)('opencc-js');
 
-function loadI18n({ language = 'en-US', stored = {} } = {}) {
+function loadI18n({ language = 'en-US', stored = {}, converter = true, document } = {}) {
   const values = new Map(Object.entries(stored));
   const context = {
+    ...(document ? { document } : {}),
     navigator: { language, languages: [language] },
     localStorage: {
       getItem: key => values.get(key) ?? null,
@@ -23,11 +24,25 @@ function loadI18n({ language = 'en-US', stored = {} } = {}) {
       constructor(type, options) { this.type = type; this.detail = options?.detail; }
     },
     dispatchEvent() {},
-    OpenCC,
+    ...(converter ? { OpenCC } : {}),
   };
   context.globalThis = context;
   vm.runInNewContext(read('i18n.js'), context, { filename: 'i18n.js' });
-  return { i18n: context.GeoScoreI18n, values };
+  return { i18n: context.GeoScoreI18n, values, context };
+}
+
+// A document that records injected scripts and lets the test finish their load.
+function scriptHost() {
+  const scripts = [];
+  return {
+    scripts,
+    document: {
+      title: '',
+      createElement: () => ({ remove() {} }),
+      head: { appendChild: script => scripts.push(script) },
+      querySelectorAll: () => [],
+    },
+  };
 }
 
 test('UI language follows zh browser locales and persists independently from report language', () => {
@@ -63,12 +78,61 @@ test('shared catalog localizes product copy and interpolates values', () => {
   assert.deepEqual(Object.keys(i18n.CATALOG.en).sort(), Object.keys(i18n.CATALOG['zh-Hant']).sort());
 });
 
+test('the Traditional converter is not requested for English or Simplified pages', () => {
+  for (const options of [{ language: 'en-US' }, { language: 'zh-CN' }, { language: 'en-US', stored: { 'geoscore:report-language': 'zh-Hans' } }]) {
+    const host = scriptHost();
+    const { i18n } = loadI18n({ ...options, converter: false, document: host.document });
+    assert.equal(host.scripts.length, 0);
+    assert.equal(i18n.t('nav.tools', {}, 'zh'), '免费工具');
+  }
+});
+
+test('a late zh-Hant locale fetches the converter once and then switches to Traditional copy', async () => {
+  const host = scriptHost();
+  const { i18n, context } = loadI18n({ language: 'zh-TW', converter: false, document: host.document });
+  assert.equal(host.scripts.length, 1);
+  assert.equal(host.scripts[0].src, '/opencc-cn2t.js');
+  assert.equal(i18n.t('nav.tools', {}, 'zh-Hant'), '免费工具');
+  assert.equal(i18n.toTraditional('后台'), '后台');
+
+  const ready = i18n.ensureTraditional();
+  assert.equal(host.scripts.length, 1);
+  context.OpenCC = OpenCC;
+  host.scripts[0].onload();
+  assert.equal(await ready, true);
+  assert.equal(i18n.t('nav.tools', {}, 'zh-Hant'), '免費工具');
+  assert.equal(i18n.toTraditional('后台'), '後臺');
+  assert.deepEqual(Object.keys(i18n.CATALOG.en).sort(), Object.keys(i18n.CATALOG['zh-Hant']).sort());
+});
+
+test('choosing a Traditional report on an English page fetches the converter and retries once', async () => {
+  const host = scriptHost();
+  const { i18n } = loadI18n({ language: 'en-US', converter: false, document: host.document });
+  assert.equal(host.scripts.length, 0);
+  i18n.setReportLanguage('zh-Hant');
+  assert.equal(host.scripts.length, 1);
+
+  const first = i18n.ensureTraditional();
+  host.scripts[0].onerror();
+  assert.equal(await first, false);
+  const second = i18n.ensureTraditional();
+  assert.equal(host.scripts.length, 2);
+  host.scripts[1].onerror();
+  assert.equal(await second, false);
+  assert.equal(await i18n.ensureTraditional(), false);
+  assert.equal(host.scripts.length, 2);
+  assert.equal(i18n.toTraditionalMarkdown('后台'), '后台');
+});
+
 test('homepage and tools load the shared catalog before their page scripts', () => {
   const index = read('index.html');
   const tools = read('tools.html');
   assert.ok(index.indexOf('src="i18n.js"') < index.indexOf('src="report-ui.js"'));
   assert.ok(tools.indexOf('src="i18n.js"') < tools.indexOf('src="tools.js"'));
-  assert.ok(index.indexOf('src="opencc-cn2t.js"') < index.indexOf('src="i18n.js"'));
+  for (const page of [index, tools, read('docs/index.html')]) {
+    assert.doesNotMatch(page, /<script[^>]*opencc-cn2t\.js/);
+    assert.match(page, /<head>[\s\S]*src="\/?locale-bootstrap\.js[^"]*"[\s\S]*<\/head>/);
+  }
   assert.ok(index.indexOf('src="locale-bootstrap.js"') < index.indexOf('</head>'));
   assert.match(index, /id="ui-language-select"/);
   assert.match(tools, /id="ui-language-select"/);
