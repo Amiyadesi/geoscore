@@ -59,14 +59,14 @@ function addRobotRule(agent='*', directive='Disallow', path='') {
   const row = document.createElement('div');
   row.className = 'robots-rule-row p-3 grid grid-cols-3 gap-2';
   row.innerHTML = `
-    <select class="rb-agent border border-slate-200 rounded px-2 py-1.5 text-sm">
+    <select class="rb-agent border border-slate-200 rounded-sm px-2 py-1.5 text-sm">
       <option>*</option><option>Googlebot</option><option>GPTBot</option><option>ClaudeBot</option><option>PerplexityBot</option><option>anthropic-ai</option><option>CCBot</option><option>Bingbot</option><option>facebookexternalhit</option><option>Twitterbot</option>
     </select>
-    <select class="rb-directive border border-slate-200 rounded px-2 py-1.5 text-sm">
+    <select class="rb-directive border border-slate-200 rounded-sm px-2 py-1.5 text-sm">
       <option value="Allow">Allow</option><option value="Disallow">Disallow</option>
     </select>
     <div class="flex gap-1">
-      <input class="rb-path flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm" placeholder="${esc(text('tools.placeholder.path'))}" value="${esc(path)}">
+      <input class="rb-path flex-1 border border-slate-200 rounded-sm px-2 py-1.5 text-sm" placeholder="${esc(text('tools.placeholder.path'))}" value="${esc(path)}">
       <button data-action="remove-robot-row" class="text-slate-400 hover:text-red-500 px-1 text-lg leading-none">×</button>
     </div>`;
   row.querySelector('.rb-agent').value = agent;
@@ -500,8 +500,8 @@ function addFaqItem(q='', a='') {
   item.className = 'border border-slate-200 rounded-lg p-3 space-y-2 relative';
   item.innerHTML = `
     <button data-action="remove-faq-item" title="${esc(text('tools.schema.remove'))}" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 text-lg leading-none">×</button>
-    <input placeholder="${esc(text('tools.schema.question'))}" value="${esc(q)}" class="sc-faq-q w-full border border-slate-200 rounded px-2 py-1.5 text-sm">
-    <textarea rows="2" placeholder="${esc(text('tools.schema.answer'))}" class="sc-faq-a w-full border border-slate-200 rounded px-2 py-1.5 text-sm resize-none">${esc(a)}</textarea>`;
+    <input placeholder="${esc(text('tools.schema.question'))}" value="${esc(q)}" class="sc-faq-q w-full border border-slate-200 rounded-sm px-2 py-1.5 text-sm">
+    <textarea rows="2" placeholder="${esc(text('tools.schema.answer'))}" class="sc-faq-a w-full border border-slate-200 rounded-sm px-2 py-1.5 text-sm resize-none">${esc(a)}</textarea>`;
   list.appendChild(item);
 }
 

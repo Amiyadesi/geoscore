@@ -20,14 +20,14 @@
       </div>
     </header>
 
-    <section id="admin-login" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section id="admin-login" class="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
       <h1 class="text-xl font-semibold">私人控制台</h1>
       <p id="admin-login-copy" class="mt-2 text-sm text-slate-600">仅允许已配置的 GitHub 账号访问。</p>
       <a id="admin-login-link" href="#" class="mt-5 inline-flex rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">使用 GitHub 登录</a>
       <p id="admin-login-error" class="mt-4 hidden text-sm text-red-600" role="alert"></p>
     </section>
 
-    <section id="admin-setup" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+    <section id="admin-setup" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-xs">
       <h1 class="text-xl font-semibold text-amber-950">需要先配置 GitHub OAuth</h1>
       <p class="mt-2 text-sm text-amber-900">OAuth App 回调地址：</p>
       <code class="mt-2 block break-all rounded-lg bg-white/70 p-3 text-xs text-amber-950">https://geo-api.sayori.org/api/admin/github/callback</code>
@@ -44,13 +44,13 @@
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">独立站点</p><p id="metric-sites" class="mt-2 text-3xl font-semibold">—</p></article>
-        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">完成审查</p><p id="metric-complete" class="mt-2 text-3xl font-semibold">—</p></article>
-        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">今日审查</p><p id="metric-today" class="mt-2 text-3xl font-semibold">—</p></article>
-        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">监控项目</p><p id="metric-monitors" class="mt-2 text-3xl font-semibold">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"><p class="text-xs text-slate-500">独立站点</p><p id="metric-sites" class="mt-2 text-3xl font-semibold">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"><p class="text-xs text-slate-500">完成审查</p><p id="metric-complete" class="mt-2 text-3xl font-semibold">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"><p class="text-xs text-slate-500">今日审查</p><p id="metric-today" class="mt-2 text-3xl font-semibold">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"><p class="text-xs text-slate-500">监控项目</p><p id="metric-monitors" class="mt-2 text-3xl font-semibold">—</p></article>
       </div>
 
-      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div class="flex items-center justify-between gap-3">
           <h2 class="font-semibold">Browser Run 今日额度</h2>
           <span id="browser-budget-label" class="text-sm text-slate-500">—</span>
@@ -59,7 +59,7 @@
         <p id="public-audit-label" class="mt-3 text-xs text-slate-500"></p>
       </section>
 
-      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="font-semibold">Bing Webmaster Tools</h2>
@@ -95,7 +95,7 @@
         <p id="bing-error" class="mt-3 hidden text-sm text-red-600" role="alert"></p>
       </section>
 
-      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="font-semibold">Google Search Console</h2>
@@ -107,13 +107,13 @@
         <div id="gsc-unconfigured" class="mt-4 hidden rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <p>先在 Google Cloud 启用 Search Console API，创建 Web OAuth client，并配置两个 Worker secret。</p>
           <p class="mt-3 text-xs">Authorized redirect URI：</p>
-          <code id="gsc-callback-url" class="mt-1 block break-all rounded bg-white/70 p-2 text-xs">https://geo-api.sayori.org/api/admin/gsc/callback</code>
+          <code id="gsc-callback-url" class="mt-1 block break-all rounded-sm bg-white/70 p-2 text-xs">https://geo-api.sayori.org/api/admin/gsc/callback</code>
           <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800">打开 Google Cloud Credentials</a>
         </div>
 
         <div id="gsc-migration-needed" class="mt-4 hidden rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950">
           <p>Search Console 数据表不可用；刚部署时通常是 D1 migration 尚未执行。完成 migration 后再连接 Google 账号。</p>
-          <code class="mt-2 block break-all rounded bg-white/70 p-2 text-xs">npx wrangler d1 migrations apply sayori-geoscore-db --remote --config wrangler.generated.jsonc</code>
+          <code class="mt-2 block break-all rounded-sm bg-white/70 p-2 text-xs">npx wrangler d1 migrations apply sayori-geoscore-db --remote --config wrangler.generated.jsonc</code>
         </div>
 
         <div id="gsc-connect" class="mt-4 hidden">
@@ -161,7 +161,7 @@
         <p id="gsc-error" class="mt-3 hidden text-sm text-red-600" role="alert"></p>
       </section>
 
-      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div class="flex items-center justify-between gap-3"><h2 class="font-semibold">最近审查</h2><span id="week-label" class="text-xs text-slate-400"></span></div>
         <div class="mt-4 overflow-x-auto">
           <table class="w-full min-w-[560px] text-left text-sm"><thead class="border-b border-slate-100 text-xs text-slate-500"><tr><th class="px-2 py-2 font-medium">域名</th><th class="px-2 py-2 font-medium">状态</th><th class="px-2 py-2 font-medium">SEO</th><th class="px-2 py-2 font-medium">GEO</th><th class="px-2 py-2 font-medium">时间</th></tr></thead><tbody id="recent-audits"></tbody></table>

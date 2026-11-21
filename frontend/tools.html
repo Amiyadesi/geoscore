@@ -117,13 +117,13 @@
                 <label data-i18n="tools.robots.rules" class="block text-sm font-medium text-slate-700 mb-2">Crawl rules</label>
                 <div id="rb-rules" class="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
                   <div class="robots-rule-row p-3 grid grid-cols-3 gap-2">
-                    <select class="rb-agent border border-slate-200 rounded px-2 py-1.5 text-sm col-span-1">
+                    <select class="rb-agent border border-slate-200 rounded-sm px-2 py-1.5 text-sm col-span-1">
                       <option>*</option><option>Googlebot</option><option>GPTBot</option><option>ClaudeBot</option><option>PerplexityBot</option><option>anthropic-ai</option><option>CCBot</option><option>Bingbot</option><option>facebookexternalhit</option><option>Twitterbot</option>
                     </select>
-                    <select class="rb-directive border border-slate-200 rounded px-2 py-1.5 text-sm">
+                    <select class="rb-directive border border-slate-200 rounded-sm px-2 py-1.5 text-sm">
                       <option value="Allow" data-i18n="tools.robots.allow">Allow</option><option value="Disallow" data-i18n="tools.robots.disallow">Disallow</option>
                     </select>
-                    <input class="rb-path border border-slate-200 rounded px-2 py-1.5 text-sm" data-i18n-placeholder="tools.placeholder.path" placeholder="/ or /path" value="/">
+                    <input class="rb-path border border-slate-200 rounded-sm px-2 py-1.5 text-sm" data-i18n-placeholder="tools.placeholder.path" placeholder="/ or /path" value="/">
                   </div>
                 </div>
                 <button id="rb-add-rule" data-i18n="tools.robots.addRule" class="mt-2 text-sm text-blue-600 hover:underline">+ Add rule</button>
@@ -146,8 +146,8 @@
               <div class="flex items-center justify-between mb-2">
                 <label data-i18n="common.output" class="text-sm font-medium text-slate-700">Output</label>
                 <div class="flex gap-2">
-                  <button id="rb-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
-                  <button id="rb-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                  <button id="rb-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Copy</button>
+                  <button id="rb-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Download</button>
                 </div>
               </div>
               <textarea id="rb-output" rows="16" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Click &quot;Generate robots.txt&quot; to see output…"></textarea>
@@ -206,7 +206,7 @@
             <div>
               <div class="flex items-center justify-between mb-2">
                 <label data-i18n="tools.meta.output" class="text-sm font-medium text-slate-700">HTML output</label>
-                <button id="mt-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+                <button id="mt-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Copy</button>
               </div>
               <textarea id="mt-output" rows="22" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Fill in the form and click Generate →"></textarea>
             </div>
@@ -380,7 +380,7 @@
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <input id="sm-lastmod" type="checkbox" checked class="rounded">
+                <input id="sm-lastmod" type="checkbox" checked class="rounded-sm">
                 <label for="sm-lastmod" data-i18n="tools.sitemap.lastmod" class="text-sm text-slate-700">Include today as lastmod</label>
               </div>
               <button id="sm-generate" data-i18n="tools.sitemap.generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">Generate sitemap →</button>
@@ -389,8 +389,8 @@
               <div class="flex items-center justify-between mb-2">
                 <label class="text-sm font-medium text-slate-700">sitemap.xml</label>
                 <div class="flex gap-2">
-                  <button id="sm-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
-                  <button id="sm-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                  <button id="sm-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Copy</button>
+                  <button id="sm-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Download</button>
                 </div>
               </div>
               <textarea id="sm-output" rows="20" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Add URLs and click Generate →"></textarea>
@@ -467,8 +467,8 @@
               <div class="flex items-center justify-between mb-2">
                 <label data-i18n="tools.headers.output" class="text-sm font-medium text-slate-700">Config output</label>
                 <div class="flex gap-2">
-                  <button id="sh-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
-                  <button id="sh-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Download</button>
+                  <button id="sh-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Copy</button>
+                  <button id="sh-download" data-i18n="common.download" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Download</button>
                 </div>
               </div>
               <textarea id="sh-output" rows="24" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none"></textarea>
@@ -506,7 +506,7 @@
             <div>
               <div class="flex items-center justify-between mb-2">
                 <label data-i18n="tools.schema.output" class="text-sm font-medium text-slate-700">JSON-LD output</label>
-                <button id="sc-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors">Copy</button>
+                <button id="sc-copy" data-i18n="common.copy" class="copy-btn text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-sm text-slate-600 transition-colors">Copy</button>
               </div>
               <textarea id="sc-output" rows="20" readonly class="output-box w-full border border-slate-200 rounded-lg p-3 bg-slate-50 text-slate-700 resize-none" placeholder="Fill in the form and click Generate →"></textarea>
               <div class="mt-2 flex items-center gap-2 text-xs text-slate-500">

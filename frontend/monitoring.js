@@ -108,7 +108,7 @@
       const notice = documentRef.createElement('div');
       notice.id = 'monitor-verification-notice';
       notice.setAttribute('role', failed ? 'alert' : 'status');
-      notice.className = `fixed left-4 right-4 top-4 z-[100] mx-auto max-w-xl rounded-xl border px-4 py-3 text-sm shadow-lg ${failed ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-green-200 bg-green-50 text-green-800'}`;
+      notice.className = `fixed left-4 right-4 top-4 z-100 mx-auto max-w-xl rounded-xl border px-4 py-3 text-sm shadow-lg ${failed ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-green-200 bg-green-50 text-green-800'}`;
       notice.textContent = message;
       documentRef.getElementById(notice.id)?.remove();
       documentRef.body.appendChild(notice);

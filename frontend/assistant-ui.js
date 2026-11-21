@@ -33,7 +33,7 @@
         sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${language === 'zh' ? '证据摘要' : 'Evidence summary'}</div><div class="text-xs text-slate-500">${escapeHtml((evidence.observed ?? []).join(' · ') || evidence.why || '')}</div></div>`);
       }
       if (pack?.code_snippets?.length) {
-        sections.push(pack.code_snippets.map(item => `<div><div class="font-semibold text-slate-700 mb-1">${escapeHtml(item.label || 'Code')}</div><pre class="bg-slate-900 text-green-300 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(item.code || '')}</pre></div>`).join(''));
+        sections.push(pack.code_snippets.map(item => `<div><div class="font-semibold text-slate-700 mb-1">${escapeHtml(item.label || 'Code')}</div><pre class="bg-slate-900 text-green-300 rounded-sm p-2 text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(item.code || '')}</pre></div>`).join(''));
       }
       if (pack?.fix_steps?.length) {
         sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${language === 'zh' ? '修改步骤' : 'Fix steps'}</div><ol class="list-decimal ml-5 text-xs text-slate-600 space-y-1">${pack.fix_steps.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ol></div>`);
@@ -42,7 +42,7 @@
         sections.push(`<div><div class="font-semibold text-slate-700 mb-1">${language === 'zh' ? '复验清单' : 'Verification'}</div><ul class="list-disc ml-5 text-xs text-slate-600 space-y-1">${pack.verify.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`);
       }
       if (pack?.handoff_prompt) {
-        sections.push(`<div><div class="flex items-center justify-between gap-2 mb-1"><div class="font-semibold text-slate-700">${language === 'zh' ? '交给开发 AI' : 'Developer AI handoff'}</div><button type="button" data-copy="${escapeHtml(pack.handoff_prompt)}" class="text-[10px] text-blue-600 border border-blue-200 rounded px-2 py-1">${escapeHtml(uiText('common.copy'))}</button></div><pre class="bg-slate-50 border border-slate-200 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap text-slate-600">${escapeHtml(pack.handoff_prompt)}</pre></div>`);
+        sections.push(`<div><div class="flex items-center justify-between gap-2 mb-1"><div class="font-semibold text-slate-700">${language === 'zh' ? '交给开发 AI' : 'Developer AI handoff'}</div><button type="button" data-copy="${escapeHtml(pack.handoff_prompt)}" class="text-[10px] text-blue-600 border border-blue-200 rounded-sm px-2 py-1">${escapeHtml(uiText('common.copy'))}</button></div><pre class="bg-slate-50 border border-slate-200 rounded-sm p-2 text-xs overflow-x-auto whitespace-pre-wrap text-slate-600">${escapeHtml(pack.handoff_prompt)}</pre></div>`);
       }
       return `<div class="space-y-3">${sections.join('')}</div>`;
     }
