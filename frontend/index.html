@@ -481,7 +481,7 @@
 <body class="bg-slate-50 min-h-screen text-slate-800" style="font-family:system-ui,sans-serif">
 
 <!-- Skip navigation link (WCAG 2.4.1) — visible on keyboard focus only -->
-<a href="#main-content" data-i18n="nav.skip" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold focus:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">Skip to main content</a>
+<a href="#main-content" data-i18n="nav.skip" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-100 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold focus:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-300">Skip to main content</a>
 
 <!-- ══════════════════════════════════════════════════════════════════
      SITE ARCHETYPE CORRECTION MODAL
@@ -490,7 +490,7 @@
   <div class="bg-white rounded-xl p-6 w-80 shadow-2xl">
     <h3 id="vm-title" data-i18n="modal.type.title" class="font-semibold text-slate-800 mb-3">Correct site type</h3>
     <p id="vm-detected-label" class="text-sm text-slate-500 mb-4"><span data-i18n="modal.type.detected">Detected as:</span> <strong id="vm-current" class="text-slate-700"></strong></p>
-    <select id="vm-vertical" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400">
+    <select id="vm-vertical" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4 focus:outline-hidden focus:ring-2 focus:ring-blue-400">
       <option id="vm-placeholder" data-i18n="modal.type.placeholder" value="">Select the correct site type…</option>
       <option value="personal_blog">Personal blog</option>
       <option value="editorial">Editorial</option>
@@ -517,7 +517,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      HOW IT WORKS MODAL
 ═══════════════════════════════════════════════════════════════════ -->
-<div id="hiw-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="hiw-title">
+<div id="hiw-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="hiw-title">
   <div class="min-h-full flex items-start justify-center p-4 py-8">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
       <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
@@ -566,7 +566,7 @@
     </a>
     <div class="flex items-center gap-2">
       <label class="sr-only" for="ui-language-select" data-i18n="language.label">Language</label>
-      <select id="ui-language-select" data-language-select data-no-opencc class="text-xs text-slate-600 border border-slate-200 bg-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Language">
+      <select id="ui-language-select" data-language-select data-no-opencc class="text-xs text-slate-600 border border-slate-200 bg-white rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-300" aria-label="Language">
         <option value="zh-Hans">简体中文</option>
         <option value="zh-Hant">繁體中文</option>
         <option value="en">English</option>
@@ -601,11 +601,11 @@
 <main id="main-content" class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
   <!-- Hero ──────────────────────────────────────────────────────── -->
-  <div class="hero-sheet rounded-2xl p-8 sm:p-10 mb-8 text-center border border-blue-100/50 shadow-sm print:hidden">
-    <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.1] tracking-tight">
+  <div class="hero-sheet rounded-2xl p-8 sm:p-10 mb-8 text-center border border-blue-100/50 shadow-xs print:hidden">
+    <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.1] sm:leading-10 tracking-tight">
       <span id="hero-title-prefix" data-i18n="hero.title">Check verifiable SEO and GEO issues</span>
     </h1>
-    <p id="hero-description" data-i18n="hero.description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">GeoScore reviews public-page evidence and suggests fixes. Search engines, regions and queries use different systems, so no score predicts or guarantees ranking.</p>
+    <p id="hero-description" data-i18n="hero.description" class="text-slate-500 mt-4 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed sm:leading-6">GeoScore reviews public-page evidence and suggests fixes. Search engines, regions and queries use different systems, so no score predicts or guarantees ranking.</p>
 
     <!-- Search box -->
     <div class="mt-6 max-w-xl mx-auto">
@@ -617,7 +617,7 @@
         </div>
         <label for="search-input" data-i18n="hero.input.label" class="sr-only">Website domain or public URL to audit</label>
         <input id="search-input" type="text" autocomplete="off" spellcheck="false"
-          class="w-full pl-12 pr-32 py-4 rounded-2xl border-2 border-slate-200 focus:border-blue-500 shadow-sm text-base focus:outline-none bg-white transition-colors font-medium"
+          class="w-full pl-12 pr-32 py-4 rounded-2xl border-2 border-slate-200 focus:border-blue-500 shadow-xs text-base focus:outline-hidden bg-white transition-colors font-medium"
           data-i18n-placeholder="hero.input.placeholder" placeholder="blog.example.com or https://example.com/post"
           data-i18n-aria-label="hero.input.label" aria-label="Website domain or public URL to audit">
         <button id="audit-btn"
@@ -627,8 +627,8 @@
         </button>
         <ul id="suggestions" class="absolute z-10 w-full bg-white border border-slate-200 rounded-2xl shadow-xl mt-1.5 hidden overflow-hidden"></ul>
       </div>
-      <details id="custom-api-panel" class="group mt-2.5 rounded-xl border border-slate-200 bg-white/80 text-left shadow-sm">
-        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2">
+      <details id="custom-api-panel" class="group mt-2.5 rounded-xl border border-slate-200 bg-white/80 text-left shadow-xs">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2">
           <span data-i18n="customApi.summary">Optional custom API</span>
           <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
         </summary>
@@ -638,14 +638,14 @@
             <label class="min-w-0">
               <span data-i18n="customApi.key.label" class="mb-1 block text-[11px] font-semibold text-slate-600">API key</span>
               <input id="custom-api-key" type="password" autocomplete="off" data-1p-ignore="true" data-lpignore="true" maxlength="512"
-                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-hidden focus:ring-2 focus:ring-blue-100"
                 data-i18n-placeholder="customApi.key.placeholder" placeholder="Used once; never saved"
                 data-i18n-aria-label="customApi.key.label" aria-label="API key">
             </label>
             <label class="min-w-0">
               <span data-i18n="customApi.base.label" class="mb-1 block text-[11px] font-semibold text-slate-600">HTTPS Base URL</span>
               <input id="custom-api-base-url" type="url" inputmode="url" autocomplete="off" maxlength="512"
-                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-hidden focus:ring-2 focus:ring-blue-100"
                 data-i18n-placeholder="customApi.base.placeholder" placeholder="https://api.example.com/v1"
                 data-i18n-aria-label="customApi.base.label" aria-label="HTTPS Base URL">
             </label>
@@ -653,12 +653,12 @@
               <span data-i18n="customApi.model.label" class="mb-1 block text-[11px] font-semibold text-slate-600">Model</span>
               <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <input id="custom-api-model" type="text" list="custom-api-model-list" autocomplete="off" maxlength="160"
-                  class="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  class="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-400 focus:outline-hidden focus:ring-2 focus:ring-blue-100"
                   data-i18n-placeholder="customApi.model.placeholder" placeholder="Type a model or fetch the list"
                   data-i18n-aria-label="customApi.model.label" aria-label="Model"
                   aria-describedby="custom-api-privacy custom-api-status">
                 <button id="custom-api-fetch-models" type="button"
-                  class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+                  class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
                   data-i18n="customApi.fetchModels">Fetch models</button>
               </div>
               <datalist id="custom-api-model-list"></datalist>
@@ -673,7 +673,7 @@
 
   <section id="product-info" class="mb-8 print:hidden">
     <div class="grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
-      <div class="rounded-2xl border border-blue-100 bg-white/90 p-5 shadow-sm">
+      <div class="rounded-2xl border border-blue-100 bg-white/90 p-5 shadow-xs">
         <div class="flex flex-wrap items-center gap-2">
           <span data-i18n="product.eyebrow" class="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">GeoScore for practical decisions</span>
           <span data-i18n="product.badge" class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Evidence first</span>
@@ -691,7 +691,7 @@
         </div>
       </div>
 
-      <div id="pricing" class="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+      <div id="pricing" class="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-xs">
         <div class="flex items-center justify-between gap-3">
           <div data-i18n="product.pricing.title" class="text-sm font-bold text-slate-900">Simple pricing</div>
           <span data-i18n="product.pricing.note" class="text-[10px] text-slate-400">One domain per pass</span>
@@ -719,7 +719,7 @@
   </section>
 
   <section id="homepage-info" class="mb-8 print:hidden">
-    <details class="group bg-white rounded-2xl border border-slate-200 shadow-sm">
+    <details class="group bg-white rounded-2xl border border-slate-200 shadow-xs">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-slate-700">
         <span data-i18n="scope.title">Audit scope and limits</span>
         <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
@@ -740,7 +740,7 @@
   <div id="audit" class="hidden space-y-4">
 
     <!-- Score Header Card ────────────────────────────────────────── -->
-    <div id="score-header" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none">
+    <div id="score-header" class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden print:shadow-none">
       <!-- Top bar: domain + actions -->
       <div class="flex flex-col items-stretch gap-3 px-5 py-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
         <div id="business-card" class="flex w-full min-w-0 items-center gap-3 sm:w-auto">
@@ -940,7 +940,7 @@
     <div id="modules" class="flex flex-col space-y-3"></div>
 
     <!-- Embed widget CTA (shown after all results) -->
-    <div id="embed-cta" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl px-5 py-3.5 flex items-center justify-between print:hidden">
+    <div id="embed-cta" class="hidden bg-linear-to-r/srgb from-blue-600 to-indigo-600 rounded-xl px-5 py-3.5 flex items-center justify-between print:hidden">
       <div class="text-white">
         <div class="text-sm font-semibold" data-i18n="audit.embed.title">Add GeoScore to your website</div>
         <div class="text-xs text-blue-100 mt-0.5" data-i18n="audit.embed.body">Embed a live audit badge for any public domain.</div>
@@ -986,13 +986,13 @@
         <div class="flex items-center gap-2">
           <label for="chat-input" class="sr-only">Ask a question about this audit</label>
           <input id="chat-input" type="text"
-            class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-slate-50 placeholder:text-slate-400"
+            class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-400 bg-slate-50 placeholder:text-slate-400"
             data-i18n-placeholder="audit.chat.placeholder"
             data-i18n-aria-label="audit.chat.placeholder"
             placeholder="Ask a question about this audit…"
             aria-label="Ask a question about this audit">
           <button id="chat-send"
-            class="px-4 py-2 bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0">
+            class="px-4 py-2 bg-linear-to-r/srgb from-blue-600 to-violet-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0">
             <span data-i18n="audit.chat.ask">Ask</span> ↑
           </button>
           <button id="chat-clear" class="hidden items-center gap-1 text-[11px] text-slate-400 hover:text-orange-500 hover:bg-orange-50 px-2 py-1.5 rounded-xl border border-slate-200 transition-colors shrink-0">
@@ -1008,7 +1008,7 @@
 </div>
 
 <!-- Floating chat bubble (minimized state) -->
-<button id="chat-bubble" class="hidden fixed bottom-5 right-5 z-40 bg-gradient-to-br from-blue-600 to-violet-600 text-white rounded-2xl px-4 py-2.5 shadow-xl text-sm font-semibold hover:opacity-90 transition-all items-center gap-2 print:hidden">
+<button id="chat-bubble" class="hidden fixed bottom-5 right-5 z-40 bg-linear-to-br/srgb from-blue-600 to-violet-600 text-white rounded-2xl px-4 py-2.5 shadow-xl text-sm font-semibold hover:opacity-90 transition-all items-center gap-2 print:hidden">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
   <span data-i18n="audit.chat.title">Ask AI about this audit</span>
 </button>

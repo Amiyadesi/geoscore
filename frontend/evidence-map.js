@@ -111,12 +111,12 @@
   function anchoringRows(view, lang, copy) {
     return view.rungs.map(rung => {
       const providers = rung.providers.length
-        ? `<div class="mt-1 text-[10px] text-slate-400 break-words">${escapeHtml(rung.providers.join(', '))}</div>`
+        ? `<div class="mt-1 text-[10px] text-slate-400 wrap-break-word">${escapeHtml(rung.providers.join(', '))}</div>`
         : '';
       const brandFreeTag = rung.brandFree ? ' · brand-free' : '';
       return `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs" data-anchoring-rung="${escapeHtml(rung.rung)}">
         <div class="flex items-start justify-between gap-3">
-          <span class="min-w-0 break-words"><span class="font-mono text-[10px] text-slate-400">L${escapeHtml(rung.rung)}</span> <span class="font-medium text-slate-700">${escapeHtml(rung.query)}</span></span>
+          <span class="min-w-0 wrap-break-word"><span class="font-mono text-[10px] text-slate-400">L${escapeHtml(rung.rung)}</span> <span class="font-medium text-slate-700">${escapeHtml(rung.query)}</span></span>
           <span class="shrink-0 text-right">${anchoringStatusText(rung.observed, lang, copy)}<span class="block text-[10px] text-slate-400">${escapeHtml(anchoringRungText(rung.label, lang))}${escapeHtml(brandFreeTag)}</span></span>
         </div>
         ${providers}
@@ -151,7 +151,7 @@
         </div>`;
     const nextProbe = view.nextProbe
       ? `<div class="mt-3 flex items-start justify-between gap-3 rounded-lg border border-dashed border-slate-200 px-3 py-2">
-          <div class="min-w-0"><div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">${escapeHtml(copy.nextProbe)}</div><div class="text-xs text-slate-500 break-words"><span class="font-mono text-[10px]">L${escapeHtml(view.nextProbe.rung)}</span> · ${escapeHtml(view.nextProbe.query)}</div></div>
+          <div class="min-w-0"><div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">${escapeHtml(copy.nextProbe)}</div><div class="text-xs text-slate-500 wrap-break-word"><span class="font-mono text-[10px]">L${escapeHtml(view.nextProbe.rung)}</span> · ${escapeHtml(view.nextProbe.query)}</div></div>
           <span class="shrink-0 text-[10px] text-slate-400">${escapeHtml(copy.notRun)}</span>
         </div>`
       : '';

@@ -58,7 +58,7 @@
     function setBadge(state) {
       const element = documentRef?.getElementById('semantic-badge');
       if (!element) return;
-      element.className = 'text-xs px-2 py-0.5 rounded';
+      element.className = 'text-xs px-2 py-0.5 rounded-sm';
       if (state === 'loading') {
         element.textContent = `⚡ ${uiText('semantic.loading')}`;
         element.classList.add('bg-amber-50', 'text-amber-600');

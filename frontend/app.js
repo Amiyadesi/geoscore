@@ -435,7 +435,7 @@ document.addEventListener('change', (e) => {
 document.addEventListener('error', (e) => {
   if (e.target.tagName !== 'IMG' || !e.target.classList.contains('og-preview-img')) return;
   const wrapper = e.target.parentElement;
-  if (wrapper) wrapper.innerHTML = '<div class="h-full min-h-[8rem] flex items-center justify-center bg-slate-100 text-slate-400 text-xs p-2">Image could not be loaded</div>';
+  if (wrapper) wrapper.innerHTML = '<div class="h-full min-h-32 flex items-center justify-center bg-slate-100 text-slate-400 text-xs p-2">Image could not be loaded</div>';
 }, true);
 
 // ── Category tabs ─────────────────────────────────────────────────────────
@@ -2360,7 +2360,7 @@ function showEmbedCode(domain) {
         <div class="relative">
           <pre class="text-[10px] bg-slate-900 text-green-300 p-3 rounded-lg overflow-x-auto leading-relaxed">${esc(scriptTag)}</pre>
           <button data-copy="${esc(scriptTag)}"
-            class="absolute top-2 right-2 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded transition-colors">Copy</button>
+            class="absolute top-2 right-2 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded-sm transition-colors">Copy</button>
         </div>
       </div>
       <div>
@@ -2474,7 +2474,7 @@ function renderSection(d) {
       <div class="min-w-0">
         <p class="font-semibold text-amber-800 text-sm">Bot Protection Detected — Limited Analysis</p>
         <p class="text-amber-700 text-sm mt-0.5">${esc(note)}</p>
-        <p class="text-amber-600 text-xs mt-1.5 font-mono bg-amber-100 rounded px-2 py-1 inline-block">${esc(reason)}</p>
+        <p class="text-amber-600 text-xs mt-1.5 font-mono bg-amber-100 rounded-sm px-2 py-1 inline-block">${esc(reason)}</p>
       </div>`;
     // Mark this audit as bot-blocked and remove any cards that already rendered
     // with unreliable data (security_audit grades the error page headers, the others
@@ -3009,7 +3009,7 @@ function renderSection(d) {
     const hopChain = hops.map((h, i) => `
       ${i > 0 ? '<div class="flex justify-start pl-1 py-0.5"><div class="w-px h-4 bg-slate-200 ml-3.5"></div></div>' : ''}
       <div class="flex items-center gap-3">
-        <span class="text-xs font-bold border ${statusColor(h.status)} px-2 py-1 rounded-lg shrink-0 min-w-[3rem] text-center">${h.status}</span>
+        <span class="text-xs font-bold border ${statusColor(h.status)} px-2 py-1 rounded-lg shrink-0 min-w-12 text-center">${h.status}</span>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-mono text-slate-700 truncate">${esc(h.url)}</div>
           <div class="text-xs text-slate-400 mt-0.5">${h.duration_ms}ms</div>
@@ -3126,7 +3126,7 @@ function renderSection(d) {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-semibold text-slate-800">${esc(t.name)}</span>
-              <span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${m.badge}">${m.label}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-sm ${m.badge}">${m.label}</span>
               ${pts}
             </div>
             ${desc}
@@ -3139,7 +3139,7 @@ function renderSection(d) {
     // Render passing tests as verbose cards showing what was measured + why it matters
     const passedCards = passed.map(t => {
       const det = t.detail
-        ? `<div class="text-[11px] font-mono text-green-800 bg-green-50 border border-green-100 rounded px-2 py-1 mt-1 break-all leading-relaxed">${esc(t.detail)}</div>`
+        ? `<div class="text-[11px] font-mono text-green-800 bg-green-50 border border-green-100 rounded-sm px-2 py-1 mt-1 break-all leading-relaxed">${esc(t.detail)}</div>`
         : '';
       const desc = t.description
         ? `<p class="text-[11px] text-slate-500 mt-1 leading-relaxed">${esc(t.description)}</p>`
@@ -3379,7 +3379,7 @@ function renderSection(d) {
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
                 <span class="text-sm font-bold ${valColor}">${m.fmt(val)}</span>
-                <span class="text-[10px] font-medium border rounded px-1.5 py-0.5 ${statusColor}">${statusLabel}</span>
+                <span class="text-[10px] font-medium border rounded-sm px-1.5 py-0.5 ${statusColor}">${statusLabel}</span>
               </div>
             </div>
             <div class="mt-1.5 flex rounded-full overflow-hidden h-1.5 bg-slate-100">
@@ -3524,7 +3524,7 @@ function renderSection(d) {
   const srcMeta = MODULE_SOURCE[d.module];
   const srcTag = srcMeta ? `<span class="src-badge ${srcMeta.cls} hidden sm:inline-flex">${srcMeta.label}</span>` : '';
   const predictionTag = d.module === 'geo_predicted'
-    ? `<span class="text-[10px] font-semibold uppercase border border-purple-200 bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">${reportLanguage === 'zh' ? '预测结果' : 'Predicted'}</span>`
+    ? `<span class="text-[10px] font-semibold uppercase border border-purple-200 bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded-sm">${reportLanguage === 'zh' ? '预测结果' : 'Predicted'}</span>`
     : '';
   if (detail) {
     el.innerHTML = `
@@ -3598,11 +3598,11 @@ function renderRecommendations(recs) {
         ).join('');
         const rankColor = i === 0 ? 'bg-orange-500 text-white' : i <= 2 ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-500';
         return `
-        <li class="text-sm border border-slate-100 rounded-xl p-3.5 transition-all hover:border-slate-200 hover:shadow-sm ${isDone ? 'rec-done' : ''}" id="rec-item-${i}">
+        <li class="text-sm border border-slate-100 rounded-xl p-3.5 transition-all hover:border-slate-200 hover:shadow-xs ${isDone ? 'rec-done' : ''}" id="rec-item-${i}">
           <div class="flex items-start gap-3">
             <div class="flex flex-col items-center gap-2 shrink-0">
               <span class="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${rankColor}">${i + 1}</span>
-              <input type="checkbox" class="rec-checkbox w-4 h-4 rounded accent-green-600 cursor-pointer"
+              <input type="checkbox" class="rec-checkbox w-4 h-4 rounded-sm accent-green-600 cursor-pointer"
                 data-title="${esc(r.title)}" ${isDone ? 'checked' : ''}>
             </div>
             <div class="flex-1 min-w-0">
@@ -3811,8 +3811,8 @@ function renderComputedSections(data) {
           <div id="serp-gen-desc" class="text-sm text-slate-600 leading-snug"></div>
         </div>
         <div class="flex gap-2 pt-1">
-          <button id="serp-copy-title-btn" class="text-xs border border-slate-200 bg-white px-2 py-1 rounded hover:bg-slate-100 transition-colors">Copy title</button>
-          <button id="serp-copy-desc-btn" class="text-xs border border-slate-200 bg-white px-2 py-1 rounded hover:bg-slate-100 transition-colors">Copy description</button>
+          <button id="serp-copy-title-btn" class="text-xs border border-slate-200 bg-white px-2 py-1 rounded-sm hover:bg-slate-100 transition-colors">Copy title</button>
+          <button id="serp-copy-desc-btn" class="text-xs border border-slate-200 bg-white px-2 py-1 rounded-sm hover:bg-slate-100 transition-colors">Copy description</button>
         </div>
       </div>
     `);
@@ -3830,7 +3830,7 @@ function renderComputedSections(data) {
     }
 
     const imgPlaceholder = (h, label) =>
-      `<div class="h-${h} bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-400 text-xs">${label}</div>`;
+      `<div class="h-${h} bg-linear-to-br/srgb from-slate-100 to-slate-200 flex items-center justify-center text-slate-400 text-xs">${label}</div>`;
     const imgTag = (h, url) =>
       url ? `<div class="bg-slate-100 h-${h} overflow-hidden"><img src="${esc(url)}" alt="OG preview" class="w-full h-full object-cover og-preview-img"></div>`
            : imgPlaceholder(h, 'No og:image set');
@@ -4473,14 +4473,14 @@ function renderComputedSections(data) {
       <div class="space-y-3">
         <div>
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-xs font-bold bg-blue-600 text-white px-2 py-0.5 rounded">H1</span>
+            <span class="text-xs font-bold bg-blue-600 text-white px-2 py-0.5 rounded-sm">H1</span>
             <span class="text-xs text-slate-400">${h1Tags.length} tag${h1Tags.length !== 1 ? 's' : ''} ${h1Tags.length === 1 ? '✓' : h1Tags.length === 0 ? '⚠ Missing' : '⚠ Multiple'}</span>
           </div>
           <div class="space-y-1">${h1Tags.slice(0, 3).map(h => `<div class="text-xs bg-blue-50 border border-blue-100 text-blue-800 px-3 py-1.5 rounded-lg leading-snug">${esc(h)}</div>`).join('') || '<div class="text-xs text-slate-400">No H1 found</div>'}</div>
         </div>
         <div>
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-xs font-bold bg-slate-600 text-white px-2 py-0.5 rounded">H2</span>
+            <span class="text-xs font-bold bg-slate-600 text-white px-2 py-0.5 rounded-sm">H2</span>
             <span class="text-xs text-slate-400">${h2Tags.length} tag${h2Tags.length !== 1 ? 's' : ''}</span>
           </div>
           <div class="space-y-1">${h2Tags.slice(0, 5).map(h => `<div class="text-xs bg-slate-50 border border-slate-100 text-slate-700 px-3 py-1.5 rounded-lg leading-snug">${esc(h)}</div>`).join('') || '<div class="text-xs text-slate-400">No H2 found</div>'}
@@ -4519,7 +4519,7 @@ function renderComputedSections(data) {
       ${missingList.length ? `
         <div class="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">Images missing alt text</div>
         <div class="space-y-1 max-h-28 overflow-y-auto">${missingList.slice(0, 10).map(src => `
-          <div class="text-[10px] bg-orange-50 text-orange-700 px-2 py-1 rounded truncate">${esc(src)}</div>`).join('')}
+          <div class="text-[10px] bg-orange-50 text-orange-700 px-2 py-1 rounded-sm truncate">${esc(src)}</div>`).join('')}
           ${missingList.length > 10 ? `<div class="text-[10px] text-slate-400">+${missingList.length - 10} more</div>` : ''}
         </div>` : ''}
     `);
@@ -4691,7 +4691,7 @@ function renderComputedSections(data) {
       <div class="font-semibold text-sm mb-3">🌍 International SEO</div>
       <div class="divide-y divide-slate-50">
         ${row(langName ? '✓' : '⚠', 'HTML lang attribute',
-          langVal ? `<code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-[11px]">${esc(langVal)}</code> — ${esc(langName ?? langVal)}` : '<span class="text-amber-600">Not set — add lang to &lt;html&gt;</span>')}
+          langVal ? `<code class="bg-slate-100 px-1.5 py-0.5 rounded-sm font-mono text-[11px]">${esc(langVal)}</code> — ${esc(langName ?? langVal)}` : '<span class="text-amber-600">Not set — add lang to &lt;html&gt;</span>')}
         ${row(hreflangPassed ? '✓' : '—', 'hreflang tags',
           hreflangPassed
             ? '<span class="text-green-700">Present — multilingual/regional targeting active</span>'
@@ -4705,11 +4705,11 @@ function renderComputedSections(data) {
       ${!hreflangPassed && (isCcTld || isPseudoCcTld) ? `
         <div class="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
           ⚠ Country-code TLD detected but no hreflang found. If you serve multiple regions or languages,
-          add <code class="bg-amber-100 px-1 rounded font-mono">rel="alternate" hreflang="..."</code> tags to signal each region to Google.
+          add <code class="bg-amber-100 px-1 rounded-sm font-mono">rel="alternate" hreflang="..."</code> tags to signal each region to Google.
         </div>` : ''}
       ${hreflangPassed ? `
         <div class="mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
-          ✓ hreflang detected — ensure each page has a reciprocal tag and includes <code class="bg-green-100 px-1 rounded font-mono">x-default</code> for language-neutral URLs.
+          ✓ hreflang detected — ensure each page has a reciprocal tag and includes <code class="bg-green-100 px-1 rounded-sm font-mono">x-default</code> for language-neutral URLs.
         </div>` : ''}
     `);
   }
@@ -4747,7 +4747,7 @@ function renderComputedSections(data) {
       ${seeds.length ? `
         <div class="mb-3">
           <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Seed queries</div>
-          <div class="flex flex-wrap gap-1.5">${seeds.map(s => `<span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">${esc(s)}</span>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5">${seeds.map(s => `<span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-sm">${esc(s)}</span>`).join('')}</div>
         </div>` : ''}
       <div class="border border-slate-100 rounded-lg overflow-hidden">
         <div class="grid ${hasGeo ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]'} text-[10px] font-semibold text-slate-400 uppercase tracking-wide bg-slate-50 px-3 py-2 border-b border-slate-100">
@@ -4941,7 +4941,7 @@ function renderComputedSections(data) {
       <div class="relative flex-1">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35"/></svg>
         <input id="competitor-input" type="text" placeholder="competitor.com"
-          class="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400">
+          class="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-400">
       </div>
       <button id="competitor-btn" data-action="compare"
         class="shrink-0 text-sm bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2 rounded-lg font-semibold transition-colors">

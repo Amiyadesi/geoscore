@@ -1300,7 +1300,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
 
   function factRow(label, value) {
     if (!value) return '';
-    return `<div class="flex gap-2 text-xs leading-relaxed"><dt class="w-28 shrink-0 text-slate-400">${escapeHtml(label)}</dt><dd class="min-w-0 text-slate-700 break-words">${escapeHtml(value)}</dd></div>`;
+    return `<div class="flex gap-2 text-xs leading-relaxed"><dt class="w-28 shrink-0 text-slate-400">${escapeHtml(label)}</dt><dd class="min-w-0 text-slate-700 wrap-break-word">${escapeHtml(value)}</dd></div>`;
   }
 
   function renderEvidenceSummary(data, lang, uiLang, exactReportLocale) {
@@ -1336,7 +1336,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
         : `<span class="text-slate-700 break-all">${escapeHtml(label)}</span>`;
       const browserRendered = page.fetchSource === 'browser_run' || page.provider === 'Cloudflare Browser Run';
       const browserBadge = browserRendered
-        ? `<span class="ml-1.5 inline-flex items-center rounded border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">${escapeHtml(t.browserRendered)}${page.browserMsUsed === null ? '' : ` · ${escapeHtml(page.browserMsUsed)} ms`}</span>`
+        ? `<span class="ml-1.5 inline-flex items-center rounded-sm border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">${escapeHtml(t.browserRendered)}${page.browserMsUsed === null ? '' : ` · ${escapeHtml(page.browserMsUsed)} ms`}</span>`
         : '';
       return `<li class="flex items-start gap-2 py-1.5 border-b border-slate-100 last:border-0">
         <span class="mt-0.5 text-[10px] font-semibold uppercase text-slate-400 w-16 shrink-0">${escapeHtml(pageTypeLabel(page.type, lang))}</span>
@@ -1353,7 +1353,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
       const severity = action.severity || action.priority || t.unknown;
       const relatedTasks = Array.isArray(action.relatedTasks) ? action.relatedTasks : [];
       const relatedTaskRows = relatedTasks.length > 1 ? `<ul class="space-y-2 border-t border-slate-200 pt-2 mt-2">${relatedTasks.map(task => `
-        <li class="break-words">
+        <li class="wrap-break-word">
           <div class="flex items-start gap-2"><code class="shrink-0 text-[10px] text-slate-400">${escapeHtml(task.id)}</code><span class="font-semibold text-slate-600">${escapeHtml(task.title || task.id)}</span></div>
           ${task.why ? `<p><strong class="text-slate-600">${escapeHtml(t.reason)}:</strong> ${escapeHtml(compact(task.why, 180))}</p>` : ''}
           ${task.fix ? `<p><strong class="text-slate-600">${escapeHtml(t.fix)}:</strong> ${escapeHtml(compact(task.fix, 220))}</p>` : ''}
@@ -1371,8 +1371,8 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
         <div class="min-w-0">
           <div class="flex items-start gap-2 flex-wrap">
             <h4 class="text-sm font-semibold text-slate-900">${escapeHtml(action.title || `${t.actions} ${index + 1}`)}</h4>
-            <span class="text-[10px] font-semibold uppercase border border-slate-200 bg-white text-slate-500 px-1.5 py-0.5 rounded">${escapeHtml(severity)}</span>
-            ${action.predicted ? `<span class="text-[10px] font-semibold uppercase border border-purple-200 bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">${escapeHtml(t.predicted)}</span>` : ''}
+            <span class="text-[10px] font-semibold uppercase border border-slate-200 bg-white text-slate-500 px-1.5 py-0.5 rounded-sm">${escapeHtml(severity)}</span>
+            ${action.predicted ? `<span class="text-[10px] font-semibold uppercase border border-purple-200 bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded-sm">${escapeHtml(t.predicted)}</span>` : ''}
           </div>
           <div class="text-[11px] text-slate-400 mt-0.5">${pageMarkup || `${escapeHtml(t.page)}: ${escapeHtml(t.notProvided)}`}</div>
           <details class="group mt-2 rounded-lg border border-slate-200 bg-white/70 print:border-0" data-disclosure="top-action-details">
@@ -1388,7 +1388,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <h2 class="text-sm font-bold text-slate-900">${escapeHtml(t.profile)}</h2>
-            ${context ? `<span class="text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 rounded px-2 py-0.5">${escapeHtml(archetypeLabel(context.archetype, lang))}</span><button type="button" data-action="correct-archetype" data-domain="${escapeHtml(data?.domain ?? '')}" data-archetype="${escapeHtml(context.archetype)}" class="text-[10px] text-slate-400 hover:text-orange-600 underline underline-offset-2 print:hidden">${escapeHtml(t.correctType)}</button>` : ''}
+            ${context ? `<span class="text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 rounded-sm px-2 py-0.5">${escapeHtml(archetypeLabel(context.archetype, lang))}</span><button type="button" data-action="correct-archetype" data-domain="${escapeHtml(data?.domain ?? '')}" data-archetype="${escapeHtml(context.archetype)}" class="text-[10px] text-slate-400 hover:text-orange-600 underline underline-offset-2 print:hidden">${escapeHtml(t.correctType)}</button>` : ''}
             ${confidence ? `<span class="text-xs text-slate-500">${escapeHtml(t.confidence)} ${escapeHtml(confidence)}</span>` : ''}
             ${coverage ? `<span class="text-xs text-slate-500">${escapeHtml(t.coverage)} ${escapeHtml(coverage)}</span>` : ''}
           </div>
@@ -1444,14 +1444,14 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
       const confidence = formatPercent(check.confidence);
       return `<li class="py-3 border-t border-slate-100 first:border-t-0">
         <div class="flex items-start gap-3">
-          <span class="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold ${view.cls}"><span>${view.icon}</span>${escapeHtml(view.label)}</span>
+          <span class="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-sm border px-2 py-0.5 text-[10px] font-semibold ${view.cls}"><span>${view.icon}</span>${escapeHtml(view.label)}</span>
           <div class="min-w-0 flex-1">
             <div class="flex items-start justify-between gap-3">
-              <h4 class="text-sm font-semibold text-slate-800 break-words">${escapeHtml(check.title || check.id)}</h4>
+              <h4 class="text-sm font-semibold text-slate-800 wrap-break-word">${escapeHtml(check.title || check.id)}</h4>
               <code class="text-[10px] text-slate-400 break-all">${escapeHtml(check.id)}</code>
             </div>
             ${page ? `<div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)}</div>` : ''}
-            ${check.evidence.length ? `<ul class="mt-1.5 space-y-1">${check.evidence.slice(0, 5).map(item => `<li class="text-xs text-slate-500 flex gap-2"><span class="text-slate-300">•</span><span class="break-words">${escapeHtml(compact(item, 420))}</span></li>`).join('')}</ul>` : ''}
+            ${check.evidence.length ? `<ul class="mt-1.5 space-y-1">${check.evidence.slice(0, 5).map(item => `<li class="text-xs text-slate-500 flex gap-2"><span class="text-slate-300">•</span><span class="wrap-break-word">${escapeHtml(compact(item, 420))}</span></li>`).join('')}</ul>` : ''}
             ${(source || confidence) ? `<div class="text-[10px] text-slate-400 mt-1.5">${escapeHtml([source, confidence ? `${t.confidence} ${confidence}` : ''].filter(Boolean).join(' · '))}</div>` : ''}
           </div>
         </div>
@@ -1493,7 +1493,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
         const page = action.page ? compact(pageLabel(action.page), 84) : '';
         return `<li class="border border-slate-100 rounded-xl p-3.5" data-recommendation-id="${escapeHtml(action.id)}">
           <div class="flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">${index + 1}</span><div class="min-w-0 flex-1">
-            <div class="flex items-start gap-2 flex-wrap"><h3 class="font-semibold text-sm text-slate-900">${escapeHtml(action.title || action.id)}</h3>${action.priority ? `<span class="text-[10px] uppercase border border-slate-200 rounded px-1.5 py-0.5 text-slate-500">${escapeHtml(action.priority)}</span>` : ''}</div>
+            <div class="flex items-start gap-2 flex-wrap"><h3 class="font-semibold text-sm text-slate-900">${escapeHtml(action.title || action.id)}</h3>${action.priority ? `<span class="text-[10px] uppercase border border-slate-200 rounded-sm px-1.5 py-0.5 text-slate-500">${escapeHtml(action.priority)}</span>` : ''}</div>
             <div class="text-[11px] text-slate-400 mt-1">${escapeHtml(t.page)}: ${page ? (href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${escapeHtml(page)}</a>` : escapeHtml(page)) : escapeHtml(t.notProvided)}</div>
             <details class="mt-2 rounded-lg border border-slate-200 bg-slate-50/60" data-disclosure="repair-action-details">
               <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-600">${escapeHtml(t.actionDetails)}</summary>
@@ -1541,7 +1541,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
       running: { label: t.running, cls: 'border-blue-200 bg-blue-50 text-blue-700' },
     };
     const view = views[value] ?? { label: value || t.unknownStatus, cls: 'border-slate-200 bg-slate-50 text-slate-500' };
-    return `<span class="inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold ${view.cls}">${escapeHtml(view.label)}</span>`;
+    return `<span class="inline-flex rounded-sm border px-2 py-0.5 text-[10px] font-semibold ${view.cls}">${escapeHtml(view.label)}</span>`;
   }
 
   function answerSnapshotValue(value) {
@@ -1566,13 +1566,13 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     const citationRows = citations.map((citation, index) => {
       const href = safeHttpUrl(citation?.url);
       const title = localized(citation?.title, lang) || href || `${t.source} ${index + 1}`;
-      return `<li class="break-words">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="font-medium text-blue-700 hover:text-blue-800">${escapeHtml(title)}</a>` : escapeHtml(title)}</li>`;
+      return `<li class="wrap-break-word">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="font-medium text-blue-700 hover:text-blue-800">${escapeHtml(title)}</a>` : escapeHtml(title)}</li>`;
     }).join('');
     return `<div class="border-l-2 border-cyan-200 pl-3 py-1">
-      <div class="flex flex-wrap items-center gap-2">${evidenceStatusBadge(observation?.status, lang)}<span class="text-[10px] text-slate-400 break-words">${escapeHtml(meta)}</span></div>
-      ${query ? `<p class="mt-1 text-xs font-semibold text-slate-700 break-words">${escapeHtml(t.answerQuery)}: ${escapeHtml(query)}</p>` : ''}
-      ${answer ? `<p class="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600">${escapeHtml(compact(answer, expanded ? 20_000 : 520))}</p>` : ''}
-      ${(answer || citationRows) ? `<details class="mt-2" data-disclosure="api-answer-full"><summary class="cursor-pointer text-[11px] font-medium text-cyan-700">${escapeHtml(t.fullAnswer)}</summary><div class="mt-2 space-y-2">${answer ? `<div class="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600">${escapeHtml(answer)}</div>` : ''}${citationRows ? `<ol class="list-decimal space-y-1 pl-4 text-[11px] text-slate-500">${citationRows}</ol>` : ''}</div></details>` : ''}
+      <div class="flex flex-wrap items-center gap-2">${evidenceStatusBadge(observation?.status, lang)}<span class="text-[10px] text-slate-400 wrap-break-word">${escapeHtml(meta)}</span></div>
+      ${query ? `<p class="mt-1 text-xs font-semibold text-slate-700 wrap-break-word">${escapeHtml(t.answerQuery)}: ${escapeHtml(query)}</p>` : ''}
+      ${answer ? `<p class="mt-2 whitespace-pre-wrap wrap-break-word text-xs leading-relaxed text-slate-600">${escapeHtml(compact(answer, expanded ? 20_000 : 520))}</p>` : ''}
+      ${(answer || citationRows) ? `<details class="mt-2" data-disclosure="api-answer-full"><summary class="cursor-pointer text-[11px] font-medium text-cyan-700">${escapeHtml(t.fullAnswer)}</summary><div class="mt-2 space-y-2">${answer ? `<div class="whitespace-pre-wrap wrap-break-word text-xs leading-relaxed text-slate-600">${escapeHtml(answer)}</div>` : ''}${citationRows ? `<ol class="list-decimal space-y-1 pl-4 text-[11px] text-slate-500">${citationRows}</ol>` : ''}</div></details>` : ''}
     </div>`;
   }
 
@@ -1619,13 +1619,13 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
       <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-lg font-bold text-slate-800">${escapeHtml(observedQueries.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.observedQueries)}</div></div>
       <div class="col-span-2 rounded-lg bg-slate-50 px-3 py-2 sm:col-span-1"><div class="text-lg font-bold text-slate-800">${escapeHtml(opportunities.length)}</div><div class="text-[10px] text-slate-500">${escapeHtml(t.contentOpportunities)}</div></div>
     </div>` : '';
-    const opportunityRows = opportunities.slice(0, 3).map(item => `<li class="flex gap-2 text-xs text-slate-600"><span class="text-amber-500">•</span><span class="min-w-0 break-words"><strong>${escapeHtml(localized(item?.query, lang))}</strong>${item?.intent ? ` · ${escapeHtml(item.intent)}` : ''}</span></li>`).join('');
+    const opportunityRows = opportunities.slice(0, 3).map(item => `<li class="flex gap-2 text-xs text-slate-600"><span class="text-amber-500">•</span><span class="min-w-0 wrap-break-word"><strong>${escapeHtml(localized(item?.query, lang))}</strong>${item?.intent ? ` · ${escapeHtml(item.intent)}` : ''}</span></li>`).join('');
     const sourceRows = sources.map(source => {
       const href = safeHttpUrl(source?.canonical_url ?? source?.url);
       const label = localized(source?.title, lang) || localized(source?.canonical_url ?? source?.url, lang);
       return `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs">
-        <div class="flex items-start justify-between gap-3"><span class="min-w-0 break-words">${href ? `<a class="font-medium text-blue-700 hover:text-blue-800" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>` : escapeHtml(label)}</span><span class="shrink-0 text-slate-400">#${escapeHtml(source?.provider_rank ?? '?')}</span></div>
-        <div class="mt-1 text-[10px] text-slate-400 break-words">${escapeHtml([source?.source_type, source?.provider, source?.domain, source?.retrieved_at].filter(Boolean).join(' · '))}</div>
+        <div class="flex items-start justify-between gap-3"><span class="min-w-0 wrap-break-word">${href ? `<a class="font-medium text-blue-700 hover:text-blue-800" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>` : escapeHtml(label)}</span><span class="shrink-0 text-slate-400">#${escapeHtml(source?.provider_rank ?? '?')}</span></div>
+        <div class="mt-1 text-[10px] text-slate-400 wrap-break-word">${escapeHtml([source?.source_type, source?.provider, source?.domain, source?.retrieved_at].filter(Boolean).join(' · '))}</div>
       </li>`;
     }).join('');
     const runRows = runs.map(run => `<li class="py-2 border-t border-slate-100 first:border-t-0 text-xs text-slate-600"><span class="font-medium">${escapeHtml(run?.provider ?? 'API')}</span> · ${escapeHtml(run?.status ?? t.unknownStatus)} · ${escapeHtml(run?.result_count ?? 0)} · ${escapeHtml(run?.latency_ms ?? 0)}ms${run?.cache_hit ? ' · cache' : ''}</li>`).join('');
@@ -1674,8 +1674,8 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     const token = state?.showToken ? state?.managementToken : '';
     const modelOptions = Array.isArray(state?.modelOptions) ? state.modelOptions : [];
     const queryRows = Array.isArray(project?.queries) ? project.queries.map((query, index) => `<div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
-      <label class="min-w-0"><span class="sr-only">${escapeHtml(`${t.querySettings} ${index + 1}`)}</span><input type="text" name="query" maxlength="240" required value="${escapeHtml(query?.query ?? '')}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"></label>
-      <label><span class="sr-only">${escapeHtml(t.queryIntent)}</span><select name="intent" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none">${monitorIntentOptions(query?.intent ?? 'informational', lang)}</select></label>
+      <label class="min-w-0"><span class="sr-only">${escapeHtml(`${t.querySettings} ${index + 1}`)}</span><input type="text" name="query" maxlength="240" required value="${escapeHtml(query?.query ?? '')}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-hidden"></label>
+      <label><span class="sr-only">${escapeHtml(t.queryIntent)}</span><select name="intent" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-hidden">${monitorIntentOptions(query?.intent ?? 'informational', lang)}</select></label>
     </div>`).join('') : '';
     const historyRows = runs.map(run => {
       const score = run?.factual_score == null ? t.insufficient : `${Math.round(Number(run.factual_score))}/100`;
@@ -1692,23 +1692,23 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     }).join('');
 
     const create = `<form data-monitor-form="create" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-      <label class="min-w-0 flex-1"><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.optionalEmail)}</span><input type="email" name="email" autocomplete="email" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
+      <label class="min-w-0 flex-1"><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.optionalEmail)}</span><input type="email" name="email" autocomplete="email" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label>
       <button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.saving : t.createMonitor)}</button>
     </form>`;
     const connect = `<details class="mt-3 rounded-lg border border-slate-200" data-disclosure="connect-monitor"><summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-700">${escapeHtml(t.connectMonitor)}</summary><form data-monitor-form="connect" class="grid gap-2 px-3 pb-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectId)}</span><input type="text" name="project_id" autocomplete="off" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
-      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectToken)}</span><input type="password" name="management_token" autocomplete="off" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label>
+      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectId)}</span><input type="text" name="project_id" autocomplete="off" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label>
+      <label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.projectToken)}</span><input type="password" name="management_token" autocomplete="off" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label>
       <button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(t.connect)}</button>
     </form></details>`;
     const latestRunAnswer = renderAnswerSnapshot(runs[0]?.answer, lang, t.latestAnswer);
     const modelList = modelOptions.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
     const controls = project ? `<div class="mt-4 space-y-4">
-      ${token ? `<div role="status" class="rounded-lg border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-semibold text-amber-800">${escapeHtml(t.managementToken)}</div><p class="mt-1 text-[11px] text-amber-700">${escapeHtml(t.tokenWarning)}</p><code id="monitor-management-token" class="mt-2 block overflow-x-auto whitespace-nowrap rounded bg-white px-2 py-1.5 text-xs text-slate-700">${escapeHtml(token)}</code><div class="mt-2 flex flex-wrap gap-2"><button type="button" data-action="copy-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(SHARED_I18N?.t?.('common.copy', {}, language(lang)) ?? 'Copy')}</button><button type="button" data-action="save-monitor-token" class="rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.saveOnDevice)}</button><button type="button" data-action="dismiss-monitor-token" class="rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.tokenSaved)}</button></div></div>` : ''}
+      ${token ? `<div role="status" class="rounded-lg border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-semibold text-amber-800">${escapeHtml(t.managementToken)}</div><p class="mt-1 text-[11px] text-amber-700">${escapeHtml(t.tokenWarning)}</p><code id="monitor-management-token" class="mt-2 block overflow-x-auto whitespace-nowrap rounded-sm bg-white px-2 py-1.5 text-xs text-slate-700">${escapeHtml(token)}</code><div class="mt-2 flex flex-wrap gap-2"><button type="button" data-action="copy-monitor-token" class="rounded-sm border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(SHARED_I18N?.t?.('common.copy', {}, language(lang)) ?? 'Copy')}</button><button type="button" data-action="save-monitor-token" class="rounded-sm border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.saveOnDevice)}</button><button type="button" data-action="dismiss-monitor-token" class="rounded-sm border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHtml(t.tokenSaved)}</button></div></div>` : ''}
       <div class="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span><code>${escapeHtml(project.id ?? '')}</code> · ${escapeHtml(project.root_domain ?? data.domain ?? '')} · ${escapeHtml(project.schedule ?? 'weekly')}${state?.tokenSaved ? ` · ${escapeHtml(t.savedOnDevice)}` : ''}</span><span class="flex flex-wrap gap-2"><button type="button" data-action="save-monitor-token" class="font-semibold text-indigo-700 hover:text-indigo-800">${escapeHtml(t.saveOnDevice)}</button><button type="button" data-action="forget-monitor-token" class="font-semibold text-slate-500 hover:text-slate-700">${escapeHtml(t.forgetDevice)}</button><button type="button" data-action="rotate-monitor-token" class="font-semibold text-orange-700 hover:text-orange-800">${escapeHtml(t.rotateToken)}</button></span></div>
       <form data-monitor-form="queries" class="rounded-xl border border-slate-200 p-3"><div class="text-xs font-semibold text-slate-700 mb-2">${escapeHtml(t.querySettings)}</div><div class="space-y-2">${queryRows}</div><button type="submit" ${busy ? 'disabled' : ''} class="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(busy ? t.saving : t.saveQueries)}</button></form>
       <div class="grid gap-3 lg:grid-cols-2">
         <button type="button" data-action="run-monitor-default" ${busy ? 'disabled' : ''} class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runDefault)}</button>
-        <form data-monitor-form="byok" class="rounded-xl border border-slate-200 p-3 space-y-2"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiKey)}</span><input type="password" name="api_key" autocomplete="off" minlength="12" maxlength="512" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiBaseUrl)}</span><input type="url" name="api_base_url" inputmode="url" autocomplete="off" required placeholder="https://api.example.com" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiModel)}</span><input type="text" name="api_model" list="monitor-api-model-list" autocomplete="off" maxlength="160" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-none"></label><button type="button" data-action="fetch-monitor-models" ${busy ? 'disabled' : ''} class="self-end rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(t.fetchModels)}</button></div><datalist id="monitor-api-model-list">${modelList}</datalist><p class="text-[10px] text-slate-400">${escapeHtml(t.apiKeyPrivacy)}</p><button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runByok)}</button></form>
+        <form data-monitor-form="byok" class="rounded-xl border border-slate-200 p-3 space-y-2"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiKey)}</span><input type="password" name="api_key" autocomplete="off" minlength="12" maxlength="512" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiBaseUrl)}</span><input type="url" name="api_base_url" inputmode="url" autocomplete="off" required placeholder="https://api.example.com" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label><div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><label><span class="block text-[11px] font-medium text-slate-600 mb-1">${escapeHtml(t.apiModel)}</span><input type="text" name="api_model" list="monitor-api-model-list" autocomplete="off" maxlength="160" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-blue-400 focus:outline-hidden"></label><button type="button" data-action="fetch-monitor-models" ${busy ? 'disabled' : ''} class="self-end rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">${escapeHtml(t.fetchModels)}</button></div><datalist id="monitor-api-model-list">${modelList}</datalist><p class="text-[10px] text-slate-400">${escapeHtml(t.apiKeyPrivacy)}</p><button type="submit" ${busy ? 'disabled' : ''} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">${escapeHtml(busy ? t.running : t.runByok)}</button></form>
       </div>
       ${latestRunAnswer ? `<div class="border-t border-slate-100 pt-4">${latestRunAnswer}</div>` : ''}
       <details class="rounded-xl border border-slate-200" data-disclosure="monitoring-history"><summary class="cursor-pointer select-none px-3 py-2.5 text-xs font-semibold text-slate-700">${escapeHtml(t.monitorHistory)} · ${escapeHtml(runs.length)}</summary><div class="px-3 pb-3"><p class="text-[10px] text-slate-400 mb-2">${escapeHtml(t.historyRetention)}</p>${historyRows ? `<ul>${historyRows}</ul>` : `<p class="text-xs text-slate-400">${escapeHtml(t.noHistory)}</p>`}</div></details>
@@ -1716,7 +1716,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     </div>` : `${create}${connect}`;
 
     return `<section id="monitoring-section" class="bg-white rounded-xl border border-indigo-200 p-4 fade-in" data-category="all">
-      <div><div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.monitoring)}</h2>${project ? `<span class="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">weekly</span>` : ''}</div><p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(t.monitoringBody)}</p></div>
+      <div><div class="flex items-center gap-2 flex-wrap"><h2 class="font-bold text-sm text-slate-900">${escapeHtml(t.monitoring)}</h2>${project ? `<span class="rounded-sm border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">weekly</span>` : ''}</div><p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(t.monitoringBody)}</p></div>
       ${error ? `<div role="alert" class="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">${escapeHtml(error)}</div>` : ''}
       ${message ? `<div role="status" class="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">${escapeHtml(message)}</div>` : ''}
       ${controls}
@@ -1771,7 +1771,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
   function metricPill(label, value, formatter) {
     const n = finiteNumber(value);
     if (n === null) return '';
-    return `<span class="text-[10px] text-slate-600 border border-slate-200 bg-white rounded px-1.5 py-0.5">${escapeHtml(label)} ${escapeHtml(formatter(n))}</span>`;
+    return `<span class="text-[10px] text-slate-600 border border-slate-200 bg-white rounded-sm px-1.5 py-0.5">${escapeHtml(label)} ${escapeHtml(formatter(n))}</span>`;
   }
 
   function renderStrategy(strategy, name, lang) {
@@ -1795,7 +1795,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
           <div class="text-[10px] ${complete ? 'text-green-600' : 'text-orange-600'}">${escapeHtml(complete ? t.complete : t.error)}</div>
         </div>
         <div class="min-w-0 flex-1">
-          ${complete ? `<div class="flex items-center gap-3"><span class="text-xl font-extrabold ${scoreClass}">${score}</span><div class="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${barClass} rounded-full" style="width:${score}%"></div></div></div>` : `<div><span class="text-[10px] font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">${escapeHtml(issue.code)}</span><p class="text-xs text-slate-500 mt-1 break-words">${escapeHtml(issue.message)}</p></div>`}
+          ${complete ? `<div class="flex items-center gap-3"><span class="text-xl font-extrabold ${scoreClass}">${score}</span><div class="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${barClass} rounded-full" style="width:${score}%"></div></div></div>` : `<div><span class="text-[10px] font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded-sm px-1.5 py-0.5">${escapeHtml(issue.code)}</span><p class="text-xs text-slate-500 mt-1 wrap-break-word">${escapeHtml(issue.message)}</p></div>`}
           ${metrics ? `<div class="flex flex-wrap gap-1.5 mt-2" aria-label="${escapeHtml(t.metrics)}">${metrics}</div>` : ''}
         </div>
       </div>
@@ -1824,7 +1824,7 @@ ${developerPrompt.replace(/\`\`\`/g, "'''")}
     const opportunities = finiteNumber(data?.opportunities);
     return `<div class="mt-3 space-y-3">
       <div class="border rounded-lg px-3 py-2 text-xs ${bannerClass}">${escapeHtml(message)}</div>
-      ${globalError ? `<div><span class="text-[10px] font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">${escapeHtml(globalError.code)}</span><p class="text-xs text-slate-500 mt-1 break-words">${escapeHtml(globalError.message)}</p></div>` : ''}
+      ${globalError ? `<div><span class="text-[10px] font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded-sm px-1.5 py-0.5">${escapeHtml(globalError.code)}</span><p class="text-xs text-slate-500 mt-1 wrap-break-word">${escapeHtml(globalError.message)}</p></div>` : ''}
       <div class="divide-y divide-slate-100">
         ${renderStrategy(mobile, t.mobile, lang)}
         ${renderStrategy(desktop, t.desktop, lang)}
