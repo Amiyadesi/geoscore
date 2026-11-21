@@ -305,7 +305,22 @@ test('a Traditional report on a non-Traditional page fetches the converter on de
   await expect(page.locator('#audit')).toContainText('证据');
   expect(converterRequests).toHaveLength(0);
 
+  // Hold the converter back so the download is requested while it is still loading.
+  let releaseConverter;
+  const held = new Promise(resolve => { releaseConverter = resolve; });
+  await page.route('**/opencc-cn2t.js', async route => {
+    await held;
+    await route.continue();
+  });
   await page.locator('[data-report-lang="zh-Hant"]').click();
+  await waitForActiveSitePass(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#agent-btn').click();
+  await expect(page.locator('#agent-btn')).toHaveText(/Downloaded!|已下载！/);
+  releaseConverter();
+  const markdown = await readFile(await (await downloadPromise).path(), 'utf8');
+  expect(markdown).toContain('完整修復報告');
+  expect(markdown).not.toContain('完整修复报告');
   await expect(page.locator('#audit')).toContainText('證據');
   await expect(page.locator('#audit')).not.toContainText('证据');
   expect(converterRequests).toHaveLength(1);

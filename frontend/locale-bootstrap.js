@@ -6,7 +6,13 @@
   const SHARED_STORAGE = 'sayori:ui-language';
   const LEGACY_STORAGE = 'geoscore:ui-language';
   const REPORT_STORAGE = 'geoscore:report-language';
-  const CONVERTER_URL = '/opencc-cn2t.js';
+  const CONVERTER_URL = (() => {
+    // Beside this script, so pages opened from disk find it too.
+    try {
+      const script = global.document.currentScript;
+      return new URL('opencc-cn2t.js', new URL(script.getAttribute('src'), global.document.baseURI)).href;
+    } catch { return '/opencc-cn2t.js'; }
+  })();
 
   function locale(value) {
     const input = String(value || '').toLowerCase();

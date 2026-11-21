@@ -838,7 +838,13 @@
   // The converter script is only fetched for Traditional Chinese: locale-bootstrap.js
   // loads it ahead of this file when the page starts in zh-Hant, and
   // ensureTraditional() fetches it when Traditional is first needed later.
-  const CONVERTER_URL = '/opencc-cn2t.js';
+  const CONVERTER_URL = (() => {
+    // Beside this script, so pages opened from disk find it too.
+    try {
+      const script = global.document.currentScript;
+      return new URL('opencc-cn2t.js', new URL(script.getAttribute('src'), global.document.baseURI)).href;
+    } catch { return '/opencc-cn2t.js'; }
+  })();
   let converter = null;
   let converterLoading = null;
   let converterAttempts = 0;
@@ -1092,6 +1098,7 @@
     locale,
     applyTraditional,
     ensureTraditional,
+    traditionalReady,
     setReportLanguage,
     setUiLanguage,
     t,
