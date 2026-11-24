@@ -31,17 +31,17 @@
     "deploy:pages": "npm run build:css && wrangler pages deploy frontend --project-name=sayori-geoscore --branch main"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261006.1",
-    "@playwright/test": "^1.64.0",
+    "@cloudflare/workers-types": "^5.20261121.1",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/cli": "^4.3.5",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
-    "wrangler": "^4.149.0"
+    "wrangler": "^4.166.0"
   },
   "dependencies": {
-    "linkedom": "^0.18.13",
+    "linkedom": "^0.18.15",
     "opencc-js": "^1.4.2",
-    "tldts": "^7.4.18",
+    "tldts": "^7.5.5",
     "ulid": "^3.0.2"
   }
 }
